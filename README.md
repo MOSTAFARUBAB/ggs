@@ -8,10 +8,10 @@ The interface combines all four selected visual concepts into one coherent exper
 
 - **Main menu:** a dimension navigation rail, searchable waypoint directory, and create / edit / delete actions.
 - **Waypoint editor:** a dedicated editor with coordinate fields, dimension scope, continuous color selection, HEX entry, recent colors, chroma mode, and expiry.
-- **In-world labels:** compact two-line waypoint name and distance labels with a matching color accent and capped distance-aware sizing.
+- **In-world labels:** compact two-line waypoint name and distance labels rendered as actual world-space text with scene depth testing.
 - **Compact inspector:** selecting a waypoint shows its color preview, dimension, coordinates, distance, expiry, and edit / delete actions beside the list. The layout adapts on smaller game windows.
 
-The interface uses a true black surface, restrained gray controls, natural English capitalization, and Minecraft's standard UI font. In-world labels use black panels and automatically move vertically when two labels would overlap. Label drawing uses a small fixed number of fill calls, the color-picker texture is cached, and the beam renderer prioritizes the nearest waypoints to keep rendering work bounded.
+The interface uses a true black surface, restrained gray controls, natural English capitalization, and Minecraft's standard UI font. The label renderer submits native world-space text rather than a 2D HUD overlay. It draws at most 16 nearby labels and 12 beams per frame; the color-picker texture is cached.
 
 ## Controls
 
@@ -28,8 +28,8 @@ The mod reduces its own per-frame rendering work, but no mod can guarantee 240 F
 
 ## Minecraft 26.3 notes
 
-The mod uses the `GuiGraphicsExtractor` and `MouseButtonEvent` GUI APIs, checks the open screen through `Minecraft.getInstance().gui.screen()`, and submits waypoint beams through Minecraft's native `BeaconRenderer` path.
+The mod uses the `GuiGraphicsExtractor` and `MouseButtonEvent` GUI APIs, checks the open screen through `Minecraft.getInstance().gui.screen()`, submits waypoint beams through Minecraft's native `BeaconRenderer` path, and submits labels through the 26.3 world-text feature renderer.
 
 ## Waypoint label depth behaviour
 
-Waypoint labels remain visible, but they now become translucent when a block or an entity is between the camera and the waypoint anchor. Foreground mobs and dropped items reduce label opacity more strongly, allowing the scene to show through the label rather than appearing fully covered by an opaque HUD card. Block obstruction softens the label without hiding it. Entity occlusion checks are limited to the nearest 48 blocks to keep the per-frame work bounded.
+Labels are no longer drawn by the 2D HUD. They are submitted into Minecraft's 3D text rendering pipeline with `Font.DisplayMode.NORMAL`, not `SEE_THROUGH`. The scene depth buffer now determines visibility pixel by pixel: a mob, player, dropped item, or block in front of the waypoint masks only the exact text or panel pixels behind it. This is immediate during the same frame and does not depend on raycasts, an entity search radius, or a delayed opacity update.

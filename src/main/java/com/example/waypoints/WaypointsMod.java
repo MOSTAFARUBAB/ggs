@@ -15,8 +15,6 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.KeyMapping;
@@ -115,13 +113,9 @@ public class WaypointsMod implements ClientModInitializer {
 
         registerCommands();
 
-        // Labels are a lightweight HUD overlay projected from each waypoint's world
-        // position. The beam itself remains the native 3D BeaconRenderer geometry.
-        // This does not draw a second screen-space beam or any logo/ground marker.
-        HudElementRegistry.attachElementBefore(
-                VanillaHudElements.CHAT,
-                Identifier.fromNamespaceAndPath(MOD_ID, "waypoint_labels"),
-                WaypointsMod::renderHud);
+        // Waypoint labels are submitted by Beam3D as native world-space text.
+        // Normal depth testing makes mobs, items and blocks cover the exact pixels
+        // in front of them; there is no screen-space HUD label overlay.
     }
 
     // ---------------- commands ----------------
