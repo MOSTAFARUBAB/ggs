@@ -330,7 +330,7 @@ public final class WaypointScreen extends Screen {
         g.fill(iconX + 8, iconY + 6, iconX + 22, iconY + 8, CYAN);
         g.fill(iconX + 8, iconY + 11, iconX + 19, iconY + 13, CYAN);
         g.fill(iconX + 8, iconY + 16, iconX + 22, iconY + 18, CYAN);
-        g.text(font, "Simple Waypoints", left + 52, top + 17, TEXT, true);
+        g.text(font, "Simple Waypoints", left + 52, top + 17, TEXT, false);
         g.text(font, "Mark and explore", left + 52, top + 30, MUTED, false);
 
         actionButton(g, mx, my, left + 14, top + 66, railWidth - 28, 30,
@@ -356,7 +356,7 @@ public final class WaypointScreen extends Screen {
     }
 
     private void drawCompactHeader(GuiGraphicsExtractor g, int mx, int my) {
-        g.text(font, "Simple Waypoints", left + 15, top + 14, TEXT, true);
+        g.text(font, "Simple Waypoints", left + 15, top + 14, TEXT, false);
         g.text(font, "Mark and explore", left + 15, top + 28, MUTED, false);
         actionButton(g, mx, my, right - 100, top + 13, 84, 23, "+ New", true, false);
         int x = left + 12;
@@ -379,8 +379,9 @@ public final class WaypointScreen extends Screen {
         if (!fullLayout) return;
         int y = top + 18;
         String heading = fullLayout ? "Waypoint directory" : "Your waypoints";
-        g.text(font, heading, listX, y, TEXT, true);
-        String count = filteredEntries().size() + " locations";
+        g.text(font, heading, listX, y, TEXT, false);
+        int locationCount = filteredEntries().size();
+        String count = locationCount + (locationCount == 1 ? " location" : " locations");
         g.text(font, count, listRight - font.width(count), y + 1, MUTED, false);
     }
 
@@ -416,9 +417,9 @@ public final class WaypointScreen extends Screen {
             int h = Math.min(82, footerY - y - 8);
             rounded(g, listX, y, listRight, y + h, CARD, 10);
             rounded(g, listX + 13, y + 14, listX + 43, y + 44, VIOLET_DARK, 9);
-            g.text(font, "+", listX + 23, y + 24, CYAN, true);
+            g.text(font, "+", listX + 23, y + 24, CYAN, false);
             g.text(font, searchQuery.isBlank() ? "No waypoints yet" : "No matching waypoints",
-                    listX + 53, y + 16, TEXT, true);
+                    listX + 53, y + 16, TEXT, false);
             g.text(font, searchQuery.isBlank() ? "Create your first beacon marker." : "Try another name or coordinate.",
                     listX + 53, y + 33, MUTED, false);
             return;
@@ -442,7 +443,7 @@ public final class WaypointScreen extends Screen {
             }
             int tx = listX + 37;
             String name = fitText(waypoint.name(), Math.max(80, listWidth - 140));
-            g.text(font, name, tx, y + 8, TEXT, true);
+            g.text(font, name, tx, y + 8, TEXT, false);
             String meta = dimensionName(waypoint.dimension()) + "  ·  " + waypoint.x() + ", " + waypoint.y() + ", " + waypoint.z();
             g.text(font, fitText(meta, Math.max(70, listWidth - 145)), tx, y + 24, MUTED, false);
             if (detailLayout) {
@@ -461,7 +462,7 @@ public final class WaypointScreen extends Screen {
         rounded(g, detailX, y, detailRight, y + h, 0xFF101010, 11);
         g.text(font, "Waypoint details", detailX + 12, y + 12, QUIET, false);
         if (selectedWaypoint == null) {
-            g.text(font, "Select a waypoint", detailX + 12, y + 42, TEXT, true);
+            g.text(font, "Select a waypoint", detailX + 12, y + 42, TEXT, false);
             g.text(font, "Its details appear here.", detailX + 12, y + 58, MUTED, false);
             return;
         }
@@ -471,7 +472,7 @@ public final class WaypointScreen extends Screen {
         if (fullLayout) {
             rounded(g, detailX + 12, y + 34, detailX + 52, y + 74, 0xFF252525, 10);
             rounded(g, detailX + 23, y + 42, detailX + 41, y + 66, rgb, 8);
-            g.text(font, fitText(w.name(), detailRight - detailX - 26), detailX + 12, y + 84, TEXT, true);
+            g.text(font, fitText(w.name(), detailRight - detailX - 26), detailX + 12, y + 84, TEXT, false);
             g.text(font, dimensionName(w.dimension()), detailX + 12, y + 100, CYAN, false);
             g.fill(detailX + 12, y + 120, detailRight - 12, y + 121, 0x55404040);
             g.text(font, "Coordinates", detailX + 12, y + 132, QUIET, false);
@@ -479,19 +480,19 @@ public final class WaypointScreen extends Screen {
             drawInfoRow(g, "Y", String.valueOf(w.y()), detailX + 12, y + 169);
             drawInfoRow(g, "Z", String.valueOf(w.z()), detailX + 12, y + 190);
             g.text(font, "Distance", detailX + 12, y + 220, QUIET, false);
-            g.text(font, distanceTo(w), detailX + 12, y + 235, TEXT, true);
+            g.text(font, distanceTo(w), detailX + 12, y + 235, TEXT, false);
             g.text(font, expiryText(w), detailX + 12, y + 254, MUTED, false);
         } else {
             rounded(g, detailX + 12, y + 34, detailX + 42, y + 64, 0xFF252525, 8);
             rounded(g, detailX + 21, y + 41, detailX + 33, y + 57, rgb, 6);
-            g.text(font, fitText(w.name(), detailRight - detailX - 60), detailX + 50, y + 43, TEXT, true);
+            g.text(font, fitText(w.name(), detailRight - detailX - 60), detailX + 50, y + 43, TEXT, false);
             g.text(font, dimensionName(w.dimension()), detailX + 50, y + 57, CYAN, false);
             g.fill(detailX + 12, y + 77, detailRight - 12, y + 78, 0x55404040);
             g.text(font, "Coordinates", detailX + 12, y + 88, QUIET, false);
             String xyz = w.x() + "   " + w.y() + "   " + w.z();
             g.text(font, fitText(xyz, detailRight - detailX - 24), detailX + 12, y + 103, TEXT, false);
             g.text(font, "Distance", detailX + 12, y + 130, QUIET, false);
-            g.text(font, distanceTo(w), detailX + 12, y + 145, TEXT, true);
+            g.text(font, distanceTo(w), detailX + 12, y + 145, TEXT, false);
         }
 
         int actionY = bottom - 72;
@@ -508,7 +509,7 @@ public final class WaypointScreen extends Screen {
 
     private void drawInfoRow(GuiGraphicsExtractor g, String label, String value, int x, int y) {
         rounded(g, x, y, x + 20, y + 16, 0xFF242424, 5);
-        g.text(font, label, x + 7, y + 4, CYAN, true);
+        g.text(font, label, x + 7, y + 4, CYAN, false);
         g.text(font, value, x + 29, y + 4, TEXT, false);
         g.fill(x + 29, y + 17, detailRight - 12, y + 18, 0x223A3A3A);
     }
@@ -588,7 +589,7 @@ public final class WaypointScreen extends Screen {
         rounded(g, x + 1, y + 1, x + w - 1, y + h - 1, fill, Math.max(2, Math.min(7, h / 2 - 1)));
         int textColor = primary ? 0xFF080808 : danger ? DANGER : TEXT;
         int tw = font.width(label);
-        g.text(font, label, x + (w - tw) / 2, y + (h - 8) / 2, textColor, primary);
+        g.text(font, label, x + (w - tw) / 2, y + (h - 8) / 2, textColor, false);
     }
 
     private String fitText(String value, int maxWidth) {
