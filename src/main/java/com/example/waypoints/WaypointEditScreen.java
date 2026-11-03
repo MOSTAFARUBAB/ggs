@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -198,8 +199,12 @@ public class WaypointEditScreen extends Screen {
     // Continuous picker input: smooth, one-pixel color selection without hundreds of
     // invisible Button widgets (which made the menu heavier and more blocky).
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        // Minecraft 26.3 uses MouseButtonEvent instead of the older x/y/button arguments.
+        // Keep the custom picker hit-testing, then delegate all other clicks to Screen.
+        double mouseX = event.x();
+        double mouseY = event.y();
+        if (event.button() == 0) {
             int gx = cx - 150;
             int gy = oy + 124;
             int pickerW = SV_COLS * SV_CELL;
@@ -223,7 +228,7 @@ public class WaypointEditScreen extends Screen {
                 return true;
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     // ------------------------------------------------------------------ color logic

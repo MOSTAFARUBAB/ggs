@@ -39,3 +39,7 @@ The source and Gradle configuration have been corrected for non-remapping Loom (
 - Draws the saturation/brightness picker at one-pixel resolution and handles picker input continuously without creating hundreds of hidden widgets.
 
 The project still requires a successful GitHub Actions build and an in-game check. The native renderer call is confirmed against the Minecraft 26.3 `BeaconRenderer` API documentation, but this archive has not been compiled in this environment.
+
+## Minecraft 26.3 input compatibility fix
+
+The waypoint editor now handles clicks through `MouseButtonEvent` and the Minecraft 26.3 `mouseClicked(MouseButtonEvent, boolean)` signature. The color picker still handles its own click coordinates and delegates all other clicks to the normal screen widget handler.
