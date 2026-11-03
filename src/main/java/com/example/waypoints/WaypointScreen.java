@@ -28,21 +28,21 @@ public final class WaypointScreen extends Screen {
     private static final String[] FILTER_LABELS = {"HERE", "OVERWORLD", "NETHER", "END", "ALL"};
 
     // Midnight blue / cyan / violet theme from the approved concepts.
-    private static final int BACKDROP = 0xD0060A18;
-    private static final int FRAME = 0xFF364B83;
-    private static final int PANEL = 0xF20B1428;
-    private static final int RAIL = 0xFF0C1830;
-    private static final int CARD = 0xFF142441;
-    private static final int CARD_HOVER = 0xFF1E355C;
-    private static final int EDGE = 0xFF304A78;
-    private static final int TEXT = 0xFFF2F6FF;
-    private static final int MUTED = 0xFFA7B9DA;
-    private static final int QUIET = 0xFF7085AE;
-    private static final int CYAN = 0xFF48E6F2;
-    private static final int CYAN_DARK = 0xFF123E5A;
-    private static final int VIOLET = 0xFFB477FF;
-    private static final int VIOLET_DARK = 0xFF38245E;
-    private static final int DANGER = 0xFFFF6377;
+    private static final int BACKDROP = 0xD00D1218;
+    private static final int FRAME = 0xFF52616B;
+    private static final int PANEL = 0xF018222A;
+    private static final int RAIL = 0xFF19262D;
+    private static final int CARD = 0xFF26343A;
+    private static final int CARD_HOVER = 0xFF34464A;
+    private static final int EDGE = 0xFF465B5B;
+    private static final int TEXT = 0xFFE9EDE8;
+    private static final int MUTED = 0xFFB8C3BD;
+    private static final int QUIET = 0xFF87968F;
+    private static final int CYAN = 0xFF8FC7B0;
+    private static final int CYAN_DARK = 0xFF304D47;
+    private static final int VIOLET = 0xFFD0B58C;
+    private static final int VIOLET_DARK = 0xFF574A38;
+    private static final int DANGER = 0xFFD28F83;
 
     private final int requestedPage;
     private int page;

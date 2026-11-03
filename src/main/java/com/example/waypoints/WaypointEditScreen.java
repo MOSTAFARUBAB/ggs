@@ -25,16 +25,16 @@ import java.util.Locale;
  */
 public class WaypointEditScreen extends Screen {
     // ---- theme ----
-    private static final int PANEL = 0xF20B1428;
-    private static final int CARD = 0xFF142441;
-    private static final int CARD_HOVER = 0xFF1E355C;
-    private static final int CARD_BORDER = 0xFF304A78;
-    private static final int TEXT = 0xFFF2F6FF;
-    private static final int MUTED = 0xFFA7B9DA;
-    private static final int QUIET = 0xFF7085AE;
-    private static final int CYAN = 0xFF48E6F2;
-    private static final int CYAN_HOVER = 0xFF86F7FF;
-    private static final int CYAN_DARK = 0xFF123E5A;
+    private static final int PANEL = 0xF018222A;
+    private static final int CARD = 0xFF26343A;
+    private static final int CARD_HOVER = 0xFF34464A;
+    private static final int CARD_BORDER = 0xFF465B5B;
+    private static final int TEXT = 0xFFE9EDE8;
+    private static final int MUTED = 0xFFB8C3BD;
+    private static final int QUIET = 0xFF87968F;
+    private static final int CYAN = 0xFF8FC7B0;
+    private static final int CYAN_HOVER = 0xFFB1DCCB;
+    private static final int CYAN_DARK = 0xFF304D47;
 
     // ---- color picker geometry ----
     // GUI-space dimensions stay compact; the backing texture is 2x resolution

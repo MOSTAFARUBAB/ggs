@@ -833,11 +833,15 @@ public class WaypointsMod implements ClientModInitializer {
      * Labels intentionally grow with distance (the requested mod behavior), but are
      * independent of camera FOV so zooming cannot change their size. Growth is capped.
      */
+    /**
+     * Close labels are slightly larger; distant labels ease down to a fixed,
+     * readable minimum instead of growing with distance.
+     */
     private static double perspectivePillScale(double depth, double tanHalfFov) {
-        double referenceDepth = 16.0;
-        double scale = Math.max(0.75, Math.max(0.1, depth) / referenceDepth);
-        double max = switch (markerSizeMode) { case 0 -> 1.0; case 2 -> 1.5; default -> 1.25; };
-        return Math.min(max, scale);
+        double safeDepth = Math.max(1.0, depth);
+        double scale = 12.0 / safeDepth;
+        double max = switch (markerSizeMode) { case 0 -> 0.95; case 2 -> 1.12; default -> 1.0; };
+        return Math.max(0.68, Math.min(max, scale));
     }
 
     private static void drawPill(GuiGraphicsExtractor g, Font font, String name, double dist, int rgb, int cx, int cy, double scale) {
@@ -875,35 +879,36 @@ public class WaypointsMod implements ClientModInitializer {
      */
     private static void drawPillShape(GuiGraphicsExtractor g, Font font, String name, String distanceLine,
                                       int rgb, int cx, int cy) {
-        // Two-line field label: a clear name with restrained distance metadata.
-        // Use the waypoint color only as a precise accent, keeping the text itself neutral and readable.
-        String displayName = name == null || name.isBlank() ? "Waypoint" : name;
-        while (displayName.length() > 4 && font.width(displayName) > 174) {
-            displayName = displayName.substring(0, displayName.length() - 1);
+        String displayName = name == null || name.isBlank() ? "Waypoint" : name.trim();
+        final int maxTextWidth = 168;
+        if (font.width(displayName) > maxTextWidth) {
+            while (displayName.length() > 1 && font.width(displayName + "…") > maxTextWidth) {
+                displayName = displayName.substring(0, displayName.length() - 1);
+            }
+            displayName += "…";
         }
-        if (name != null && !displayName.equals(name)) displayName += "…";
 
         int nameWidth = font.width(displayName);
         int metaWidth = font.width(distanceLine);
-        int width = Math.max(72, Math.min(220, Math.max(nameWidth, metaWidth) + 32));
-        final int height = 28;
+        int width = Math.max(84, Math.min(206, Math.max(nameWidth, metaWidth) + 24));
+        final int height = 30;
         int x = cx - width / 2;
         int y = cy - height / 2;
         int edge = 0xFF000000 | (rgb & 0xFFFFFF);
 
-        // Soft shadow, colored keyline and a dark glass-like face.
-        labelRound(g, x, y + 1, x + width, y + height + 1, 0x66000000, 7);
-        labelRound(g, x, y, x + width, y + height, edge, 7);
-        labelRound(g, x + 1, y + 1, x + width - 1, y + height - 1, 0xF00A1428, 6);
-        // Small color diamond matches the in-menu waypoint swatch without adding a bulky logo.
-        g.fill(x + 10, y + 8, x + 12, y + 10, edge);
-        g.fill(x + 8, y + 10, x + 14, y + 12, edge);
-        g.fill(x + 10, y + 12, x + 12, y + 14, edge);
-        g.fill(x + 16, y + 2, x + width - 8, y + 3, 0x2A8DEAFF);
+        // Muted slate face; waypoint hue is only a slim accent.
+        labelRound(g, x, y + 1, x + width, y + height + 1, 0x52000000, 8);
+        labelRound(g, x, y, x + width, y + height, 0xFF77869A, 8);
+        labelRound(g, x + 1, y + 1, x + width - 1, y + height - 1, 0xF01D2633, 7);
+        g.fill(x + 7, y + 6, x + 9, y + height - 6, edge);
 
-        int textX = x + 19;
-        g.text(font, displayName, textX, y + 4, 0xFFF7F7F2, true);
-        g.text(font, distanceLine, textX, y + 16, 0xFFB9C9E3, false);
+        // Center both lines in the text area for balanced alignment.
+        int textAreaLeft = x + 14;
+        int textAreaWidth = width - 20;
+        int nameX = textAreaLeft + Math.max(0, (textAreaWidth - nameWidth) / 2);
+        int metaX = textAreaLeft + Math.max(0, (textAreaWidth - metaWidth) / 2);
+        g.text(font, displayName, nameX, y + 4, 0xFFF0F2F4, true);
+        g.text(font, distanceLine, metaX, y + 17, 0xFFB8C1CC, false);
     }
 
     private static void labelRound(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2,
