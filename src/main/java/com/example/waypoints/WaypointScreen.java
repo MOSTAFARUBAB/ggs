@@ -9,241 +9,246 @@ import net.minecraft.network.chat.Component;
 import java.util.List;
 
 /**
- * Waypoint list in the dark Feather-style layout. Open with J or /wp menu.
- * Dimension buttons filter the list; the settings control beam visibility and beam thickness.
- *
- * Normal Minecraft buttons sit invisibly in the right places and handle clicking;
- * everything you SEE is drawn on top of them in extractRenderState.
+ * Main waypoint browser. The visual layer is intentionally made from a small,
+ * fixed set of fills and text calls: no per-frame texture creation, animation
+ * timers, or per-row widget trees. Invisible vanilla buttons only provide the
+ * input hit targets; the theme is rendered once by this screen.
  */
-public class WaypointScreen extends Screen {
+public final class WaypointScreen extends Screen {
     private static final int PER_PAGE = 5;
-    private static final int ROW_H = 24;
+    private static final int ROW_H = 27;
 
-    // ---- theme (same as the edit screen) ----
-    private static final int PANEL = 0xFF0E1114;
-    private static final int CARD = 0xFF151A20;
-    private static final int CARD_HOVER = 0xFF1D242C;
-    private static final int CARD_BORDER = 0xFF262D36;
-    private static final int TEXT = 0xFFE5E7EB;
-    private static final int MUTED = 0xFF8B94A1;
-    private static final int ORANGE = 0xFFF97316;
-    private static final int ORANGE_HOVER = 0xFFFB8A3C;
-    private static final int ORANGE_DARK = 0xFF4A230B;
+    // Northstar / deep-ocean theme shared with the edit screen.
+    private static final int PANEL = 0xF20A1120;
+    private static final int PANEL_EDGE = 0xFF26364B;
+    private static final int CARD = 0xFF121E30;
+    private static final int CARD_HOVER = 0xFF1B2B42;
+    private static final int CARD_BORDER = 0xFF2A4058;
+    private static final int TEXT = 0xFFF0F6FF;
+    private static final int MUTED = 0xFF93A8C1;
+    private static final int ACCENT = 0xFF62E6C4;
+    private static final int ACCENT_DARK = 0xFF153A3B;
+    private static final int VIOLET = 0xFF9A8CFF;
+    private static final int DANGER = 0xFFFF718A;
 
-    private static final String[] DIM_LABELS = {"Overworld", "Nether", "End", "All dimensions"};
-    private static final int[] DIM_W = {70, 56, 44, 118};
+    private static final String[] DIM_LABELS = {"Overworld", "Nether", "End", "All"};
+    private static final int[] DIM_W = {60, 46, 34, 82};
 
     private final int page;
+    private int left;
+    private int right;
     private int cx;
     private int oy;
+    private int selectedTabCached = -1;
+    private List<Waypoint> entries = List.of();
 
     public WaypointScreen(int page) {
-        super(Component.literal("Waypoints"));
+        super(Component.literal("Waypoint Station"));
         this.page = page;
     }
 
-    static void openMenu() {
-        open(0);
-    }
+    static void openMenu() { open(0); }
 
     static void open(int page) {
         Minecraft.getInstance().gui.setScreen(new WaypointScreen(page));
     }
 
     private int pages() {
-        int n = WaypointsMod.menuWaypoints().size();
-        return Math.max(1, (n + PER_PAGE - 1) / PER_PAGE);
+        return Math.max(1, (entries.size() + PER_PAGE - 1) / PER_PAGE);
     }
 
-    private int currentPage() {
-        return Math.max(0, Math.min(page, pages() - 1));
-    }
+    private int currentPage() { return Math.max(0, Math.min(page, pages() - 1)); }
 
-    /** Which dimension button is lit: the one you picked, or the dimension you are standing in. */
     private int selectedTab() {
         int mode = WaypointsMod.menuDimensionMode;
         if (mode >= 1 && mode <= 4) return mode - 1;
-        String d = WaypointsMod.currentDimension();
-        if ("minecraft:overworld".equals(d)) return 0;
-        if ("minecraft:the_nether".equals(d)) return 1;
-        if ("minecraft:the_end".equals(d)) return 2;
-        return -1;
+        return switch (WaypointsMod.currentDimension()) {
+            case "minecraft:overworld" -> 0;
+            case "minecraft:the_nether" -> 1;
+            case "minecraft:the_end" -> 2;
+            default -> -1;
+        };
     }
 
-
-    /** Plain dark overlay instead of Minecraft's blurred world, so the menu looks sharp and clear. */
-    public void extractBlurredBackground(GuiGraphicsExtractor g) {
-    }
+    public void extractBlurredBackground(GuiGraphicsExtractor g) { }
 
     public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
-        g.fill(0, 0, this.width, this.height, 0xB0000000);
+        g.fill(0, 0, width, height, 0xB8070D17);
     }
 
-    // ------------------------------------------------------------------ widgets (invisible click targets)
     @Override
     protected void init() {
-        cx = this.width / 2;
-        oy = Math.max(2, (this.height - 256) / 2);
+        int panelWidth = Math.min(372, Math.max(272, width - 16));
+        left = (width - panelWidth) / 2;
+        right = left + panelWidth;
+        cx = (left + right) / 2;
+        oy = Math.max(4, (height - 300) / 2);
 
-        List<Waypoint> all = WaypointsMod.menuWaypoints();
-        final int p = currentPage();
-        int start = p * PER_PAGE;
-        int end = Math.min(all.size(), start + PER_PAGE);
+        // Resolve the active scope once when the screen opens. The old UI rebuilt
+        // this stream and reflected over the server/save identity on every frame.
+        entries = WaypointsMod.menuWaypoints();
+        selectedTabCached = selectedTab();
+        int pageNow = currentPage();
+        int start = pageNow * PER_PAGE;
+        int end = Math.min(entries.size(), start + PER_PAGE);
 
-        click(cx + 138, oy + 2, 20, 14, this::onClose);
-        click(cx - 150, oy + 22, 110, 18,
-                () -> Minecraft.getInstance().gui.setScreen(new WaypointEditScreen(null, p)));
+        hit(right - 34, oy + 4, 22, 20, this::onClose);
+        hit(left + 16, oy + 42, 136, 24,
+                () -> Minecraft.getInstance().gui.setScreen(new WaypointEditScreen(null, pageNow)));
 
-        // dimension buttons
-        int dx = cx - 150;
+        int dx = left + 16;
         for (int i = 0; i < DIM_LABELS.length; i++) {
-            final int mode = i + 1; // 1 Overworld, 2 Nether, 3 End, 4 All
-            click(dx, oy + 44, DIM_W[i], 18, () -> {
+            final int mode = i + 1;
+            final int tabX = dx;
+            hit(tabX, oy + 73, DIM_W[i], 20, () -> {
                 WaypointsMod.menuDimensionMode = mode;
                 open(0);
             });
-            dx += DIM_W[i] + 4;
+            dx += DIM_W[i] + 5;
         }
 
-        // settings toggles
-        click(cx - 78, oy + 66, 68, 16, () -> {
-            WaypointsMod.showWaypointBeams = !WaypointsMod.showWaypointBeams;
-            open(p);
-        });
+        // Toggle values in place. Do not reopen/rebuild the screen on every click.
+        hit(left + 16, oy + 99, 108, 20,
+                () -> WaypointsMod.showWaypointBeams = !WaypointsMod.showWaypointBeams);
+        hit(left + 132, oy + 99, 108, 20,
+                () -> WaypointsMod.showWaypointLabels = !WaypointsMod.showWaypointLabels);
 
-        // rows
         for (int i = start; i < end; i++) {
-            final Waypoint w = all.get(i);
-            int y = oy + 88 + (i - start) * ROW_H;
-            click(cx + 44, y + 3, 52, 16, () -> Minecraft.getInstance().gui.setScreen(new WaypointEditScreen(w, p)));
-            click(cx + 100, y + 3, 50, 16, () -> {
-                WaypointsMod.remove(w);
-                open(p);
+            final Waypoint waypoint = entries.get(i);
+            int y = oy + 126 + (i - start) * ROW_H;
+            hit(right - 96, y + 4, 40, 19,
+                    () -> Minecraft.getInstance().gui.setScreen(new WaypointEditScreen(waypoint, pageNow)));
+            hit(right - 50, y + 4, 34, 19, () -> {
+                WaypointsMod.remove(waypoint);
+                open(pageNow);
             });
         }
 
-        // paging + close
-        click(cx - 150, oy + 216, 30, 18, () -> {
-            if (p > 0) open(p - 1);
-        });
-        click(cx - 116, oy + 216, 30, 18, () -> {
-            if (p < pages() - 1) open(p + 1);
-        });
-        click(cx + 80, oy + 216, 70, 18, this::onClose);
+        hit(left + 16, oy + 267, 34, 20, () -> { if (pageNow > 0) open(pageNow - 1); });
+        hit(left + 56, oy + 267, 34, 20, () -> { if (pageNow < pages() - 1) open(pageNow + 1); });
+        hit(right - 70, oy + 267, 54, 20, this::onClose);
     }
 
-    private void click(int x, int y, int w, int h, Runnable action) {
-        this.addRenderableWidget(Button.builder(Component.literal(""), btn -> action.run())
+    private void hit(int x, int y, int w, int h, Runnable action) {
+        addRenderableWidget(Button.builder(Component.literal(""), button -> action.run())
                 .bounds(x, y, w, h).build());
     }
 
-    // ------------------------------------------------------------------ drawing
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
         super.extractRenderState(g, mouseX, mouseY, delta);
 
-        List<Waypoint> all = WaypointsMod.menuWaypoints();
-        int p = currentPage();
-        int start = p * PER_PAGE;
+        // Cached until the screen is reopened after an edit, delete, or filter change.
+        List<Waypoint> all = entries;
+        int pageNow = currentPage();
+        int start = pageNow * PER_PAGE;
         int end = Math.min(all.size(), start + PER_PAGE);
 
-        // panel (covers the plain widgets underneath)
-        rrect(g, cx - 158, oy + 16, cx + 158, oy + 250, PANEL);
+        // One quiet outer frame and one panel. This is deliberately static at idle.
+        rounded(g, left - 1, oy + 15, right + 1, oy + 296, PANEL_EDGE, 12);
+        rounded(g, left, oy + 16, right, oy + 295, PANEL, 11);
+        g.fill(left + 16, oy + 36, right - 16, oy + 37, 0x552D4560);
 
-        // title, page, close
-        g.text(this.font, "WAYPOINTS", cx - 158, oy + 5, TEXT, true);
-        String pageText = "page " + (p + 1) + "/" + pages();
-        g.text(this.font, pageText, cx + 130 - this.font.width(pageText), oy + 5, MUTED, false);
-        boolean closeHover = inside(mouseX, mouseY, cx + 138, oy + 2, 20, 14);
-        rrect(g, cx + 138, oy + 2, cx + 158, oy + 16, closeHover ? ORANGE_HOVER : ORANGE);
-        rrect(g, cx + 139, oy + 3, cx + 157, oy + 15, 0xFF1A1208);
-        g.text(this.font, "x", cx + 148 - this.font.width("x") / 2, oy + 5, ORANGE, false);
+        // Header.
+        g.text(this.font, "FIELD NOTES  /  SIMPLE WAYPOINTS", left + 17, oy + 4, MUTED, false);
+        g.text(this.font, "WAYPOINT STATION", left + 17, oy + 17, TEXT, true);
+        g.text(this.font, "J  ·  NAVIGATE", right - 105, oy + 21, 0xFF7189A5, false);
+        button(g, mouseX, mouseY, right - 34, oy + 4, 22, 20, "×", false, true);
 
-        // new waypoint
-        boolean newHover = inside(mouseX, mouseY, cx - 150, oy + 22, 110, 18);
-        rrect(g, cx - 150, oy + 22, cx - 40, oy + 40, newHover ? ORANGE_HOVER : ORANGE);
-        g.text(this.font, "+ New Waypoint", cx - 95 - this.font.width("+ New Waypoint") / 2, oy + 27, 0xFFFFFFFF, true);
+        // Primary action.
+        button(g, mouseX, mouseY, left + 16, oy + 42, 136, 24, "+  ADD WAYPOINT", true, false);
+        String countText = all.size() + (all.size() == 1 ? "  saved point" : "  saved points");
+        g.text(this.font, countText, right - 16 - this.font.width(countText), oy + 50, MUTED, false);
 
-        // dimension buttons
-        int sel = selectedTab();
-        int dx = cx - 150;
+        // Dimension selector.
+        g.text(this.font, "SHOWING", left + 17, oy + 66, 0xFF7189A5, false);
+        int selected = selectedTabCached;
+        int dx = left + 16;
         for (int i = 0; i < DIM_LABELS.length; i++) {
-            boolean selected = sel == i;
-            boolean hover = inside(mouseX, mouseY, dx, oy + 44, DIM_W[i], 18);
-            rrect(g, dx, oy + 44, dx + DIM_W[i], oy + 62, selected ? ORANGE : CARD_BORDER);
-            rrect(g, dx + 1, oy + 45, dx + DIM_W[i] - 1, oy + 61, selected ? ORANGE_DARK : (hover ? CARD_HOVER : CARD));
+            boolean isSelected = selected == i;
+            boolean hover = inside(mouseX, mouseY, dx, oy + 73, DIM_W[i], 20);
+            rounded(g, dx, oy + 73, dx + DIM_W[i], oy + 93,
+                    isSelected ? ACCENT_DARK : (hover ? CARD_HOVER : CARD), 6);
+            if (isSelected) g.fill(dx + 8, oy + 78, dx + 11, oy + 88, ACCENT);
             int tw = this.font.width(DIM_LABELS[i]);
-            g.text(this.font, DIM_LABELS[i], dx + (DIM_W[i] - tw) / 2, oy + 49, selected ? TEXT : MUTED, false);
-            dx += DIM_W[i] + 4;
+            g.text(this.font, DIM_LABELS[i], dx + (DIM_W[i] - tw) / 2 + (isSelected ? 2 : 0),
+                    oy + 79, isSelected ? TEXT : MUTED, false);
+            dx += DIM_W[i] + 5;
         }
 
-        // settings toggles
-        chip(g, mouseX, mouseY, cx - 78, oy + 66, 68, "Beams: " + (WaypointsMod.showWaypointBeams ? "ON" : "OFF"), WaypointsMod.showWaypointBeams);
-        chip(g, mouseX, mouseY, cx - 6, oy + 66, 84, "Style: Vanilla", false);
+        // Live render switches. They update in place; no screen reconstruction.
+        toggle(g, mouseX, mouseY, left + 16, oy + 99, 108,
+                "BEAM", WaypointsMod.showWaypointBeams, ACCENT);
+        toggle(g, mouseX, mouseY, left + 132, oy + 99, 108,
+                "NAME TAGS", WaypointsMod.showWaypointLabels, VIOLET);
 
-        // list
+        // Waypoint cards.
         if (all.isEmpty()) {
-            g.text(this.font, "No waypoints here yet.", cx - 150, oy + 94, MUTED, false);
-            g.text(this.font, "Click + New Waypoint, or press B in the world.", cx - 150, oy + 106, MUTED, false);
+            rounded(g, left + 16, oy + 126, right - 16, oy + 253, CARD, 9);
+            g.text(this.font, "Nothing marked here yet.", left + 29, oy + 167, TEXT, true);
+            g.text(this.font, "Add a waypoint to place a beacon in this world.",
+                    left + 29, oy + 183, MUTED, false);
+        } else {
+            for (int i = start; i < end; i++) {
+                Waypoint waypoint = all.get(i);
+                int y = oy + 126 + (i - start) * ROW_H;
+                boolean rowHover = inside(mouseX, mouseY, left + 16, y, right - left - 32, 24);
+                rounded(g, left + 16, y, right - 16, y + 24,
+                        rowHover ? CARD_HOVER : CARD, 7);
+                rounded(g, left + 22, y + 7, left + 30, y + 17,
+                        0xFF000000 | WaypointsMod.resolveColor(waypoint), 3);
+                g.text(this.font, waypoint.name(), left + 38, y + 3, TEXT, false);
+                String coords = waypoint.x() + "  /  " + waypoint.y() + "  /  " + waypoint.z();
+                g.text(this.font, coords, left + 38, y + 13, MUTED, false);
+
+                button(g, mouseX, mouseY, right - 96, y + 4, 40, 19, "EDIT", false, false);
+                button(g, mouseX, mouseY, right - 50, y + 4, 34, 19, "×", false, true);
+            }
         }
-        for (int i = start; i < end; i++) {
-            Waypoint w = all.get(i);
-            int y = oy + 88 + (i - start) * ROW_H;
-            boolean rowHover = inside(mouseX, mouseY, cx - 150, y, 300, 22);
-            rrect(g, cx - 150, y, cx + 150, y + 22, rowHover ? CARD_HOVER : CARD);
-            g.fill(cx - 144, y + 6, cx - 134, y + 16, 0xFF000000 | WaypointsMod.resolveColor(w));
-            g.text(this.font, w.name(), cx - 128, y + 3, TEXT, false);
-            g.text(this.font, w.x() + " " + w.y() + " " + w.z(), cx - 128, y + 12, MUTED, false);
 
-            boolean editHover = inside(mouseX, mouseY, cx + 44, y + 3, 52, 16);
-            rrect(g, cx + 44, y + 3, cx + 96, y + 19, CARD_BORDER);
-            rrect(g, cx + 45, y + 4, cx + 95, y + 18, editHover ? CARD_HOVER : PANEL);
-            g.text(this.font, "Edit", cx + 70 - this.font.width("Edit") / 2, y + 7, TEXT, false);
+        // Footer / paging.
+        button(g, mouseX, mouseY, left + 16, oy + 267, 34, 20, "‹", false, false);
+        button(g, mouseX, mouseY, left + 56, oy + 267, 34, 20, "›", false, false);
+        String pageLabel = "PAGE  " + (pageNow + 1) + "  /  " + pages();
+        g.text(this.font, pageLabel, cx - this.font.width(pageLabel) / 2, oy + 274, MUTED, false);
+        button(g, mouseX, mouseY, right - 70, oy + 267, 54, 20, "DONE", false, false);
+    }
 
-            boolean delHover = inside(mouseX, mouseY, cx + 100, y + 3, 50, 16);
-            rrect(g, cx + 100, y + 3, cx + 150, y + 19, delHover ? 0xFF9B2C2C : 0xFF7F1D1D);
-            g.text(this.font, "Delete", cx + 125 - this.font.width("Delete") / 2, y + 7, 0xFFFEE2E2, false);
+    private void toggle(GuiGraphicsExtractor g, int mx, int my, int x, int y,
+                        int w, String label, boolean on, int accent) {
+        boolean hover = inside(mx, my, x, y, w, 20);
+        rounded(g, x, y, x + w, y + 20, on ? 0xFF1B3440 : (hover ? CARD_HOVER : CARD), 6);
+        g.fill(x + 8, y + 8, x + 12, y + 12, on ? accent : 0xFF53647A);
+        g.text(this.font, label, x + 18, y + 6, on ? TEXT : MUTED, true);
+        String state = on ? "ON" : "OFF";
+        g.text(this.font, state, x + w - 26, y + 6, on ? accent : MUTED, false);
+    }
+
+    private void button(GuiGraphicsExtractor g, int mx, int my, int x, int y, int w, int h,
+                        String label, boolean primary, boolean danger) {
+        boolean hover = inside(mx, my, x, y, w, h);
+        int bg = primary ? (hover ? 0xFF8AF0D8 : ACCENT)
+                : danger ? (hover ? 0xFF633044 : 0xFF392334)
+                : (hover ? CARD_HOVER : CARD);
+        int fg = primary ? 0xFF07151A : danger ? DANGER : TEXT;
+        rounded(g, x, y, x + w, y + h, bg, Math.min(7, h / 2));
+        if (!primary && !danger) {
+            g.fill(x + 1, y + 1, x + w - 1, y + 2, 0x332C4965);
         }
-
-        // paging + close
-        smallButton(g, mouseX, mouseY, cx - 150, oy + 216, 30, "<");
-        smallButton(g, mouseX, mouseY, cx - 116, oy + 216, 30, ">");
-        smallButton(g, mouseX, mouseY, cx + 80, oy + 216, 70, "Close");
-
-        g.text(this.font, WaypointsMod.menuDimensionLabel(), cx - 80, oy + 221, MUTED, false);
+        int tw = this.font.width(label);
+        g.text(this.font, label, x + (w - tw) / 2, y + (h - 8) / 2, fg, primary);
     }
 
-    private void chip(GuiGraphicsExtractor g, int mx, int my, int x, int y, int w, String label, boolean on) {
-        boolean hover = inside(mx, my, x, y, w, 16);
-        rrect(g, x, y, x + w, y + 16, on ? ORANGE : CARD_BORDER);
-        rrect(g, x + 1, y + 1, x + w - 1, y + 15, on ? ORANGE_DARK : (hover ? CARD_HOVER : CARD));
-        g.text(this.font, label, x + (w - this.font.width(label)) / 2, y + 4, on ? TEXT : MUTED, false);
-    }
-
-    private void smallButton(GuiGraphicsExtractor g, int mx, int my, int x, int y, int w, String label) {
-        boolean hover = inside(mx, my, x, y, w, 18);
-        rrect(g, x, y, x + w, y + 18, CARD_BORDER);
-        rrect(g, x + 1, y + 1, x + w - 1, y + 17, hover ? CARD_HOVER : CARD);
-        g.text(this.font, label, x + (w - this.font.width(label)) / 2, y + 5, TEXT, false);
-    }
-
-    /** Efficient rounded rectangle: draw the body once and rasterize only the corner rows. */
-    private static void rrect(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2, int color) {
+    /** Rounded panel composed of a body and a small, bounded number of corner rows. */
+    private static void rounded(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2,
+                                int color, int requestedRadius) {
         int width = x2 - x1;
         int height = y2 - y1;
         if (width <= 0 || height <= 0) return;
-
-        int radius = Math.min(6, Math.min(width / 2, height / 2));
-        if (radius <= 0) {
-            g.fill(x1, y1, x2, y2, color);
-            return;
-        }
-
-        // Central body: two rectangles instead of one draw call per vertical pixel.
+        int radius = Math.min(requestedRadius, Math.min(width / 2, height / 2));
+        if (radius <= 0) { g.fill(x1, y1, x2, y2, color); return; }
         g.fill(x1 + radius, y1, x2 - radius, y2, color);
         g.fill(x1, y1 + radius, x2, y2 - radius, color);
-
-        // Only the rounded top and bottom corner rows need separate fills.
         for (int row = 0; row < radius; row++) {
             double dy = radius - row - 0.5;
             int inset = (int) Math.ceil(radius - Math.sqrt(Math.max(0.0, radius * radius - dy * dy)));

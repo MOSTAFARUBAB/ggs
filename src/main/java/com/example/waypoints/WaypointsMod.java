@@ -42,7 +42,7 @@ import java.util.function.UnaryOperator;
  * Simple client-side waypoints for Minecraft 26.3 (Fabric, Mojang names).
  *
  * Waypoints are saved to config/simple-waypoints.json. The world marker is only the native
- * 3D beacon beam; no HUD labels, logo markers, or ground rings are rendered.
+ * 3D beacon beam with lightweight screen-projected name and distance labels; no logo markers or ground rings.
  */
 public class WaypointsMod implements ClientModInitializer {
     public static final String MOD_ID = "simplewaypoints";
@@ -63,7 +63,7 @@ public class WaypointsMod implements ClientModInitializer {
 
     /** True when the real 3D beam is running; then the on-screen beam is not drawn. */
     public static volatile boolean beam3dActive = false;
-    public static volatile boolean showWaypointLabels = false;
+    public static volatile boolean showWaypointLabels = true;
     public static volatile boolean showWaypointBeams = true;
     /** 0=thin, 1=normal (vanilla-sized), 2=thick. */
     public static volatile int beamThickness = 1;
@@ -111,8 +111,13 @@ public class WaypointsMod implements ClientModInitializer {
 
         registerCommands();
 
-        // Beam-only world marker: deliberately do not register the old HUD renderer.
-        // This prevents screen-space beams, floating waypoint labels, and logo markers.
+        // Labels are a lightweight HUD overlay projected from each waypoint's world
+        // position. The beam itself remains the native 3D BeaconRenderer geometry.
+        // This does not draw a second screen-space beam or any logo/ground marker.
+        HudElementRegistry.attachElementBefore(
+                VanillaHudElements.CHAT,
+                Identifier.fromNamespaceAndPath(MOD_ID, "waypoint_labels"),
+                WaypointsMod::renderHud);
     }
 
     // ---------------- commands ----------------
@@ -611,7 +616,7 @@ public class WaypointsMod implements ClientModInitializer {
 
     private static void renderHud(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.level == null || WAYPOINTS.isEmpty()) return;
+        if (!showWaypointLabels || mc.screen != null || mc.player == null || mc.level == null || WAYPOINTS.isEmpty()) return;
 
         float partial = deltaTracker.getGameTimeDeltaPartialTick(false);
         Vec3 playerEye = mc.player.getEyePosition(partial);
@@ -648,10 +653,18 @@ public class WaypointsMod implements ClientModInitializer {
         double tanHalfFov = Math.tan(Math.toRadians(effectiveRenderFov(mc, partial)) / 2.0);
 
         Font font = mc.font;
-        String dim = currentDimension();
-        String worldId = currentWorldId();
+        long gameTick = mc.level.getGameTime();
+        if (gameTick != hudScopeTick) {
+            hudWorldId = currentWorldId();
+            hudDimension = currentDimension();
+            hudScopeTick = gameTick;
+        }
+        String dim = hudDimension;
+        String worldId = hudWorldId;
 
+        int renderedLabels = 0;
         for (Waypoint w : WAYPOINTS) {
+            if (renderedLabels >= 24) break;
             if (!java.util.Objects.equals(w.worldId(), worldId)) continue;
             if (!dimensionMatches(w, dim)) continue;
 
@@ -689,12 +702,18 @@ public class WaypointsMod implements ClientModInitializer {
             // (camera depth and the actual rendered FOV), rather than only the player's distance.
             double perspectiveScale = perspectivePillScale(p[2], tanHalfFov);
             drawPill(graphics, font, w.name(), dist, rgb, sx, sy, perspectiveScale);
+            renderedLabels++;
         }
     }
 
     // ---------------- real camera lookup (reflection, falls back to the player's view) ----------------
     private static java.lang.reflect.Method CAM_GET, CAM_POS, CAM_YROT, CAM_XROT;
     private static boolean camBroken = false;
+    private static java.lang.reflect.Method CAM_FOV;
+    private static boolean fovMethodChecked = false;
+    private static long hudScopeTick = Long.MIN_VALUE;
+    private static String hudWorldId = "unknown";
+    private static String hudDimension = "unknown";
 
     private static java.lang.reflect.Method findMethod(Class<?> c, String... names) {
         for (String n : names) {
@@ -718,12 +737,20 @@ public class WaypointsMod implements ClientModInitializer {
             if (CAM_GET == null) CAM_GET = findMethod(renderer.getClass(), "getMainCamera", "mainCamera");
             if (CAM_GET != null) camera = CAM_GET.invoke(renderer);
             if (camera != null) {
-                for (java.lang.reflect.Method method : renderer.getClass().getMethods()) {
-                    if (!method.getName().equals("getFov") || method.getParameterCount() != 3) continue;
-                    Class<?>[] p = method.getParameterTypes();
-                    if (!p[0].isInstance(camera) || !(p[1] == float.class || p[1] == Float.class)
-                            || !(p[2] == boolean.class || p[2] == Boolean.class)) continue;
-                    Object value = method.invoke(renderer, camera, partialTick, true);
+                if (!fovMethodChecked) {
+                    fovMethodChecked = true;
+                    for (java.lang.reflect.Method method : renderer.getClass().getMethods()) {
+                        if (!method.getName().equals("getFov") || method.getParameterCount() != 3) continue;
+                        Class<?>[] p = method.getParameterTypes();
+                        if (p[0].isInstance(camera) && (p[1] == float.class || p[1] == Float.class)
+                                && (p[2] == boolean.class || p[2] == Boolean.class)) {
+                            CAM_FOV = method;
+                            break;
+                        }
+                    }
+                }
+                if (CAM_FOV != null) {
+                    Object value = CAM_FOV.invoke(renderer, camera, partialTick, true);
                     if (value instanceof Number n && n.doubleValue() > 1.0 && n.doubleValue() < 179.0) {
                         return n.doubleValue();
                     }
@@ -841,39 +868,23 @@ public class WaypointsMod implements ClientModInitializer {
         }
     }
 
-    /** Draws the pill centred on (cx, cy): 14 px high, 1 px border in the waypoint color, 60% black inside, white text. */
+    /** Draws a compact rounded label with a colored edge and translucent dark face.
+     * Uses a fixed four-fill shape so many labels remain inexpensive to draw.
+     */
     private static void drawPillShape(GuiGraphicsExtractor g, Font font, String text, int rgb, int cx, int cy) {
         final int h = 14;
         int textW = font.width(text);
-        int w = textW + 8;
+        int w = textW + 12;
         int x = cx - w / 2;
         int y = cy - h / 2;
         int border = 0xFF000000 | (rgb & 0xFFFFFF);
-        int fill = 0x99000000;
+        int fill = 0xB80A1120;
 
-        double rOuter = h / 2.0;
-        double rInner = rOuter - 1.0;
-        for (int row = 0; row < h; row++) {
-            double dy = (row + 0.5) - rOuter;
-            int oIn = (int) Math.round(rOuter - Math.sqrt(Math.max(0.0, rOuter * rOuter - dy * dy)));
-            int ox0 = x + oIn;
-            int ox1 = x + w - oIn;
-            int py = y + row;
-            if (row == 0 || row == h - 1) {
-                g.fill(ox0, py, ox1, py + 1, border);
-                continue;
-            }
-            int iIn = 1 + (int) Math.round(rInner - Math.sqrt(Math.max(0.0, rInner * rInner - dy * dy)));
-            int ix0 = Math.max(ox0 + 1, x + iIn);
-            int ix1 = Math.min(ox1 - 1, x + w - iIn);
-            if (ix1 <= ix0) {
-                g.fill(ox0, py, ox1, py + 1, border);
-                continue;
-            }
-            g.fill(ox0, py, ix0, py + 1, border);
-            g.fill(ix0, py, ix1, py + 1, fill);
-            g.fill(ix1, py, ox1, py + 1, border);
-        }
+        // Four rectangles approximate a capsule without per-row raster work.
+        g.fill(x + 6, y, x + w - 6, y + h, border);
+        g.fill(x, y + 5, x + w, y + h - 5, border);
+        g.fill(x + 7, y + 1, x + w - 7, y + h - 1, fill);
+        g.fill(x + 1, y + 6, x + w - 1, y + h - 6, fill);
         g.text(font, text, cx - textW / 2, y + 3, 0xFFFFFFFF, false);
     }
 

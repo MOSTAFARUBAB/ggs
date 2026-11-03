@@ -26,15 +26,15 @@ import java.util.Locale;
  */
 public class WaypointEditScreen extends Screen {
     // ---- theme ----
-    private static final int PANEL = 0xFF0E1114;
-    private static final int CARD = 0xFF151A20;
-    private static final int CARD_HOVER = 0xFF1D242C;
-    private static final int CARD_BORDER = 0xFF262D36;
-    private static final int TEXT = 0xFFE5E7EB;
-    private static final int MUTED = 0xFF8B94A1;
-    private static final int ORANGE = 0xFFF97316;
-    private static final int ORANGE_HOVER = 0xFFFB8A3C;
-    private static final int ORANGE_DARK = 0xFF4A230B;
+    private static final int PANEL = 0xF20A1120;
+    private static final int CARD = 0xFF121E30;
+    private static final int CARD_HOVER = 0xFF1B2B42;
+    private static final int CARD_BORDER = 0xFF2A4058;
+    private static final int TEXT = 0xFFF0F6FF;
+    private static final int MUTED = 0xFF93A8C1;
+    private static final int ORANGE = 0xFF62E6C4;
+    private static final int ORANGE_HOVER = 0xFF8AF0D8;
+    private static final int ORANGE_DARK = 0xFF153A3B;
 
     // ---- color picker geometry ----
     // GUI-space dimensions stay compact; the backing texture is 2x resolution
@@ -548,7 +548,8 @@ public class WaypointEditScreen extends Screen {
         rrect(g, cx - 158, oy + 16, cx + 158, oy + 250, PANEL);
 
         // title + close
-        g.text(this.font, original == null ? "NEW WAYPOINT" : "EDIT WAYPOINT", cx - 158, oy + 5, TEXT, true);
+        g.text(this.font, "WAYPOINT STATION  /  CONFIGURE", cx - 158, oy + 4, MUTED, false);
+        g.text(this.font, original == null ? "CREATE WAYPOINT" : "EDIT WAYPOINT", cx - 158, oy + 16, TEXT, true);
         boolean closeHover = inside(mouseX, mouseY, cx + 138, oy + 2, 20, 14);
         rrect(g, cx + 138, oy + 2, cx + 158, oy + 16, closeHover ? ORANGE_HOVER : ORANGE);
         rrect(g, cx + 139, oy + 3, cx + 157, oy + 15, 0xFF1A1208);
@@ -669,7 +670,7 @@ public class WaypointEditScreen extends Screen {
         int height = y2 - y1;
         if (width <= 0 || height <= 0) return;
 
-        int radius = Math.min(6, Math.min(width / 2, height / 2));
+        int radius = Math.min(7, Math.min(width / 2, height / 2));
         if (radius <= 0) {
             g.fill(x1, y1, x2, y2, color);
             return;

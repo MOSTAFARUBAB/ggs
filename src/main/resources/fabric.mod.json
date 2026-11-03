@@ -3,7 +3,7 @@
   "id": "simplewaypoints",
   "version": "${version}",
   "name": "Simple Waypoints",
-  "description": "Client-side waypoints marked only by native 3D beacon beams. No floating labels, logo markers, or ground rings.",
+  "description": "Client-side waypoints with native 3D beacon beams and clean floating name labels. No logo markers or ground rings.",
   "authors": [
     "You"
   ],
