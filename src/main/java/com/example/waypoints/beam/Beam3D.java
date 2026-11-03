@@ -12,6 +12,7 @@ import net.minecraft.client.renderer.blockentity.BeaconRenderer;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Matrix4f;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -231,7 +232,7 @@ public final class Beam3D {
                 waypoint.z() + 0.5 - cameraPos.z
         );
         // This is the same billboard orientation convention used by vanilla name tags.
-        poseStack.mulPose(camera.orientation);
+        poseStack.mulPose(new Matrix4f().rotation(camera.orientation));
         poseStack.scale(-scale, -scale, scale);
 
         // One translucent panel, two centered lines. NORMAL (not SEE_THROUGH) is
