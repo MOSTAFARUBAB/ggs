@@ -32,7 +32,11 @@ jobs:
         shell: bash
         run: |
           ls -lah build/libs
-          test -n "$(find build/libs -maxdepth 1 -type f -name '*-beam-only-*.jar' -print -quit)"
+          MOD_JAR="$(find build/libs -maxdepth 1 -type f -name 'simple-waypoints-*.jar' ! -name '*-sources.jar' -print -quit)"
+
+          test -n "$MOD_JAR"
+          jar tf "$MOD_JAR" | grep -qx 'fabric.mod.json'
+          echo "Verified: $MOD_JAR"
 
       - name: Upload installable mod JAR
         uses: actions/upload-artifact@v4
