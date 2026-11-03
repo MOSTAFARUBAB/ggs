@@ -616,7 +616,7 @@ public class WaypointsMod implements ClientModInitializer {
 
     private static void renderHud(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker) {
         Minecraft mc = Minecraft.getInstance();
-        if (!showWaypointLabels || mc.screen != null || mc.player == null || mc.level == null || WAYPOINTS.isEmpty()) return;
+        if (!showWaypointLabels || mc.gui.screen() != null || mc.player == null || mc.level == null || WAYPOINTS.isEmpty()) return;
 
         float partial = deltaTracker.getGameTimeDeltaPartialTick(false);
         Vec3 playerEye = mc.player.getEyePosition(partial);
