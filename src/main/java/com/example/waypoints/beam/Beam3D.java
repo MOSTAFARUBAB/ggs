@@ -14,9 +14,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Real 3D waypoint beams, drawn inside the world (through walls) so they never flicker or drift
- * when you turn or walk. Based on the Fabric "Rendering in the World" custom pipeline example,
- * ported to the 26.3 "Renderpearl" package names.
+ * Real 3D waypoint beams submitted through Minecraft's normal level-render submit queue.
+ * Using COLLECT_SUBMITS lets the game schedule the vanilla beacon's solid and translucent
+ * geometry in its normal passes, instead of drawing the translucent shell late.
  *
  * This file is only compiled when building with -PwithBeam=true. If anything in here fails at runtime,
  * the mod switches itself back to the on-screen beam.
@@ -34,7 +34,7 @@ public final class Beam3D {
     /** Called by reflection from WaypointsMod. */
     public static void init() {
         LevelExtractionEvents.END_EXTRACTION.register(Beam3D::extract);
-        LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN.register(Beam3D::renderAndDraw);
+        LevelRenderEvents.COLLECT_SUBMITS.register(Beam3D::renderAndDraw);
         WaypointsMod.beam3dActive = true;
     }
 
@@ -94,6 +94,11 @@ public final class Beam3D {
             // This keeps the exact vanilla beam geometry, animated texture, inner core,
             // and translucent outer glow instead of approximating them with custom radii.
             float animationTime = (System.currentTimeMillis() % 3_600_000L) / 50.0f;
+            // Submit through Minecraft's normal collection stage. BeaconRenderer adds
+            // both its solid core and translucent shell to this collector; Minecraft then
+            // sorts and draws those nodes in the correct render passes (including 26.3's
+            // transparency pipeline). Submitting after translucent terrain made the glow
+            // appear to vanish at some camera angles.
             var collector = context.submitNodeCollector();
 
             Minecraft mc = Minecraft.getInstance();

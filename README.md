@@ -43,3 +43,12 @@ The project still requires a successful GitHub Actions build and an in-game chec
 ## Minecraft 26.3 input compatibility fix
 
 The waypoint editor now handles clicks through `MouseButtonEvent` and the Minecraft 26.3 `mouseClicked(MouseButtonEvent, boolean)` signature. The color picker still handles its own click coordinates and delegates all other clicks to the normal screen widget handler.
+
+
+## Recent rendering and menu fixes
+
+- Waypoint beams are submitted during Fabric's `COLLECT_SUBMITS` phase so Minecraft's renderer can sort and draw the vanilla beacon's solid core and translucent shell in their normal passes.
+- The color picker uses SDL3's left mouse button value (`1`) for Minecraft 26.3.
+- The saturation/brightness square is cached as a 128x64 dynamic texture and uploaded only when the hue changes; the previous version queued thousands of individual GUI fills every frame.
+
+The project still needs a successful Java 25 / Gradle 9.8 GitHub Actions build and an in-game check before these changes can be called verified.

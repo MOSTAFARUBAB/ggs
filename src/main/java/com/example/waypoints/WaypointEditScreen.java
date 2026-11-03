@@ -6,6 +6,9 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import com.mojang.blaze3d.platform.NativeImage;
+import net.minecraft.resources.Identifier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 
@@ -16,7 +19,7 @@ import java.util.Locale;
 /**
  * Create / edit one waypoint with a dark Feather-style layout: name, X/Y/Z, dimension buttons
  * (Overworld / Nether / End / All dimensions), a color picker (saturation-brightness grid, hue strip,
- * hex box, Chroma toggle, Reset, recent colors), timer and logo letter.
+ * hex box, Chroma toggle, Reset, recent colors), and timer.
  *
  * How it works: normal Minecraft buttons and text boxes sit invisibly in the right places and handle all
  * clicking and typing; everything you actually SEE is drawn on top of them in extractRenderState.
@@ -37,7 +40,12 @@ public class WaypointEditScreen extends Screen {
     private static final int SV_COLS = 16;
     private static final int SV_ROWS = 8;
     private static final int SV_CELL = 8;      // picker width/height scale
-    private static final int SV_DRAW = 1;      // one-pixel sampling for a smooth gradient
+    private static final int PICKER_WIDTH = SV_COLS * SV_CELL;
+    private static final int PICKER_HEIGHT = SV_ROWS * SV_CELL;
+    private static final Identifier PICKER_TEXTURE_ID = Identifier.fromNamespaceAndPath(
+            "simplewaypoints", "gui/waypoint_color_picker");
+    private static DynamicTexture pickerTexture;
+    private static float pickerTextureHue = Float.NaN;
     private static final int HUE_CELLS = 64;
     private static final int HUE_CELL_H = 1;
 
@@ -163,6 +171,7 @@ public class WaypointEditScreen extends Screen {
         lastHex = hexBox.getValue();
 
         timerBox = makeBox(timerBox, cx - 100, oy + 198, 56, 16, initTimer, 6, "0");
+        refreshPickerTexture();
 
         // save / delete
         int saveWidth = original != null ? 216 : 300;
@@ -196,15 +205,13 @@ public class WaypointEditScreen extends Screen {
         }
     }
 
-    // Continuous picker input: smooth, one-pixel color selection without hundreds of
-    // invisible Button widgets (which made the menu heavier and more blocky).
+    // Color-picking uses Minecraft 26.3's SDL3 mouse button values.
+    // SDL_BUTTON_LEFT is 1 (the old GLFW left-button value was 0).
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        // Minecraft 26.3 uses MouseButtonEvent instead of the older x/y/button arguments.
-        // Keep the custom picker hit-testing, then delegate all other clicks to Screen.
         double mouseX = event.x();
         double mouseY = event.y();
-        if (event.button() == 0) {
+        if (event.button() == 1) {
             int gx = cx - 150;
             int gy = oy + 124;
             int pickerW = SV_COLS * SV_CELL;
@@ -229,6 +236,35 @@ public class WaypointEditScreen extends Screen {
             }
         }
         return super.mouseClicked(event, doubleClick);
+    }
+
+    /**
+     * Builds the saturation/value square once for the current hue and uploads it only
+     * when the hue changes. The old implementation queued 8,192 fill calls every frame,
+     * which made the edit screen noticeably laggy.
+     */
+    private void refreshPickerTexture() {
+        if (pickerTexture == null) {
+            pickerTexture = new DynamicTexture("simple-waypoints-color-picker",
+                    PICKER_WIDTH, PICKER_HEIGHT, true);
+            Minecraft.getInstance().getTextureManager().register(PICKER_TEXTURE_ID, pickerTexture);
+            pickerTextureHue = Float.NaN;
+        }
+
+        if (!Float.isNaN(pickerTextureHue) && Math.abs(pickerTextureHue - hue) < 0.0001f) {
+            return;
+        }
+
+        NativeImage pixels = pickerTexture.getPixels();
+        for (int y = 0; y < PICKER_HEIGHT; y++) {
+            float brightness = 1.0f - (y + 0.5f) / PICKER_HEIGHT;
+            for (int x = 0; x < PICKER_WIDTH; x++) {
+                float saturation = (x + 0.5f) / PICKER_WIDTH;
+                pixels.setPixel(x, y, 0xFF000000 | hsvToRgb(hue, saturation, brightness));
+            }
+        }
+        pickerTexture.upload();
+        pickerTextureHue = hue;
     }
 
     // ------------------------------------------------------------------ color logic
@@ -362,7 +398,7 @@ public class WaypointEditScreen extends Screen {
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
         super.extractRenderState(g, mouseX, mouseY, delta);
 
-        // typing a hex code updates the picker
+        // Typing a hex code updates the selected hue and the cached gradient texture.
         String curHex = hexBox.getValue();
         if (!curHex.equals(lastHex)) {
             lastHex = curHex;
@@ -416,19 +452,13 @@ public class WaypointEditScreen extends Screen {
         rrect(g, cx + 90, oy + 109, cx + 150, oy + 122, resetHover ? CARD_HOVER : CARD);
         g.text(this.font, "Reset color", cx + 120 - this.font.width("Reset color") / 2, oy + 112, MUTED, false);
 
-        // saturation / brightness grid
+        // Smooth 128x64 saturation/brightness gradient. A cached texture is one draw call;
+        // it is regenerated only when the hue changes, not on every menu frame.
         int gx = cx - 150;
         int gy = oy + 124;
-        int blocksX = SV_COLS * SV_CELL / SV_DRAW;
-        int blocksY = SV_ROWS * SV_CELL / SV_DRAW;
-        for (int by = 0; by < blocksY; by++) {
-            for (int bx = 0; bx < blocksX; bx++) {
-                float s = (bx + 0.5f) / blocksX;
-                float v = 1f - (by + 0.5f) / blocksY;
-                g.fill(gx + bx * SV_DRAW, gy + by * SV_DRAW, gx + (bx + 1) * SV_DRAW, gy + (by + 1) * SV_DRAW,
-                        0xFF000000 | hsvToRgb(hue, s, v));
-            }
-        }
+        refreshPickerTexture();
+        g.blit(PICKER_TEXTURE_ID, gx, gy, gx + PICKER_WIDTH, gy + PICKER_HEIGHT,
+                0.0f, 1.0f, 0.0f, 1.0f);
         int markX = gx + Math.round(sat * SV_COLS * SV_CELL);
         int markY = gy + Math.round((1f - val) * SV_ROWS * SV_CELL);
         ring(g, markX, markY);
