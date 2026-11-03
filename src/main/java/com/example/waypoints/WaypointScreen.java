@@ -227,28 +227,28 @@ public class WaypointScreen extends Screen {
         g.text(this.font, label, x + (w - this.font.width(label)) / 2, y + 5, TEXT, false);
     }
 
-    /** Rounded rectangle with a soft one-pixel edge instead of square pixel-block corners. */
+    /** Efficient rounded rectangle: draw the body once and rasterize only the corner rows. */
     private static void rrect(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2, int color) {
-        int radius = Math.min(7, Math.min((x2 - x1) / 2, (y2 - y1) / 2));
-        int rgb = color & 0x00FFFFFF;
-        for (int row = 0; row < (y2 - y1); row++) {
-            int fromEdge = Math.min(row, y2 - y1 - 1 - row);
-            if (fromEdge >= radius) {
-                g.fill(x1, y1 + row, x2, y1 + row + 1, color);
-                continue;
-            }
-            double dy = radius - fromEdge - 0.5;
-            double insetExact = radius - Math.sqrt(Math.max(0.0, radius * radius - dy * dy));
-            int inset = (int) Math.ceil(insetExact);
-            int edgeAlpha = Math.max(24, Math.min(220, (int) ((1.0 - (inset - insetExact)) * 210.0)));
-            if (inset > 0) {
-                g.fill(x1 + inset, y1 + row, x2 - inset, y1 + row + 1, color);
-                int edge = (edgeAlpha << 24) | rgb;
-                g.fill(x1 + inset - 1, y1 + row, x1 + inset, y1 + row + 1, edge);
-                g.fill(x2 - inset, y1 + row, x2 - inset + 1, y1 + row + 1, edge);
-            } else {
-                g.fill(x1, y1 + row, x2, y1 + row + 1, color);
-            }
+        int width = x2 - x1;
+        int height = y2 - y1;
+        if (width <= 0 || height <= 0) return;
+
+        int radius = Math.min(6, Math.min(width / 2, height / 2));
+        if (radius <= 0) {
+            g.fill(x1, y1, x2, y2, color);
+            return;
+        }
+
+        // Central body: two rectangles instead of one draw call per vertical pixel.
+        g.fill(x1 + radius, y1, x2 - radius, y2, color);
+        g.fill(x1, y1 + radius, x2, y2 - radius, color);
+
+        // Only the rounded top and bottom corner rows need separate fills.
+        for (int row = 0; row < radius; row++) {
+            double dy = radius - row - 0.5;
+            int inset = (int) Math.ceil(radius - Math.sqrt(Math.max(0.0, radius * radius - dy * dy)));
+            g.fill(x1 + inset, y1 + row, x2 - inset, y1 + row + 1, color);
+            g.fill(x1 + inset, y2 - row - 1, x2 - inset, y2 - row, color);
         }
     }
 

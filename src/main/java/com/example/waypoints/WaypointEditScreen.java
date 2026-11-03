@@ -37,17 +37,25 @@ public class WaypointEditScreen extends Screen {
     private static final int ORANGE_DARK = 0xFF4A230B;
 
     // ---- color picker geometry ----
-    private static final int SV_COLS = 16;
-    private static final int SV_ROWS = 8;
-    private static final int SV_CELL = 8;      // picker width/height scale
-    private static final int PICKER_WIDTH = SV_COLS * SV_CELL;
-    private static final int PICKER_HEIGHT = SV_ROWS * SV_CELL;
+    // GUI-space dimensions stay compact; the backing texture is 2x resolution
+    // so the gradient stays smooth on scaled/high-DPI displays.
+    private static final int PICKER_WIDTH = 128;
+    private static final int PICKER_HEIGHT = 64;
+    private static final int PICKER_TEXTURE_WIDTH = 256;
+    private static final int PICKER_TEXTURE_HEIGHT = 128;
     private static final Identifier PICKER_TEXTURE_ID = Identifier.fromNamespaceAndPath(
             "simplewaypoints", "gui/waypoint_color_picker");
     private static DynamicTexture pickerTexture;
     private static float pickerTextureHue = Float.NaN;
-    private static final int HUE_CELLS = 64;
-    private static final int HUE_CELL_H = 1;
+    private static long lastPickerUploadNanos = 0L;
+
+    // The hue strip is static, so generate it once and draw it as one texture.
+    private static final int HUE_DISPLAY_HEIGHT = 128;
+    private static final int HUE_TEXTURE_HEIGHT = 256;
+    private static final int HUE_TEXTURE_WIDTH = 8;
+    private static final Identifier HUE_TEXTURE_ID = Identifier.fromNamespaceAndPath(
+            "simplewaypoints", "gui/waypoint_hue_strip");
+    private static DynamicTexture hueTexture;
 
     // ---- dimensions ----
     private static final String[] DIM_LABELS = {"Overworld", "Nether", "End", "All dimensions"};
@@ -78,6 +86,12 @@ public class WaypointEditScreen extends Screen {
     private float hue = 0f;
     private float sat = 1f;
     private float val = 1f;
+    private boolean draggingSvPicker = false;
+    private boolean draggingHuePicker = false;
+    // Track the selection while the cursor moves; GUI-scaled absolute coordinates
+    // are used so high-DPI window scaling cannot cause drag drift.
+    private double pickerPointerX = 0.0;
+    private double pickerPointerY = 0.0;
     private boolean chroma = false;
     private int dimMode;            // 0 Overworld, 1 Nether, 2 End, 3 All, -1 = keep the original (modded) dimension
     private String lastHex = "";
@@ -172,6 +186,7 @@ public class WaypointEditScreen extends Screen {
 
         timerBox = makeBox(timerBox, cx - 100, oy + 198, 56, 16, initTimer, 6, "0");
         refreshPickerTexture();
+        ensureHueTexture();
 
         // save / delete
         int saveWidth = original != null ? 216 : 300;
@@ -205,48 +220,132 @@ public class WaypointEditScreen extends Screen {
         }
     }
 
-    // Color-picking uses Minecraft 26.3's SDL3 mouse button values.
-    // SDL_BUTTON_LEFT is 1 (the old GLFW left-button value was 0).
+    // SDL3 left mouse button is 1 in Minecraft 26.3.
+    // Keep a drag capture so the picker follows the cursor continuously, even
+    // after the pointer moves beyond the edge of the color square or hue strip.
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        double mouseX = event.x();
-        double mouseY = event.y();
         if (event.button() == 1) {
+            double mouseX = event.x();
+            double mouseY = event.y();
+
             int gx = cx - 150;
             int gy = oy + 124;
-            int pickerW = SV_COLS * SV_CELL;
-            int pickerH = SV_ROWS * SV_CELL;
-            if (mouseX >= gx && mouseX < gx + pickerW && mouseY >= gy && mouseY < gy + pickerH) {
-                sat = (float) ((mouseX - gx) / pickerW);
-                val = 1.0f - (float) ((mouseY - gy) / pickerH);
-                sat = Math.max(0.0f, Math.min(1.0f, sat));
-                val = Math.max(0.0f, Math.min(1.0f, val));
-                chroma = false;
-                syncHex();
+            int pickerW = PICKER_WIDTH;
+            int pickerH = PICKER_HEIGHT;
+
+            if (mouseX >= gx && mouseX < gx + pickerW
+                    && mouseY >= gy && mouseY < gy + pickerH) {
+                draggingSvPicker = true;
+                draggingHuePicker = false;
+                this.setDragging(true);
+                pickerPointerX = mouseX;
+                pickerPointerY = mouseY;
+                updateSvPicker(pickerPointerX, pickerPointerY);
                 return true;
             }
+
             int hueX = cx - 16;
             int hueY = oy + 124;
-            int hueH = HUE_CELLS * HUE_CELL_H;
-            if (mouseX >= hueX && mouseX < hueX + 10 && mouseY >= hueY && mouseY < hueY + hueH) {
-                hue = Math.max(0.0f, Math.min(1.0f, (float) ((mouseY - hueY) / hueH)));
-                chroma = false;
-                syncHex();
+            int hueH = HUE_DISPLAY_HEIGHT;
+            if (mouseX >= hueX && mouseX < hueX + 10
+                    && mouseY >= hueY && mouseY < hueY + hueH) {
+                draggingHuePicker = true;
+                draggingSvPicker = false;
+                this.setDragging(true);
+                pickerPointerX = mouseX;
+                pickerPointerY = mouseY;
+                updateHuePicker(pickerPointerY);
                 return true;
             }
         }
+
         return super.mouseClicked(event, doubleClick);
     }
 
+    @Override
+    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+        if (draggingSvPicker || draggingHuePicker) {
+            // Prefer the live cursor position maintained by Minecraft's SDL-backed
+            // MouseHandler. Its scaled coordinates are the same coordinate space
+            // used by Screen widgets, including non-default GUI scales.
+            updatePickerFromLiveMouse();
+            return true;
+        }
+        return super.mouseDragged(event, dragX, dragY);
+    }
+
+    @Override
+    public void mouseMoved(double mouseX, double mouseY) {
+        if (draggingSvPicker || draggingHuePicker) {
+            // Keep event-driven updates for immediate response, but use the exact
+            // same coordinate conversion as vanilla GUI elements.
+            updatePickerFromLiveMouse();
+        }
+        super.mouseMoved(mouseX, mouseY);
+    }
+
+    /** Read the current pointer directly from Minecraft instead of relying on a
+     * possibly coalesced MouseButtonEvent. This keeps the picker marker attached
+     * to the cursor while dragging quickly or when Windows sends sparse events.
+     */
+    private void updatePickerFromLiveMouse() {
+        Minecraft mc = Minecraft.getInstance();
+        double mouseX = mc.mouseHandler.getScaledXPos(mc.getWindow());
+        double mouseY = mc.mouseHandler.getScaledYPos(mc.getWindow());
+        pickerPointerX = mouseX;
+        pickerPointerY = mouseY;
+        if (draggingSvPicker) updateSvPicker(mouseX, mouseY);
+        else if (draggingHuePicker) updateHuePicker(mouseY);
+    }
+
+    @Override
+    public boolean mouseReleased(MouseButtonEvent event) {
+        if (draggingSvPicker || draggingHuePicker) {
+            // Apply the exact release coordinate before ending the drag. The
+            // picker capture itself is initiated only by a left-button press.
+            if (draggingSvPicker) updateSvPicker(event.x(), event.y());
+            else updateHuePicker(event.y());
+            draggingSvPicker = false;
+            draggingHuePicker = false;
+            this.setDragging(false);
+            return true;
+        }
+        return super.mouseReleased(event);
+    }
+
+    private void updateSvPicker(double mouseX, double mouseY) {
+        int gx = cx - 150;
+        int gy = oy + 124;
+
+        sat = clamp01((float) ((mouseX - gx) / (PICKER_WIDTH - 1.0)));
+        val = 1.0f - clamp01((float) ((mouseY - gy) / (PICKER_HEIGHT - 1.0)));
+        chroma = false;
+        syncHex();
+    }
+
+    private void updateHuePicker(double mouseY) {
+        int gy = oy + 124;
+        int hueH = HUE_DISPLAY_HEIGHT;
+
+        hue = clamp01((float) ((mouseY - gy) / (hueH - 1.0)));
+        chroma = false;
+        syncHex();
+    }
+
+    private static float clamp01(float value) {
+        return Math.max(0.0f, Math.min(1.0f, value));
+    }
+
     /**
-     * Builds the saturation/value square once for the current hue and uploads it only
-     * when the hue changes. The old implementation queued 8,192 fill calls every frame,
+     * Builds a 2x-resolution saturation/value square once for the current hue and uploads
+     * it only when the hue changes. The old implementation queued 8,192 fill calls every frame,
      * which made the edit screen noticeably laggy.
      */
     private void refreshPickerTexture() {
         if (pickerTexture == null) {
             pickerTexture = new DynamicTexture("simple-waypoints-color-picker",
-                    PICKER_WIDTH, PICKER_HEIGHT, true);
+                    PICKER_TEXTURE_WIDTH, PICKER_TEXTURE_HEIGHT, true);
             Minecraft.getInstance().getTextureManager().register(PICKER_TEXTURE_ID, pickerTexture);
             pickerTextureHue = Float.NaN;
         }
@@ -255,16 +354,44 @@ public class WaypointEditScreen extends Screen {
             return;
         }
 
+        // When dragging the hue strip, cap texture uploads at roughly 60 per second.
+        // The selection hex/preview still follows the cursor every input event.
+        long now = System.nanoTime();
+        if (!Float.isNaN(pickerTextureHue)
+                && now - lastPickerUploadNanos < 16_000_000L) {
+            return;
+        }
+
         NativeImage pixels = pickerTexture.getPixels();
-        for (int y = 0; y < PICKER_HEIGHT; y++) {
-            float brightness = 1.0f - (y + 0.5f) / PICKER_HEIGHT;
-            for (int x = 0; x < PICKER_WIDTH; x++) {
-                float saturation = (x + 0.5f) / PICKER_WIDTH;
+        for (int y = 0; y < PICKER_TEXTURE_HEIGHT; y++) {
+            float brightness = 1.0f - y / (float) (PICKER_TEXTURE_HEIGHT - 1);
+            for (int x = 0; x < PICKER_TEXTURE_WIDTH; x++) {
+                float saturation = x / (float) (PICKER_TEXTURE_WIDTH - 1);
                 pixels.setPixel(x, y, 0xFF000000 | hsvToRgb(hue, saturation, brightness));
             }
         }
         pickerTexture.upload();
         pickerTextureHue = hue;
+        lastPickerUploadNanos = now;
+    }
+
+    /** Creates the vertical hue spectrum once and reuses it for every menu frame. */
+    private static void ensureHueTexture() {
+        if (hueTexture != null) return;
+
+        hueTexture = new DynamicTexture("simple-waypoints-hue-strip",
+                HUE_TEXTURE_WIDTH, HUE_TEXTURE_HEIGHT, true);
+        Minecraft.getInstance().getTextureManager().register(HUE_TEXTURE_ID, hueTexture);
+
+        NativeImage pixels = hueTexture.getPixels();
+        for (int y = 0; y < HUE_TEXTURE_HEIGHT; y++) {
+            int rgb = 0xFF000000 | hsvToRgb(
+                    y / (float) (HUE_TEXTURE_HEIGHT - 1), 1.0f, 1.0f);
+            for (int x = 0; x < HUE_TEXTURE_WIDTH; x++) {
+                pixels.setPixel(x, y, rgb);
+            }
+        }
+        hueTexture.upload();
     }
 
     // ------------------------------------------------------------------ color logic
@@ -287,8 +414,10 @@ public class WaypointEditScreen extends Screen {
     private void syncHex() {
         if (hexBox == null) return;
         String hex = String.format(Locale.ROOT, "%06X", currentRgb());
-        hexBox.setValue(hex);
-        lastHex = hex;
+        if (!hex.equals(lastHex)) {
+            hexBox.setValue(hex);
+            lastHex = hex;
+        }
     }
 
     private void applyHex(String text) {
@@ -396,6 +525,16 @@ public class WaypointEditScreen extends Screen {
     // ------------------------------------------------------------------ drawing
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+        // Sample Minecraft's actual pointer position every frame while a picker
+        // drag is captured. This is the same scaled coordinate source used by
+        // vanilla chat and widgets, and avoids a stale marker on fast mouse moves.
+        if (draggingSvPicker || draggingHuePicker) {
+            // Do not use MouseHandler.isLeftPressed() here: Minecraft 26.3 only
+            // updates that convenience flag when no screen is open. The screen's
+            // mouseReleased callback ends this captured drag instead.
+            updatePickerFromLiveMouse();
+        }
+
         super.extractRenderState(g, mouseX, mouseY, delta);
 
         // Typing a hex code updates the selected hue and the cached gradient texture.
@@ -452,23 +591,23 @@ public class WaypointEditScreen extends Screen {
         rrect(g, cx + 90, oy + 109, cx + 150, oy + 122, resetHover ? CARD_HOVER : CARD);
         g.text(this.font, "Reset color", cx + 120 - this.font.width("Reset color") / 2, oy + 112, MUTED, false);
 
-        // Smooth 128x64 saturation/brightness gradient. A cached texture is one draw call;
-        // it is regenerated only when the hue changes, not on every menu frame.
+        // Smooth 256x128 saturation/brightness texture displayed at 128x64 GUI units.
+        // It is one draw call and regenerates only when hue changes.
         int gx = cx - 150;
         int gy = oy + 124;
         refreshPickerTexture();
         g.blit(PICKER_TEXTURE_ID, gx, gy, gx + PICKER_WIDTH, gy + PICKER_HEIGHT,
                 0.0f, 1.0f, 0.0f, 1.0f);
-        int markX = gx + Math.round(sat * SV_COLS * SV_CELL);
-        int markY = gy + Math.round((1f - val) * SV_ROWS * SV_CELL);
+        int markX = gx + Math.round(sat * (PICKER_WIDTH - 1));
+        int markY = gy + Math.round((1f - val) * (PICKER_HEIGHT - 1));
         ring(g, markX, markY);
 
-        // hue strip
-        for (int i = 0; i < HUE_CELLS; i++) {
-            g.fill(cx - 16, gy + i * HUE_CELL_H, cx - 6, gy + (i + 1) * HUE_CELL_H,
-                    0xFF000000 | hsvToRgb((i + 0.5f) / HUE_CELLS, 1f, 1f));
-        }
-        int hueY = gy + Math.round(hue * HUE_CELLS * HUE_CELL_H);
+        // One cached texture draw instead of 128 individual fill operations.
+        ensureHueTexture();
+        int hueHeight = HUE_DISPLAY_HEIGHT;
+        g.blit(HUE_TEXTURE_ID, cx - 16, gy, cx - 6, gy + hueHeight,
+                0.0f, 1.0f, 0.0f, 1.0f);
+        int hueY = gy + Math.round(hue * (hueHeight - 1));
         g.fill(cx - 18, hueY - 1, cx - 4, hueY + 1, 0xFFFFFFFF);
 
         // selected color preview + hex
@@ -524,28 +663,28 @@ public class WaypointEditScreen extends Screen {
         }
     }
 
-    /** Rounded rectangle with a soft one-pixel edge instead of square pixel-block corners. */
+    /** Efficient rounded rectangle: draw the body once and rasterize only the corner rows. */
     private static void rrect(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2, int color) {
-        int radius = Math.min(7, Math.min((x2 - x1) / 2, (y2 - y1) / 2));
-        int rgb = color & 0x00FFFFFF;
-        for (int row = 0; row < (y2 - y1); row++) {
-            int fromEdge = Math.min(row, y2 - y1 - 1 - row);
-            if (fromEdge >= radius) {
-                g.fill(x1, y1 + row, x2, y1 + row + 1, color);
-                continue;
-            }
-            double dy = radius - fromEdge - 0.5;
-            double insetExact = radius - Math.sqrt(Math.max(0.0, radius * radius - dy * dy));
-            int inset = (int) Math.ceil(insetExact);
-            int edgeAlpha = Math.max(24, Math.min(220, (int) ((1.0 - (inset - insetExact)) * 210.0)));
-            if (inset > 0) {
-                g.fill(x1 + inset, y1 + row, x2 - inset, y1 + row + 1, color);
-                int edge = (edgeAlpha << 24) | rgb;
-                g.fill(x1 + inset - 1, y1 + row, x1 + inset, y1 + row + 1, edge);
-                g.fill(x2 - inset, y1 + row, x2 - inset + 1, y1 + row + 1, edge);
-            } else {
-                g.fill(x1, y1 + row, x2, y1 + row + 1, color);
-            }
+        int width = x2 - x1;
+        int height = y2 - y1;
+        if (width <= 0 || height <= 0) return;
+
+        int radius = Math.min(6, Math.min(width / 2, height / 2));
+        if (radius <= 0) {
+            g.fill(x1, y1, x2, y2, color);
+            return;
+        }
+
+        // Central body: two rectangles instead of one draw call per vertical pixel.
+        g.fill(x1 + radius, y1, x2 - radius, y2, color);
+        g.fill(x1, y1 + radius, x2, y2 - radius, color);
+
+        // Only the rounded top and bottom corner rows need separate fills.
+        for (int row = 0; row < radius; row++) {
+            double dy = radius - row - 0.5;
+            int inset = (int) Math.ceil(radius - Math.sqrt(Math.max(0.0, radius * radius - dy * dy)));
+            g.fill(x1 + inset, y1 + row, x2 - inset, y1 + row + 1, color);
+            g.fill(x1 + inset, y2 - row - 1, x2 - inset, y2 - row, color);
         }
     }
 

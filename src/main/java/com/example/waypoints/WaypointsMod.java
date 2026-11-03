@@ -63,7 +63,7 @@ public class WaypointsMod implements ClientModInitializer {
 
     /** True when the real 3D beam is running; then the on-screen beam is not drawn. */
     public static volatile boolean beam3dActive = false;
-    public static volatile boolean showWaypointLabels = true;
+    public static volatile boolean showWaypointLabels = false;
     public static volatile boolean showWaypointBeams = true;
     /** 0=thin, 1=normal (vanilla-sized), 2=thick. */
     public static volatile int beamThickness = 1;
@@ -661,11 +661,9 @@ public class WaypointsMod implements ClientModInitializer {
             double horiz = Math.sqrt(bx * bx + bz * bz);
             int rgb = resolveColor(w);
 
-            // Keep nearby waypoint beams hidden to avoid a huge beam obscuring the view.
-            double fade = Math.max(0.0, Math.min(1.0, (horiz - 1.0) / 3.0));
-            if (showWaypointBeams && !beam3dActive && fade > 0.02) {
-                drawBeam(graphics, bx, by, bz, f, r, u, sw, sh, tanHalfFov, aspect, rgb, fade);
-            }
+            // Waypoint beams are rendered only as 3D BeaconRenderer geometry.
+            // Never fall back to the old screen-space billboard: it looked like a flat
+            // rectangle and changed shape/disappeared as the camera rotated.
 
             // Labels can be disabled from the waypoint menu. Hide the label only when you are standing
             // almost inside the waypoint.
