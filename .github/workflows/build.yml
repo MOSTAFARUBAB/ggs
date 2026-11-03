@@ -25,23 +25,40 @@ jobs:
         with:
           gradle-version: '9.8.0'
 
-      - name: Build beam-only mod
+      - name: Build mod
         run: gradle clean build --no-daemon -PwithBeam=true
 
-      - name: Verify mod JAR exists
+      - name: Show build outputs
+        if: always()
         shell: bash
         run: |
-          ls -lah build/libs
-          MOD_JAR="$(find build/libs -maxdepth 1 -type f -name 'simple-waypoints-*.jar' ! -name '*-sources.jar' -print -quit)"
+          if [ -d build/libs ]; then
+            ls -lah build/libs
+          else
+            echo "build/libs does not exist"
+          fi
 
-          test -n "$MOD_JAR"
-          jar tf "$MOD_JAR" | grep -qx 'fabric.mod.json'
-          echo "Verified: $MOD_JAR"
+      - name: Verify installable mod JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          MOD_JAR="$(find build/libs -maxdepth 1 -type f -name 'simple-waypoints-*.jar' ! -name '*-sources.jar' -print -quit)"
+          if [ -z "$MOD_JAR" ]; then
+            echo "ERROR: no simple-waypoints mod JAR found in build/libs"
+            exit 1
+          fi
+          if ! jar tf "$MOD_JAR" | grep -qx 'fabric.mod.json'; then
+            echo "ERROR: $MOD_JAR does not contain fabric.mod.json"
+            exit 1
+          fi
+          echo "Verified mod JAR: $MOD_JAR"
 
       - name: Upload installable mod JAR
         uses: actions/upload-artifact@v4
         with:
-          name: simple-waypoints-mc-26.3-beam-only
-          path: build/libs/*-beam-only-*.jar
+          name: simple-waypoints-mc-26.3
+          path: |
+            build/libs/simple-waypoints-*.jar
+            !build/libs/*-sources.jar
           if-no-files-found: error
           compression-level: 0
