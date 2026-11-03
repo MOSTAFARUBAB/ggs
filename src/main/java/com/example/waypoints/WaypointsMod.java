@@ -842,7 +842,7 @@ public class WaypointsMod implements ClientModInitializer {
 
     private static void drawPill(GuiGraphicsExtractor g, Font font, String name, double dist, int rgb, int cx, int cy, double scale) {
         if (!scaleChecked) initScale(g);
-        String distanceLine = formatDistance(dist) + "  AWAY";
+        String distanceLine = formatDistance(dist) + " away";
 
         Object pose = null;
         boolean pushed = false;
@@ -875,18 +875,18 @@ public class WaypointsMod implements ClientModInitializer {
      */
     private static void drawPillShape(GuiGraphicsExtractor g, Font font, String name, String distanceLine,
                                       int rgb, int cx, int cy) {
-        // Two-level label: readable waypoint name first, quiet distance metadata below.
-        // The shape is deliberately restrained so it looks like a world marker, not a HUD banner.
-        String displayName = name == null ? "Waypoint" : name;
+        // Two-line field label: a clear name with restrained distance metadata.
+        // Use the waypoint color only as a precise accent, keeping the text itself neutral and readable.
+        String displayName = name == null || name.isBlank() ? "Waypoint" : name;
         while (displayName.length() > 4 && font.width(displayName) > 174) {
             displayName = displayName.substring(0, displayName.length() - 1);
         }
-        if (!displayName.equals(name)) displayName += "…";
+        if (name != null && !displayName.equals(name)) displayName += "…";
 
         int nameWidth = font.width(displayName);
         int metaWidth = font.width(distanceLine);
-        int width = Math.max(62, Math.min(210, Math.max(nameWidth, metaWidth) + 22));
-        final int height = 25;
+        int width = Math.max(72, Math.min(220, Math.max(nameWidth, metaWidth) + 32));
+        final int height = 28;
         int x = cx - width / 2;
         int y = cy - height / 2;
         int edge = 0xFF000000 | (rgb & 0xFFFFFF);
@@ -894,13 +894,16 @@ public class WaypointsMod implements ClientModInitializer {
         // Soft shadow, colored keyline and a dark glass-like face.
         labelRound(g, x, y + 1, x + width, y + height + 1, 0x66000000, 7);
         labelRound(g, x, y, x + width, y + height, edge, 7);
-        labelRound(g, x + 1, y + 1, x + width - 1, y + height - 1, 0xE80C131B, 6);
-        g.fill(x + 7, y + 6, x + 9, y + height - 6, edge);
-        g.fill(x + 12, y + 2, x + width - 8, y + 3, 0x24FFFFFF);
+        labelRound(g, x + 1, y + 1, x + width - 1, y + height - 1, 0xF00A1428, 6);
+        // Small color diamond matches the in-menu waypoint swatch without adding a bulky logo.
+        g.fill(x + 10, y + 8, x + 12, y + 10, edge);
+        g.fill(x + 8, y + 10, x + 14, y + 12, edge);
+        g.fill(x + 10, y + 12, x + 12, y + 14, edge);
+        g.fill(x + 16, y + 2, x + width - 8, y + 3, 0x2A8DEAFF);
 
-        int textX = x + 15;
+        int textX = x + 19;
         g.text(font, displayName, textX, y + 4, 0xFFF7F7F2, true);
-        g.text(font, distanceLine, textX, y + 15, 0xFFB3C0C8, false);
+        g.text(font, distanceLine, textX, y + 16, 0xFFB9C9E3, false);
     }
 
     private static void labelRound(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2,

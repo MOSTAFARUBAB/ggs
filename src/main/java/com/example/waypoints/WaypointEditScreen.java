@@ -25,15 +25,15 @@ import java.util.Locale;
  */
 public class WaypointEditScreen extends Screen {
     // ---- theme ----
-    private static final int PANEL = 0xF20D141D;
-    private static final int CARD = 0xFF18232E;
-    private static final int CARD_HOVER = 0xFF22313D;
-    private static final int CARD_BORDER = 0xFF30414D;
-    private static final int TEXT = 0xFFF1F0EA;
-    private static final int MUTED = 0xFF9AA8B2;
-    private static final int ORANGE = 0xFFFFB86B;
-    private static final int ORANGE_HOVER = 0xFFFFC987;
-    private static final int ORANGE_DARK = 0xFF47301D;
+    private static final int PANEL = 0xF20B1428;
+    private static final int CARD = 0xFF142441;
+    private static final int CARD_HOVER = 0xFF1E355C;
+    private static final int CARD_BORDER = 0xFF304A78;
+    private static final int TEXT = 0xFFF2F6FF;
+    private static final int MUTED = 0xFFA7B9DA;
+    private static final int CYAN = 0xFF48E6F2;
+    private static final int CYAN_HOVER = 0xFF86F7FF;
+    private static final int CYAN_DARK = 0xFF123E5A;
 
     // ---- color picker geometry ----
     // GUI-space dimensions stay compact; the backing texture is 2x resolution
@@ -154,7 +154,7 @@ public class WaypointEditScreen extends Screen {
     }
 
     public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
-        g.fill(0, 0, this.width, this.height, 0xB0000000);
+        g.fill(0, 0, this.width, this.height, 0xB0060A18);
     }
 
     // ------------------------------------------------------------------ layout / widgets
@@ -553,17 +553,17 @@ public class WaypointEditScreen extends Screen {
         g.fill(left, oy + 120, cx + 196, oy + 121, 0x553B4A55);
 
         // Header and navigation.
-        g.text(this.font, "FIELD ATLAS  /  EDITOR", left, oy + 3, MUTED, false);
-        g.text(this.font, original == null ? "Create a location" : "Edit location", left, oy + 16, TEXT, true);
+        g.text(this.font, "SIMPLE WAYPOINTS  /  EDITOR", left, oy + 3, MUTED, false);
+        g.text(this.font, original == null ? "Create waypoint" : "Edit waypoint", left, oy + 16, TEXT, true);
         boolean closeHover = inside(mouseX, mouseY, cx + 188, oy + 2, 18, 16);
-        rrect(g, cx + 188, oy + 2, cx + 206, oy + 18, closeHover ? ORANGE_HOVER : CARD);
+        rrect(g, cx + 188, oy + 2, cx + 206, oy + 18, closeHover ? CYAN_HOVER : CARD);
         g.text(this.font, "X", cx + 194, oy + 6, MUTED, true);
         boolean backHover = inside(mouseX, mouseY, left, oy + 22, 62, 16);
         rrect(g, left, oy + 22, left + 62, oy + 38, backHover ? CARD_HOVER : CARD);
         g.text(this.font, "< BACK", left + 13, oy + 26, MUTED, false);
 
         // Location fields.
-        g.text(this.font, "DESTINATION NAME", left, oy + 42, QUIET, false);
+        g.text(this.font, "WAYPOINT NAME", left, oy + 42, QUIET, false);
         drawBox(g, nameBox, left, oy + 46, 392, 18, "Waypoint name");
         g.text(this.font, "COORDINATES", left, oy + 66, QUIET, false);
         drawBox(g, xBox, left, oy + 74, 122, 18, "X");
@@ -571,14 +571,14 @@ public class WaypointEditScreen extends Screen {
         drawBox(g, zBox, left + 260, oy + 74, 122, 18, "Z");
 
         // Dimension selector.
-        g.text(this.font, "VISIBLE IN", left, oy + 92, QUIET, false);
+        g.text(this.font, "DIMENSION", left, oy + 92, QUIET, false);
         int dx = left;
         for (int i = 0; i < DIM_LABELS.length; i++) {
             boolean selected = dimMode == i;
             boolean hover = inside(mouseX, mouseY, dx, oy + 98, DIM_W[i], 18);
-            rrect(g, dx, oy + 98, dx + DIM_W[i], oy + 116, selected ? ORANGE : CARD_BORDER);
+            rrect(g, dx, oy + 98, dx + DIM_W[i], oy + 116, selected ? CYAN : CARD_BORDER);
             rrect(g, dx + 1, oy + 99, dx + DIM_W[i] - 1, oy + 115,
-                    selected ? ORANGE_DARK : (hover ? CARD_HOVER : CARD));
+                    selected ? CYAN_DARK : (hover ? CARD_HOVER : CARD));
             int tw = this.font.width(DIM_LABELS[i]);
             g.text(this.font, DIM_LABELS[i], dx + (DIM_W[i] - tw) / 2, oy + 103,
                     selected ? TEXT : MUTED, false);
@@ -586,7 +586,7 @@ public class WaypointEditScreen extends Screen {
         }
 
         // Color workspace: continuous saturation/value plane + hue strip + live preview.
-        g.text(this.font, "BEACON COLOR", left, oy + 123, TEXT, true);
+        g.text(this.font, "BEAM COLOR", left, oy + 123, TEXT, true);
         refreshPickerTexture();
         g.blit(PICKER_TEXTURE_ID, pickerX(), pickerTop,
                 pickerX() + PICKER_WIDTH, pickerTop + PICKER_HEIGHT,
@@ -604,18 +604,18 @@ public class WaypointEditScreen extends Screen {
         // Live preview panel, hex input, chroma switch, reset and recent swatches.
         rrect(g, preview, pickerTop, preview + 238, pickerTop + 64, CARD_BORDER);
         rrect(g, preview + 1, pickerTop + 1, preview + 237, pickerTop + 63, CARD);
-        g.text(this.font, "CURRENT BEAM", preview + 9, pickerTop + 7, MUTED, false);
+        g.text(this.font, "COLOR PREVIEW", preview + 9, pickerTop + 7, MUTED, false);
         int previewRgb = chroma
                 ? WaypointsMod.resolveColor(new Waypoint("", 0, 0, 0, WaypointsMod.CHROMA, "", 0L, "", "W"))
                 : currentRgb();
         rrect(g, preview + 9, pickerTop + 22, preview + 58, pickerTop + 39, 0xFF000000 | previewRgb);
         drawBox(g, hexBox, preview + 66, pickerTop + 21, 78, 16, "HEX");
-        g.text(this.font, "CHROMA", preview + 151, pickerTop + 7, chroma ? ORANGE : MUTED, false);
+        g.text(this.font, "CHROMA", preview + 151, pickerTop + 7, chroma ? CYAN : MUTED, false);
         rrect(g, preview + 194, pickerTop + 5, preview + 232, pickerTop + 17,
-                chroma ? ORANGE_DARK : 0xFF26323C);
+                chroma ? CYAN_DARK : 0xFF26323C);
         int chromaKnob = chroma ? preview + 215 : preview + 196;
         rrect(g, chromaKnob, pickerTop + 7, chromaKnob + 15, pickerTop + 15,
-                chroma ? ORANGE : 0xFF82909A);
+                chroma ? CYAN : 0xFF82909A);
         rrect(g, preview + 194, pickerTop + 21, preview + 232, pickerTop + 37,
                 inside(mouseX, mouseY, preview + 194, pickerTop + 21, 38, 16) ? CARD_HOVER : 0xFF26323C);
         g.text(this.font, "RESET", preview + 199, pickerTop + 25, MUTED, false);
@@ -630,13 +630,13 @@ public class WaypointEditScreen extends Screen {
         }
 
         // Expiry and primary actions.
-        g.text(this.font, "AUTO-EXPIRE", left, oy + 207, QUIET, false);
+        g.text(this.font, "EXPIRY", left, oy + 207, QUIET, false);
         drawBox(g, timerBox, left + 64, oy + 203, 72, 17, "Seconds");
         g.text(this.font, "seconds   /   0 means never", left + 145, oy + 208, MUTED, false);
 
         int saveWidth = original != null ? 266 : 392;
         boolean saveHover = inside(mouseX, mouseY, left, oy + 232, saveWidth, 21);
-        rrect(g, left, oy + 232, left + saveWidth, oy + 253, saveHover ? ORANGE_HOVER : ORANGE);
+        rrect(g, left, oy + 232, left + saveWidth, oy + 253, saveHover ? CYAN_HOVER : CYAN);
         String saveLabel = original == null ? "CREATE WAYPOINT" : "SAVE CHANGES";
         g.text(this.font, saveLabel, left + saveWidth / 2 - this.font.width(saveLabel) / 2,
                 oy + 239, 0xFF21150B, true);
@@ -652,7 +652,7 @@ public class WaypointEditScreen extends Screen {
 
     private void drawBox(GuiGraphicsExtractor g, EditBox box, int x, int y, int w, int h, String placeholder) {
         boolean focused = box.isFocused();
-        rrect(g, x, y, x + w, y + h, focused ? ORANGE : CARD_BORDER);
+        rrect(g, x, y, x + w, y + h, focused ? CYAN : CARD_BORDER);
         rrect(g, x + 1, y + 1, x + w - 1, y + h - 1, CARD);
         String v = box.getValue();
         int ty = y + (h - 8) / 2;

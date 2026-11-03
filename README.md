@@ -1,26 +1,31 @@
-# Simple Waypoints — Field Atlas UI
+# Simple Waypoints — Unified Field Atlas UI
 
 Client-side Fabric waypoint mod for Minecraft 26.3 (Java 25).
 
-## Included
-- Native Minecraft `BeaconRenderer` 3D waypoint beams.
-- Floating, two-line waypoint labels: waypoint name and distance, with distance-aware sizing capped at a readable maximum.
-- A redesigned Field Atlas interface with a left navigation rail, scope filters, beam/name switches, and a separate saved-location workspace.
-- Custom Create, Edit, Delete, page navigation, and close controls.
-- Create, edit, delete, color selection, dimension filters, and persistent waypoint saving.
-- A matching warm graphite / brass / ice accent palette on the editor.
-- Fixed-cost UI drawing: no continuous UI animation or per-frame texture generation.
+## Unified design
+
+The interface combines all four selected visual concepts into one coherent experience:
+
+- **Main menu:** a dimension navigation rail, searchable waypoint directory, and create / edit / delete actions.
+- **Waypoint editor:** a dedicated editor with coordinate fields, dimension scope, continuous color selection, HEX entry, recent colors, chroma mode, and expiry.
+- **In-world labels:** compact two-line waypoint name and distance labels with a matching color accent and capped distance-aware sizing.
+- **Compact inspector:** selecting a waypoint shows its color preview, dimension, coordinates, distance, expiry, and edit / delete actions beside the list. The layout adapts on smaller game windows.
+
+The interface uses a midnight-blue surface with cyan and violet accents. Rendering is static and avoids continuous decorative animation or large per-frame drawing loops. The color picker texture is cached and refreshed only when its hue changes.
 
 ## Controls
-- **B** — create a waypoint.
+
+- **B** — open the create-waypoint editor, prefilled with the current position.
 - **J** — open the waypoint directory.
 - **/wp menu** — open the waypoint directory.
 
 ## Build
+
 Use Java 25 and run `gradle clean build --no-daemon -PwithBeam=true`.
-The installable mod JAR is produced in `build/libs/`. GitHub Actions verifies the JAR contains `fabric.mod.json` and uploads only the installable JAR (not the sources JAR).
+The installable mod JAR is produced in `build/libs/`. GitHub Actions checks that the JAR contains `fabric.mod.json` and uploads only the installable JAR (not the sources JAR).
 
-A 240 FPS result cannot be guaranteed by a mod alone. Actual frame rate depends on the game, GPU, CPU, shaders, render distance, and other mods. The menu avoids continuous animation and regenerates the color gradient only when its hue changes.
+A 240 FPS result cannot be guaranteed by a mod alone; actual frame rate depends on hardware, Minecraft settings, shaders, render distance, and other mods.
 
-## Minecraft 26.3 compile note
-The waypoint-label HUD uses `Minecraft.getInstance().gui.screen()` to detect an open screen. The UI uses the Minecraft 26.3 `GuiGraphicsExtractor` and `MouseButtonEvent` APIs.
+## Minecraft 26.3 notes
+
+The mod uses the `GuiGraphicsExtractor` and `MouseButtonEvent` GUI APIs, checks the open screen through `Minecraft.getInstance().gui.screen()`, and submits waypoint beams through Minecraft's native `BeaconRenderer` path.
