@@ -17,24 +17,23 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Create / edit one waypoint with a dark Feather-style layout: name, X/Y/Z, dimension buttons
- * (Overworld / Nether / End / All dimensions), a color picker (saturation-brightness grid, hue strip,
- * hex box, Chroma toggle, Reset, recent colors), and timer.
+ * Create / edit one waypoint in the Field Atlas editor: a wide location form above
+ * a color workstation, live preview, dimension scope, and expiry controls.
  *
  * How it works: normal Minecraft buttons and text boxes sit invisibly in the right places and handle all
  * clicking and typing; everything you actually SEE is drawn on top of them in extractRenderState.
  */
 public class WaypointEditScreen extends Screen {
     // ---- theme ----
-    private static final int PANEL = 0xF20A1120;
-    private static final int CARD = 0xFF121E30;
-    private static final int CARD_HOVER = 0xFF1B2B42;
-    private static final int CARD_BORDER = 0xFF2A4058;
-    private static final int TEXT = 0xFFF0F6FF;
-    private static final int MUTED = 0xFF93A8C1;
-    private static final int ORANGE = 0xFF62E6C4;
-    private static final int ORANGE_HOVER = 0xFF8AF0D8;
-    private static final int ORANGE_DARK = 0xFF153A3B;
+    private static final int PANEL = 0xF20D141D;
+    private static final int CARD = 0xFF18232E;
+    private static final int CARD_HOVER = 0xFF22313D;
+    private static final int CARD_BORDER = 0xFF30414D;
+    private static final int TEXT = 0xFFF1F0EA;
+    private static final int MUTED = 0xFF9AA8B2;
+    private static final int ORANGE = 0xFFFFB86B;
+    private static final int ORANGE_HOVER = 0xFFFFC987;
+    private static final int ORANGE_DARK = 0xFF47301D;
 
     // ---- color picker geometry ----
     // GUI-space dimensions stay compact; the backing texture is 2x resolution
@@ -50,7 +49,7 @@ public class WaypointEditScreen extends Screen {
     private static long lastPickerUploadNanos = 0L;
 
     // The hue strip is static, so generate it once and draw it as one texture.
-    private static final int HUE_DISPLAY_HEIGHT = 128;
+    private static final int HUE_DISPLAY_HEIGHT = 64;
     private static final int HUE_TEXTURE_HEIGHT = 256;
     private static final int HUE_TEXTURE_WIDTH = 8;
     private static final Identifier HUE_TEXTURE_ID = Identifier.fromNamespaceAndPath(
@@ -99,6 +98,14 @@ public class WaypointEditScreen extends Screen {
 
     private int cx;
     private int oy;
+
+    // Two-column editor geometry: a color workstation on the left and a compact
+    // location form / options row across the full panel.
+    private int formLeft() { return cx - 196; }
+    private int pickerX() { return cx - 196; }
+    private int pickerY() { return oy + 131; }
+    private int hueX() { return cx - 60; }
+    private int previewX() { return cx - 42; }
 
     public WaypointEditScreen(Waypoint original, int returnPage) {
         super(Component.literal(original == null ? "New Waypoint" : "Edit Waypoint"));
@@ -154,45 +161,47 @@ public class WaypointEditScreen extends Screen {
     @Override
     protected void init() {
         cx = this.width / 2;
-        oy = Math.max(2, (this.height - 256) / 2);
+        oy = Math.max(4, (this.height - 280) / 2);
+        int left = formLeft();
+        int preview = previewX();
+        int pickerTop = pickerY();
 
-        // close (X) and go back
-        click(cx + 138, oy + 2, 20, 14, this::back);
-        click(cx - 150, oy + 22, 62, 16, this::back);
+        click(cx + 188, oy + 2, 18, 16, this::back);
+        click(left, oy + 22, 62, 16, this::back);
 
-        nameBox = makeBox(nameBox, cx - 150, oy + 44, 300, 18, initName, 32, "Name");
-        xBox = makeBox(xBox, cx - 150, oy + 66, 96, 18, initX, 9, "X");
-        yBox = makeBox(yBox, cx - 48, oy + 66, 96, 18, initY, 9, "Y");
-        zBox = makeBox(zBox, cx + 54, oy + 66, 96, 18, initZ, 9, "Z");
+        nameBox = makeBox(nameBox, left, oy + 46, 392, 18, initName, 32, "Waypoint name");
+        xBox = makeBox(xBox, left, oy + 74, 122, 18, initX, 9, "X");
+        yBox = makeBox(yBox, left + 130, oy + 74, 122, 18, initY, 9, "Y");
+        zBox = makeBox(zBox, left + 260, oy + 74, 122, 18, initZ, 9, "Z");
 
-        // dimension buttons
-        int dx = cx - 150;
+        int dx = left;
         for (int i = 0; i < DIM_LABELS.length; i++) {
             final int mode = i;
-            click(dx, oy + 88, DIM_W[i], 18, () -> dimMode = mode);
+            click(dx, oy + 98, DIM_W[i], 18, () -> dimMode = mode);
             dx += DIM_W[i] + 4;
         }
 
-        // Color picker input is handled directly in mouseClicked (no hundreds of hidden widgets).
-        click(cx + 28, oy + 109, 60, 13, () -> chroma = !chroma);
-        click(cx + 90, oy + 109, 60, 13, this::resetColor);
+        // The color picker is a continuous drag surface; only the auxiliary
+        // controls need hit targets.
+        click(preview + 146, pickerTop + 2, 88, 17, () -> chroma = !chroma);
+        click(preview + 194, pickerTop + 21, 38, 16, this::resetColor);
         for (int i = 0; i < RECENT.size(); i++) {
             final int idx = i;
-            click(cx + 2 + i * 16, oy + 181, 14, 10, () -> pickRecent(idx));
+            click(preview + 55 + i * 18, pickerTop + 45, 14, 14, () -> pickRecent(idx));
         }
 
-        hexBox = makeBox(hexBox, cx + 2, oy + 152, 100, 16, String.format(Locale.ROOT, "%06X", currentRgb()), 7, "HEX");
+        hexBox = makeBox(hexBox, preview + 66, pickerTop + 21, 78, 16,
+                String.format(Locale.ROOT, "%06X", currentRgb()), 7, "HEX");
         lastHex = hexBox.getValue();
+        timerBox = makeBox(timerBox, left + 64, oy + 203, 72, 17, initTimer, 6, "Seconds");
 
-        timerBox = makeBox(timerBox, cx - 100, oy + 198, 56, 16, initTimer, 6, "0");
         refreshPickerTexture();
         ensureHueTexture();
 
-        // save / delete
-        int saveWidth = original != null ? 216 : 300;
-        click(cx - 150, oy + 220, saveWidth, 20, this::save);
+        int saveWidth = original != null ? 266 : 392;
+        click(left, oy + 232, saveWidth, 21, this::save);
         if (original != null) {
-            click(cx + 72, oy + 220, 78, 20, () -> {
+            click(left + 274, oy + 232, 118, 21, () -> {
                 WaypointsMod.remove(original);
                 back();
             });
@@ -229,8 +238,8 @@ public class WaypointEditScreen extends Screen {
             double mouseX = event.x();
             double mouseY = event.y();
 
-            int gx = cx - 150;
-            int gy = oy + 124;
+            int gx = pickerX();
+            int gy = pickerY();
             int pickerW = PICKER_WIDTH;
             int pickerH = PICKER_HEIGHT;
 
@@ -245,8 +254,8 @@ public class WaypointEditScreen extends Screen {
                 return true;
             }
 
-            int hueX = cx - 16;
-            int hueY = oy + 124;
+            int hueX = hueX();
+            int hueY = pickerY();
             int hueH = HUE_DISPLAY_HEIGHT;
             if (mouseX >= hueX && mouseX < hueX + 10
                     && mouseY >= hueY && mouseY < hueY + hueH) {
@@ -315,8 +324,8 @@ public class WaypointEditScreen extends Screen {
     }
 
     private void updateSvPicker(double mouseX, double mouseY) {
-        int gx = cx - 150;
-        int gy = oy + 124;
+        int gx = pickerX();
+        int gy = pickerY();
 
         sat = clamp01((float) ((mouseX - gx) / (PICKER_WIDTH - 1.0)));
         val = 1.0f - clamp01((float) ((mouseY - gy) / (PICKER_HEIGHT - 1.0)));
@@ -325,7 +334,7 @@ public class WaypointEditScreen extends Screen {
     }
 
     private void updateHuePicker(double mouseY) {
-        int gy = oy + 124;
+        int gy = pickerY();
         int hueH = HUE_DISPLAY_HEIGHT;
 
         hue = clamp01((float) ((mouseY - gy) / (hueH - 1.0)));
@@ -525,126 +534,120 @@ public class WaypointEditScreen extends Screen {
     // ------------------------------------------------------------------ drawing
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
-        // Sample Minecraft's actual pointer position every frame while a picker
-        // drag is captured. This is the same scaled coordinate source used by
-        // vanilla chat and widgets, and avoids a stale marker on fast mouse moves.
-        if (draggingSvPicker || draggingHuePicker) {
-            // Do not use MouseHandler.isLeftPressed() here: Minecraft 26.3 only
-            // updates that convenience flag when no screen is open. The screen's
-            // mouseReleased callback ends this captured drag instead.
-            updatePickerFromLiveMouse();
-        }
-
+        if (draggingSvPicker || draggingHuePicker) updatePickerFromLiveMouse();
         super.extractRenderState(g, mouseX, mouseY, delta);
 
-        // Typing a hex code updates the selected hue and the cached gradient texture.
         String curHex = hexBox.getValue();
         if (!curHex.equals(lastHex)) {
             lastHex = curHex;
             applyHex(curHex);
         }
 
-        // panel (covers the plain widgets underneath)
-        rrect(g, cx - 158, oy + 16, cx + 158, oy + 250, PANEL);
+        int left = formLeft();
+        int preview = previewX();
+        int pickerTop = pickerY();
 
-        // title + close
-        g.text(this.font, "WAYPOINT STATION  /  CONFIGURE", cx - 158, oy + 4, MUTED, false);
-        g.text(this.font, original == null ? "CREATE WAYPOINT" : "EDIT WAYPOINT", cx - 158, oy + 16, TEXT, true);
-        boolean closeHover = inside(mouseX, mouseY, cx + 138, oy + 2, 20, 14);
-        rrect(g, cx + 138, oy + 2, cx + 158, oy + 16, closeHover ? ORANGE_HOVER : ORANGE);
-        rrect(g, cx + 139, oy + 3, cx + 157, oy + 15, 0xFF1A1208);
-        g.text(this.font, "x", cx + 148 - this.font.width("x") / 2, oy + 5, ORANGE, false);
+        // Main editor shell and its section dividers.
+        rrect(g, cx - 204, oy + 16, cx + 204, oy + 274, PANEL);
+        g.fill(left, oy + 39, cx + 196, oy + 40, 0x553B4A55);
+        g.fill(left, oy + 120, cx + 196, oy + 121, 0x553B4A55);
 
-        // go back
-        boolean backHover = inside(mouseX, mouseY, cx - 150, oy + 22, 62, 16);
-        rrect(g, cx - 150, oy + 22, cx - 88, oy + 38, backHover ? CARD_HOVER : CARD);
-        String backLabel = returnPage < 0 ? "< Cancel" : "< Go back";
-        g.text(this.font, backLabel, cx - 119 - this.font.width(backLabel) / 2, oy + 26, MUTED, false);
+        // Header and navigation.
+        g.text(this.font, "FIELD ATLAS  /  EDITOR", left, oy + 3, MUTED, false);
+        g.text(this.font, original == null ? "Create a location" : "Edit location", left, oy + 16, TEXT, true);
+        boolean closeHover = inside(mouseX, mouseY, cx + 188, oy + 2, 18, 16);
+        rrect(g, cx + 188, oy + 2, cx + 206, oy + 18, closeHover ? ORANGE_HOVER : CARD);
+        g.text(this.font, "X", cx + 194, oy + 6, MUTED, true);
+        boolean backHover = inside(mouseX, mouseY, left, oy + 22, 62, 16);
+        rrect(g, left, oy + 22, left + 62, oy + 38, backHover ? CARD_HOVER : CARD);
+        g.text(this.font, "< BACK", left + 13, oy + 26, MUTED, false);
 
-        // text boxes
-        drawBox(g, nameBox, cx - 150, oy + 44, 300, 18, "Name");
-        drawBox(g, xBox, cx - 150, oy + 66, 96, 18, "X");
-        drawBox(g, yBox, cx - 48, oy + 66, 96, 18, "Y");
-        drawBox(g, zBox, cx + 54, oy + 66, 96, 18, "Z");
-        g.text(this.font, "X", cx - 150 + 96 - 10, oy + 71, MUTED, false);
-        g.text(this.font, "Y", cx - 48 + 96 - 10, oy + 71, MUTED, false);
-        g.text(this.font, "Z", cx + 54 + 96 - 10, oy + 71, MUTED, false);
+        // Location fields.
+        g.text(this.font, "DESTINATION NAME", left, oy + 42, QUIET, false);
+        drawBox(g, nameBox, left, oy + 46, 392, 18, "Waypoint name");
+        g.text(this.font, "COORDINATES", left, oy + 66, QUIET, false);
+        drawBox(g, xBox, left, oy + 74, 122, 18, "X");
+        drawBox(g, yBox, left + 130, oy + 74, 122, 18, "Y");
+        drawBox(g, zBox, left + 260, oy + 74, 122, 18, "Z");
 
-        // dimension buttons
-        int dx = cx - 150;
+        // Dimension selector.
+        g.text(this.font, "VISIBLE IN", left, oy + 92, QUIET, false);
+        int dx = left;
         for (int i = 0; i < DIM_LABELS.length; i++) {
             boolean selected = dimMode == i;
-            boolean hover = inside(mouseX, mouseY, dx, oy + 88, DIM_W[i], 18);
-            rrect(g, dx, oy + 88, dx + DIM_W[i], oy + 106, selected ? ORANGE : CARD_BORDER);
-            rrect(g, dx + 1, oy + 89, dx + DIM_W[i] - 1, oy + 105, selected ? ORANGE_DARK : (hover ? CARD_HOVER : CARD));
+            boolean hover = inside(mouseX, mouseY, dx, oy + 98, DIM_W[i], 18);
+            rrect(g, dx, oy + 98, dx + DIM_W[i], oy + 116, selected ? ORANGE : CARD_BORDER);
+            rrect(g, dx + 1, oy + 99, dx + DIM_W[i] - 1, oy + 115,
+                    selected ? ORANGE_DARK : (hover ? CARD_HOVER : CARD));
             int tw = this.font.width(DIM_LABELS[i]);
-            g.text(this.font, DIM_LABELS[i], dx + (DIM_W[i] - tw) / 2, oy + 93, selected ? TEXT : MUTED, false);
+            g.text(this.font, DIM_LABELS[i], dx + (DIM_W[i] - tw) / 2, oy + 103,
+                    selected ? TEXT : MUTED, false);
             dx += DIM_W[i] + 4;
         }
 
-        // color header, chroma toggle, reset
-        g.text(this.font, "COLOR", cx - 150, oy + 112, TEXT, true);
-        g.text(this.font, "Chroma", cx + 28, oy + 112, MUTED, false);
-        rrect(g, cx + 66, oy + 110, cx + 88, oy + 120, chroma ? ORANGE : 0xFF39414B);
-        int knobX = chroma ? cx + 78 : cx + 67;
-        g.fill(knobX, oy + 111, knobX + 9, oy + 119, 0xFFF3F4F6);
-        boolean resetHover = inside(mouseX, mouseY, cx + 90, oy + 109, 60, 13);
-        rrect(g, cx + 90, oy + 109, cx + 150, oy + 122, resetHover ? CARD_HOVER : CARD);
-        g.text(this.font, "Reset color", cx + 120 - this.font.width("Reset color") / 2, oy + 112, MUTED, false);
-
-        // Smooth 256x128 saturation/brightness texture displayed at 128x64 GUI units.
-        // It is one draw call and regenerates only when hue changes.
-        int gx = cx - 150;
-        int gy = oy + 124;
+        // Color workspace: continuous saturation/value plane + hue strip + live preview.
+        g.text(this.font, "BEACON COLOR", left, oy + 123, TEXT, true);
         refreshPickerTexture();
-        g.blit(PICKER_TEXTURE_ID, gx, gy, gx + PICKER_WIDTH, gy + PICKER_HEIGHT,
+        g.blit(PICKER_TEXTURE_ID, pickerX(), pickerTop,
+                pickerX() + PICKER_WIDTH, pickerTop + PICKER_HEIGHT,
                 0.0f, 1.0f, 0.0f, 1.0f);
-        int markX = gx + Math.round(sat * (PICKER_WIDTH - 1));
-        int markY = gy + Math.round((1f - val) * (PICKER_HEIGHT - 1));
+        int markX = pickerX() + Math.round(sat * (PICKER_WIDTH - 1));
+        int markY = pickerTop + Math.round((1f - val) * (PICKER_HEIGHT - 1));
         ring(g, markX, markY);
 
-        // One cached texture draw instead of 128 individual fill operations.
         ensureHueTexture();
-        int hueHeight = HUE_DISPLAY_HEIGHT;
-        g.blit(HUE_TEXTURE_ID, cx - 16, gy, cx - 6, gy + hueHeight,
+        g.blit(HUE_TEXTURE_ID, hueX(), pickerTop, hueX() + 10, pickerTop + HUE_DISPLAY_HEIGHT,
                 0.0f, 1.0f, 0.0f, 1.0f);
-        int hueY = gy + Math.round(hue * (hueHeight - 1));
-        g.fill(cx - 18, hueY - 1, cx - 4, hueY + 1, 0xFFFFFFFF);
+        int hueY = pickerTop + Math.round(hue * (HUE_DISPLAY_HEIGHT - 1));
+        g.fill(hueX() - 2, hueY - 1, hueX() + 12, hueY + 1, 0xFFFFFFFF);
 
-        // selected color preview + hex
-        g.text(this.font, "Selected color", cx + 2, oy + 124, MUTED, false);
+        // Live preview panel, hex input, chroma switch, reset and recent swatches.
+        rrect(g, preview, pickerTop, preview + 238, pickerTop + 64, CARD_BORDER);
+        rrect(g, preview + 1, pickerTop + 1, preview + 237, pickerTop + 63, CARD);
+        g.text(this.font, "CURRENT BEAM", preview + 9, pickerTop + 7, MUTED, false);
         int previewRgb = chroma
                 ? WaypointsMod.resolveColor(new Waypoint("", 0, 0, 0, WaypointsMod.CHROMA, "", 0L, "", "W"))
                 : currentRgb();
-        rrect(g, cx + 2, oy + 134, cx + 102, oy + 148, 0xFF000000 | previewRgb);
-        drawBox(g, hexBox, cx + 2, oy + 152, 100, 16, "HEX");
-
-        // recent colors
-        g.text(this.font, "Recent colors", cx + 2, oy + 172, MUTED, false);
+        rrect(g, preview + 9, pickerTop + 22, preview + 58, pickerTop + 39, 0xFF000000 | previewRgb);
+        drawBox(g, hexBox, preview + 66, pickerTop + 21, 78, 16, "HEX");
+        g.text(this.font, "CHROMA", preview + 151, pickerTop + 7, chroma ? ORANGE : MUTED, false);
+        rrect(g, preview + 194, pickerTop + 5, preview + 232, pickerTop + 17,
+                chroma ? ORANGE_DARK : 0xFF26323C);
+        int chromaKnob = chroma ? preview + 215 : preview + 196;
+        rrect(g, chromaKnob, pickerTop + 7, chromaKnob + 15, pickerTop + 15,
+                chroma ? ORANGE : 0xFF82909A);
+        rrect(g, preview + 194, pickerTop + 21, preview + 232, pickerTop + 37,
+                inside(mouseX, mouseY, preview + 194, pickerTop + 21, 38, 16) ? CARD_HOVER : 0xFF26323C);
+        g.text(this.font, "RESET", preview + 199, pickerTop + 25, MUTED, false);
+        g.text(this.font, "RECENT", preview + 9, pickerTop + 46, QUIET, false);
         for (int i = 0; i < RECENT.size(); i++) {
-            rrect(g, cx + 2 + i * 16, oy + 181, cx + 16 + i * 16, oy + 191, 0xFF000000 | RECENT.get(i));
+            int sx = preview + 55 + i * 18;
+            rrect(g, sx, pickerTop + 45, sx + 14, pickerTop + 59, 0xFF000000 | RECENT.get(i));
+            if (inside(mouseX, mouseY, sx, pickerTop + 45, 14, 14)) {
+                g.fill(sx - 1, pickerTop + 44, sx + 15, pickerTop + 45, TEXT);
+                g.fill(sx - 1, pickerTop + 59, sx + 15, pickerTop + 60, TEXT);
+            }
         }
 
-        // timer
-        g.text(this.font, "Timer (s)", cx - 150, oy + 202, MUTED, false);
-        drawBox(g, timerBox, cx - 100, oy + 198, 56, 16, "0");
-        g.text(this.font, "0 = forever", cx - 30, oy + 202, MUTED, false);
+        // Expiry and primary actions.
+        g.text(this.font, "AUTO-EXPIRE", left, oy + 207, QUIET, false);
+        drawBox(g, timerBox, left + 64, oy + 203, 72, 17, "Seconds");
+        g.text(this.font, "seconds   /   0 means never", left + 145, oy + 208, MUTED, false);
 
-        // save / delete
-        int saveWidth = original != null ? 216 : 300;
-        boolean saveHover = inside(mouseX, mouseY, cx - 150, oy + 220, saveWidth, 20);
-        rrect(g, cx - 150, oy + 220, cx - 150 + saveWidth, oy + 240, saveHover ? ORANGE_HOVER : ORANGE);
-        String saveLabel = original == null ? "Create Waypoint" : "Save Waypoint";
-        g.text(this.font, saveLabel, cx - 150 + saveWidth / 2 - this.font.width(saveLabel) / 2, oy + 226, 0xFFFFFFFF, true);
+        int saveWidth = original != null ? 266 : 392;
+        boolean saveHover = inside(mouseX, mouseY, left, oy + 232, saveWidth, 21);
+        rrect(g, left, oy + 232, left + saveWidth, oy + 253, saveHover ? ORANGE_HOVER : ORANGE);
+        String saveLabel = original == null ? "CREATE WAYPOINT" : "SAVE CHANGES";
+        g.text(this.font, saveLabel, left + saveWidth / 2 - this.font.width(saveLabel) / 2,
+                oy + 239, 0xFF21150B, true);
         if (original != null) {
-            boolean delHover = inside(mouseX, mouseY, cx + 72, oy + 220, 78, 20);
-            rrect(g, cx + 72, oy + 220, cx + 150, oy + 240, delHover ? 0xFF9B2C2C : 0xFF7F1D1D);
-            g.text(this.font, "Delete", cx + 111 - this.font.width("Delete") / 2, oy + 226, 0xFFFEE2E2, false);
+            boolean delHover = inside(mouseX, mouseY, left + 274, oy + 232, 118, 21);
+            rrect(g, left + 274, oy + 232, left + 392, oy + 253,
+                    delHover ? 0xFF63343A : 0xFF3B252A);
+            g.text(this.font, "DELETE", left + 333 - this.font.width("DELETE") / 2,
+                    oy + 239, 0xFFF2B7B8, false);
         }
-
-        if (!error.isEmpty()) {
-            g.text(this.font, error, cx - 150, oy + 242, 0xFFFF6B6B, false);
-        }
+        if (!error.isEmpty()) g.text(this.font, error, left, oy + 260, 0xFFFF8585, false);
     }
 
     private void drawBox(GuiGraphicsExtractor g, EditBox box, int x, int y, int w, int h, String placeholder) {

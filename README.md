@@ -1,26 +1,26 @@
-# Simple Waypoints — Waypoint Station
+# Simple Waypoints — Field Atlas UI
 
 Client-side Fabric waypoint mod for Minecraft 26.3 (Java 25).
 
 ## Included
 - Native Minecraft `BeaconRenderer` 3D waypoint beams.
-- Floating waypoint name + distance labels, enabled by default and toggleable from the menu.
-- Dark deep-ocean / mint / violet Waypoint Station menu theme.
-- Create, edit, and delete waypoints; color selection; dimension filters; save persistence.
-- Compact, fixed-cost HUD label drawing and a static menu layout designed to avoid per-frame texture generation or animation work.
+- Floating, two-line waypoint labels: waypoint name and distance, with distance-aware sizing capped at a readable maximum.
+- A redesigned Field Atlas interface with a left navigation rail, scope filters, beam/name switches, and a separate saved-location workspace.
+- Custom Create, Edit, Delete, page navigation, and close controls.
+- Create, edit, delete, color selection, dimension filters, and persistent waypoint saving.
+- A matching warm graphite / brass / ice accent palette on the editor.
+- Fixed-cost UI drawing: no continuous UI animation or per-frame texture generation.
 
 ## Controls
 - **B** — create a waypoint.
-- **J** — open the waypoint list.
-- **/wp menu** — open the waypoint list.
+- **J** — open the waypoint directory.
+- **/wp menu** — open the waypoint directory.
 
 ## Build
 Use Java 25 and run `gradle clean build --no-daemon -PwithBeam=true`.
-The mod JAR is produced in `build/libs/`. GitHub Actions uploads the JAR as an artifact after a successful build.
+The installable mod JAR is produced in `build/libs/`. GitHub Actions verifies the JAR contains `fabric.mod.json` and uploads only the installable JAR (not the sources JAR).
 
-A 240 FPS result cannot be guaranteed by a mod alone; actual frame rate depends on the game, GPU, CPU, shaders, render distance, and other mods. The menu avoids continuous animation and regenerates the color gradient only when its hue changes.
+A 240 FPS result cannot be guaranteed by a mod alone. Actual frame rate depends on the game, GPU, CPU, shaders, render distance, and other mods. The menu avoids continuous animation and regenerates the color gradient only when its hue changes.
 
-
-## Minecraft 26.3 compile fix
-
-The waypoint-label HUD now checks `Minecraft.getInstance().gui.screen()` (the 26.3 screen manager API) instead of the removed `Minecraft.screen` field. This keeps waypoint labels hidden while a menu/screen is open.
+## Minecraft 26.3 compile note
+The waypoint-label HUD uses `Minecraft.getInstance().gui.screen()` to detect an open screen. The UI uses the Minecraft 26.3 `GuiGraphicsExtractor` and `MouseButtonEvent` APIs.

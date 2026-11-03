@@ -801,8 +801,10 @@ public class WaypointsMod implements ClientModInitializer {
     // Avoid matrix scaling here: scaling extracted GUI text can cause glyph clipping/jitter.
 
     private static String formatDistance(double d) {
-        if (d < 1000.0) return String.format(java.util.Locale.ROOT, "%.1fm", d);
-        return (int) d + "m";
+        if (d < 10.0) return String.format(java.util.Locale.ROOT, "%.1f m", d);
+        if (d < 1000.0) return Math.round(d) + " m";
+        if (d < 10_000.0) return String.format(java.util.Locale.ROOT, "%.1f km", d / 1000.0);
+        return Math.round(d / 1000.0) + " km";
     }
 
     // ---------------- pill label ----------------
@@ -840,7 +842,7 @@ public class WaypointsMod implements ClientModInitializer {
 
     private static void drawPill(GuiGraphicsExtractor g, Font font, String name, double dist, int rgb, int cx, int cy, double scale) {
         if (!scaleChecked) initScale(g);
-        String text = name + " [" + Math.round(dist) + "m]";
+        String distanceLine = formatDistance(dist) + "  AWAY";
 
         Object pose = null;
         boolean pushed = false;
@@ -851,9 +853,9 @@ public class WaypointsMod implements ClientModInitializer {
                 pushed = true;
                 M_TRANSLATE.invoke(pose, (float) cx, (float) cy);
                 M_SCALE.invoke(pose, (float) scale, (float) scale);
-                drawPillShape(g, font, text, rgb, 0, 0);
+                drawPillShape(g, font, name, distanceLine, rgb, 0, 0);
             } else {
-                drawPillShape(g, font, text, rgb, cx, cy);
+                drawPillShape(g, font, name, distanceLine, rgb, cx, cy);
             }
         } catch (Throwable t) {
             scaleOk = false;
@@ -868,24 +870,53 @@ public class WaypointsMod implements ClientModInitializer {
         }
     }
 
-    /** Draws a compact rounded label with a colored edge and translucent dark face.
-     * Uses a fixed four-fill shape so many labels remain inexpensive to draw.
+    /** Draws a compact two-line waypoint label: name first, distance second.
+     * The rounded panel uses a fixed number of fills to stay inexpensive per frame.
      */
-    private static void drawPillShape(GuiGraphicsExtractor g, Font font, String text, int rgb, int cx, int cy) {
-        final int h = 14;
-        int textW = font.width(text);
-        int w = textW + 12;
-        int x = cx - w / 2;
-        int y = cy - h / 2;
-        int border = 0xFF000000 | (rgb & 0xFFFFFF);
-        int fill = 0xB80A1120;
+    private static void drawPillShape(GuiGraphicsExtractor g, Font font, String name, String distanceLine,
+                                      int rgb, int cx, int cy) {
+        // Two-level label: readable waypoint name first, quiet distance metadata below.
+        // The shape is deliberately restrained so it looks like a world marker, not a HUD banner.
+        String displayName = name == null ? "Waypoint" : name;
+        while (displayName.length() > 4 && font.width(displayName) > 174) {
+            displayName = displayName.substring(0, displayName.length() - 1);
+        }
+        if (!displayName.equals(name)) displayName += "…";
 
-        // Four rectangles approximate a capsule without per-row raster work.
-        g.fill(x + 6, y, x + w - 6, y + h, border);
-        g.fill(x, y + 5, x + w, y + h - 5, border);
-        g.fill(x + 7, y + 1, x + w - 7, y + h - 1, fill);
-        g.fill(x + 1, y + 6, x + w - 1, y + h - 6, fill);
-        g.text(font, text, cx - textW / 2, y + 3, 0xFFFFFFFF, false);
+        int nameWidth = font.width(displayName);
+        int metaWidth = font.width(distanceLine);
+        int width = Math.max(62, Math.min(210, Math.max(nameWidth, metaWidth) + 22));
+        final int height = 25;
+        int x = cx - width / 2;
+        int y = cy - height / 2;
+        int edge = 0xFF000000 | (rgb & 0xFFFFFF);
+
+        // Soft shadow, colored keyline and a dark glass-like face.
+        labelRound(g, x, y + 1, x + width, y + height + 1, 0x66000000, 7);
+        labelRound(g, x, y, x + width, y + height, edge, 7);
+        labelRound(g, x + 1, y + 1, x + width - 1, y + height - 1, 0xE80C131B, 6);
+        g.fill(x + 7, y + 6, x + 9, y + height - 6, edge);
+        g.fill(x + 12, y + 2, x + width - 8, y + 3, 0x24FFFFFF);
+
+        int textX = x + 15;
+        g.text(font, displayName, textX, y + 4, 0xFFF7F7F2, true);
+        g.text(font, distanceLine, textX, y + 15, 0xFFB3C0C8, false);
+    }
+
+    private static void labelRound(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2,
+                                   int color, int radiusWanted) {
+        int w = x2 - x1;
+        int h = y2 - y1;
+        int radius = Math.min(radiusWanted, Math.min(w / 2, h / 2));
+        if (w <= 0 || h <= 0) return;
+        g.fill(x1 + radius, y1, x2 - radius, y2, color);
+        g.fill(x1, y1 + radius, x2, y2 - radius, color);
+        for (int row = 0; row < radius; row++) {
+            double dy = radius - row - 0.5;
+            int inset = (int) Math.ceil(radius - Math.sqrt(Math.max(0.0, radius * radius - dy * dy)));
+            g.fill(x1 + inset, y1 + row, x2 - inset, y1 + row + 1, color);
+            g.fill(x1 + inset, y2 - row - 1, x2 - inset, y2 - row, color);
+        }
     }
 
     /** Projects a world offset (relative to the eye) to {screenX, screenY, depth}, or null if behind the camera. */
