@@ -31,6 +31,7 @@ public class WaypointEditScreen extends Screen {
     private static final int CARD_BORDER = 0xFF304A78;
     private static final int TEXT = 0xFFF2F6FF;
     private static final int MUTED = 0xFFA7B9DA;
+    private static final int QUIET = 0xFF7085AE;
     private static final int CYAN = 0xFF48E6F2;
     private static final int CYAN_HOVER = 0xFF86F7FF;
     private static final int CYAN_DARK = 0xFF123E5A;

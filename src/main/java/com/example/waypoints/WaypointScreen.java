@@ -349,9 +349,9 @@ public final class WaypointScreen extends Screen {
         }
 
         g.fill(left + 14, bottom - 70, left + railWidth - 14, bottom - 69, 0x55465F91);
-        railToggle(g, mx, my, left + 14, bottom - 62, railWidth - 28, 22,
+        railToggle(g, mx, my, left + 14, bottom - 62, railWidth - 28,
                 "BEACON BEAM", WaypointsMod.showWaypointBeams, CYAN);
-        railToggle(g, mx, my, left + 14, bottom - 34, railWidth - 28, 22,
+        railToggle(g, mx, my, left + 14, bottom - 34, railWidth - 28,
                 "NAME LABELS", WaypointsMod.showWaypointLabels, VIOLET);
     }
 
