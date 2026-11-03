@@ -653,6 +653,7 @@ public class WaypointsMod implements ClientModInitializer {
         double tanHalfFov = Math.tan(Math.toRadians(effectiveRenderFov(mc, partial)) / 2.0);
 
         Font font = mc.font;
+        if (!scaleChecked) initScale(graphics);
         long gameTick = mc.level.getGameTime();
         if (gameTick != hudScopeTick) {
             hudWorldId = currentWorldId();
@@ -662,16 +663,22 @@ public class WaypointsMod implements ClientModInitializer {
         String dim = hudDimension;
         String worldId = hudWorldId;
 
+        // Keep the HUD work bounded. The label collision pass uses fixed arrays so it
+        // does not allocate a rectangle object for every waypoint on every frame.
+        final int maxLabels = 16;
+        int[] occupiedLeft = new int[maxLabels];
+        int[] occupiedTop = new int[maxLabels];
+        int[] occupiedRight = new int[maxLabels];
+        int[] occupiedBottom = new int[maxLabels];
         int renderedLabels = 0;
         for (Waypoint w : WAYPOINTS) {
-            if (renderedLabels >= 24) break;
+            if (renderedLabels >= maxLabels) break;
             if (!java.util.Objects.equals(w.worldId(), worldId)) continue;
             if (!dimensionMatches(w, dim)) continue;
 
             double bx = w.x() + 0.5 - eye.x;
             double by = w.y() - eye.y;
             double bz = w.z() + 0.5 - eye.z;
-            double horiz = Math.sqrt(bx * bx + bz * bz);
             int rgb = resolveColor(w);
 
             // Waypoint beams are rendered only as 3D BeaconRenderer geometry.
@@ -687,7 +694,7 @@ public class WaypointsMod implements ClientModInitializer {
             double dist = Math.sqrt(pdx * pdx + pdy * pdy + pdz * pdz);
             if (dist < 1.0) continue;
 
-            // Pill label: "name [5m]" in a rounded dark box with a border in the waypoint color
+            // Compact name and distance label with a black face and waypoint-color accent
             double dx = bx;
             double dy = by + 2.5;
             double dz = bz;
@@ -697,12 +704,45 @@ public class WaypointsMod implements ClientModInitializer {
             int sy = (int) p[1];
             if (sx < -80 || sx > sw + 80 || sy < -80 || sy > sh + 80) continue;
 
-            // distance is measured from the player, not from the camera
-            // Treat the label like an object in the world: its apparent size must follow perspective
-            // (camera depth and the actual rendered FOV), rather than only the player's distance.
+            // Distance is measured from the player, while size follows the actual camera depth.
             double perspectiveScale = perspectivePillScale(p[2], tanHalfFov);
-            drawPill(graphics, font, w.name(), dist, rgb, sx, sy, perspectiveScale);
-            renderedLabels++;
+            if (!scaleOk) perspectiveScale = 1.0;
+            String distanceLine = formatDistance(dist) + " away";
+            int labelWidth = (int) Math.ceil(pillBaseWidth(font, w.name(), distanceLine) * perspectiveScale);
+            int labelHeight = (int) Math.ceil(30.0 * perspectiveScale);
+
+            // Keep nearby labels from covering one another. Try the anchor first, then
+            // short vertical offsets; if the screen is too crowded, hide this label
+            // instead of drawing unreadable overlapping names.
+            boolean placed = false;
+            for (int offset : LABEL_VERTICAL_OFFSETS) {
+                int labelY = sy + offset;
+                int left = sx - labelWidth / 2;
+                int top = labelY - labelHeight / 2;
+                int right = left + labelWidth;
+                int bottom = top + labelHeight;
+                if (left < 2 || right > sw - 2 || top < 2 || bottom > sh - 2) continue;
+
+                boolean overlaps = false;
+                for (int i = 0; i < renderedLabels; i++) {
+                    if (left < occupiedRight[i] + 3 && right + 3 > occupiedLeft[i]
+                            && top < occupiedBottom[i] + 3 && bottom + 3 > occupiedTop[i]) {
+                        overlaps = true;
+                        break;
+                    }
+                }
+                if (overlaps) continue;
+
+                occupiedLeft[renderedLabels] = left;
+                occupiedTop[renderedLabels] = top;
+                occupiedRight[renderedLabels] = right;
+                occupiedBottom[renderedLabels] = bottom;
+                drawPill(graphics, font, w.name(), dist, rgb, sx, labelY, perspectiveScale);
+                renderedLabels++;
+                placed = true;
+                break;
+            }
+            if (!placed) continue;
         }
     }
 
@@ -797,18 +837,19 @@ public class WaypointsMod implements ClientModInitializer {
     }
 
     // ---------------- Crisp waypoint marker ----------------
-    // Draw the logo as simple GUI geometry and use Minecraft's normal text renderer.
+    // Draw the label using Minecraft's standard UI font and simple GUI geometry.
     // Avoid matrix scaling here: scaling extracted GUI text can cause glyph clipping/jitter.
 
     private static String formatDistance(double d) {
-        if (d < 10.0) return String.format(java.util.Locale.ROOT, "%.1f m", d);
+        if (d < 10.0) return (Math.round(d * 10.0) / 10.0) + " m";
         if (d < 1000.0) return Math.round(d) + " m";
-        if (d < 10_000.0) return String.format(java.util.Locale.ROOT, "%.1f km", d / 1000.0);
+        if (d < 10_000.0) return (Math.round(d / 100.0) / 10.0) + " km";
         return Math.round(d / 1000.0) + " km";
     }
 
     // ---------------- pill label ----------------
     private static java.lang.reflect.Method M_POSE, M_PUSH, M_POP, M_TRANSLATE, M_SCALE;
+    private static final int[] LABEL_VERTICAL_OFFSETS = {0, -34, 34, -68, 68, -102, 102, -136, 136};
     private static boolean scaleChecked = false;
     private static boolean scaleOk = false;
 
@@ -830,12 +871,8 @@ public class WaypointsMod implements ClientModInitializer {
     }
 
     /**
-     * Labels intentionally grow with distance (the requested mod behavior), but are
-     * independent of camera FOV so zooming cannot change their size. Growth is capped.
-     */
-    /**
-     * Close labels are slightly larger; distant labels ease down to a fixed,
-     * readable minimum instead of growing with distance.
+     * Close labels may be slightly larger; distant labels ease down to a fixed,
+     * readable minimum instead of growing with distance. The maximum stays capped.
      */
     private static double perspectivePillScale(double depth, double tanHalfFov) {
         double safeDepth = Math.max(1.0, depth);
@@ -877,8 +914,7 @@ public class WaypointsMod implements ClientModInitializer {
     /** Draws a compact two-line waypoint label: name first, distance second.
      * The rounded panel uses a fixed number of fills to stay inexpensive per frame.
      */
-    private static void drawPillShape(GuiGraphicsExtractor g, Font font, String name, String distanceLine,
-                                      int rgb, int cx, int cy) {
+    private static String fitPillName(Font font, String name) {
         String displayName = name == null || name.isBlank() ? "Waypoint" : name.trim();
         final int maxTextWidth = 168;
         if (font.width(displayName) > maxTextWidth) {
@@ -887,20 +923,32 @@ public class WaypointsMod implements ClientModInitializer {
             }
             displayName += "…";
         }
+        return displayName;
+    }
 
+    private static int pillBaseWidth(Font font, String name, String distanceLine) {
+        int nameWidth = font.width(fitPillName(font, name));
+        int metaWidth = font.width(distanceLine);
+        return Math.max(84, Math.min(206, Math.max(nameWidth, metaWidth) + 24));
+    }
+
+    private static void drawPillShape(GuiGraphicsExtractor g, Font font, String name, String distanceLine,
+                                      int rgb, int cx, int cy) {
+        String displayName = fitPillName(font, name);
         int nameWidth = font.width(displayName);
         int metaWidth = font.width(distanceLine);
-        int width = Math.max(84, Math.min(206, Math.max(nameWidth, metaWidth) + 24));
+        int width = pillBaseWidth(font, displayName, distanceLine);
         final int height = 30;
         int x = cx - width / 2;
         int y = cy - height / 2;
         int edge = 0xFF000000 | (rgb & 0xFFFFFF);
 
-        // Muted slate face; waypoint hue is only a slim accent.
-        labelRound(g, x, y + 1, x + width, y + height + 1, 0x52000000, 8);
-        labelRound(g, x, y, x + width, y + height, 0xFF77869A, 8);
-        labelRound(g, x + 1, y + 1, x + width - 1, y + height - 1, 0xF01D2633, 7);
-        g.fill(x + 7, y + 6, x + 9, y + height - 6, edge);
+        // Flat black label: four cheap fills instead of dozens of rounded-corner
+        // scanline fills per waypoint. This substantially reduces HUD draw calls.
+        g.fill(x + 1, y + 2, x + width + 1, y + height + 2, 0x88000000);
+        g.fill(x, y, x + width, y + height, 0xFF383838);
+        g.fill(x + 1, y + 1, x + width - 1, y + height - 1, 0xF5080808);
+        g.fill(x + 6, y + 6, x + 8, y + height - 6, edge);
 
         // Center both lines in the text area for balanced alignment.
         int textAreaLeft = x + 14;
@@ -909,22 +957,6 @@ public class WaypointsMod implements ClientModInitializer {
         int metaX = textAreaLeft + Math.max(0, (textAreaWidth - metaWidth) / 2);
         g.text(font, displayName, nameX, y + 4, 0xFFF0F2F4, true);
         g.text(font, distanceLine, metaX, y + 17, 0xFFB8C1CC, false);
-    }
-
-    private static void labelRound(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2,
-                                   int color, int radiusWanted) {
-        int w = x2 - x1;
-        int h = y2 - y1;
-        int radius = Math.min(radiusWanted, Math.min(w / 2, h / 2));
-        if (w <= 0 || h <= 0) return;
-        g.fill(x1 + radius, y1, x2 - radius, y2, color);
-        g.fill(x1, y1 + radius, x2, y2 - radius, color);
-        for (int row = 0; row < radius; row++) {
-            double dy = radius - row - 0.5;
-            int inset = (int) Math.ceil(radius - Math.sqrt(Math.max(0.0, radius * radius - dy * dy)));
-            g.fill(x1 + inset, y1 + row, x2 - inset, y1 + row + 1, color);
-            g.fill(x1 + inset, y2 - row - 1, x2 - inset, y2 - row, color);
-        }
     }
 
     /** Projects a world offset (relative to the eye) to {screenX, screenY, depth}, or null if behind the camera. */

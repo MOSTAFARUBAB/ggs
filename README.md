@@ -11,7 +11,7 @@ The interface combines all four selected visual concepts into one coherent exper
 - **In-world labels:** compact two-line waypoint name and distance labels with a matching color accent and capped distance-aware sizing.
 - **Compact inspector:** selecting a waypoint shows its color preview, dimension, coordinates, distance, expiry, and edit / delete actions beside the list. The layout adapts on smaller game windows.
 
-The interface uses a midnight-blue surface with cyan and violet accents. Rendering is static and avoids continuous decorative animation or large per-frame drawing loops. The color picker texture is cached and refreshed only when its hue changes.
+The interface uses a true black surface, restrained gray controls, natural English capitalization, and Minecraft's standard UI font. In-world labels use black panels and automatically move vertically when two labels would overlap. Label drawing uses a small fixed number of fill calls, the color-picker texture is cached, and the beam renderer prioritizes the nearest waypoints to keep rendering work bounded.
 
 ## Controls
 
@@ -24,7 +24,7 @@ The interface uses a midnight-blue surface with cyan and violet accents. Renderi
 Use Java 25 and run `gradle clean build --no-daemon -PwithBeam=true`.
 The installable mod JAR is produced in `build/libs/`. GitHub Actions checks that the JAR contains `fabric.mod.json` and uploads only the installable JAR (not the sources JAR).
 
-A 240 FPS result cannot be guaranteed by a mod alone; actual frame rate depends on hardware, Minecraft settings, shaders, render distance, and other mods.
+The mod reduces its own per-frame rendering work, but no mod can guarantee 240 FPS. Actual frame rate still depends on hardware, Minecraft settings, shaders, render distance, and other mods.
 
 ## Minecraft 26.3 notes
 

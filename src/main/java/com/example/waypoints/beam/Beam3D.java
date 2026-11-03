@@ -23,7 +23,7 @@ import java.util.List;
  * follow BeaconRenderer's Minecraft 26.3 implementation.
  */
 public final class Beam3D {
-    private static final int MAX_RENDERED_BEAMS = 24;
+    private static final int MAX_RENDERED_BEAMS = 12;
     private static volatile List<BeamState> beams = List.of();
     private static volatile boolean failed = false;
 
@@ -62,13 +62,12 @@ public final class Beam3D {
                 cameraPosition = new Vec3(camera[0], camera[1], camera[2]);
             }
 
-            List<BeamState> out = new ArrayList<>();
-            // Match BeaconRenderer.getViewDistance()/shouldRender(): distance is
-            // the effective render distance in chunks converted to blocks.
+            List<BeamState> candidates = new ArrayList<>();
+            // Stay within the game's effective render distance, but choose the nearest
+            // markers rather than letting old waypoints consume the entire beam budget.
             double maxBeamDistance = mc.options.getEffectiveRenderDistance() * 16.0;
             double maxBeamDistanceSquared = maxBeamDistance * maxBeamDistance;
             for (Waypoint waypoint : WaypointsMod.currentContextWaypoints()) {
-                if (out.size() >= MAX_RENDERED_BEAMS) break;
 
                 // BeaconRenderer expects the pose stack at the block origin; it adds
                 // its own +0.5 X/Z translation internally to center the beam.
@@ -92,14 +91,19 @@ public final class Beam3D {
 
                 // Store the block origin, not its center. submitBeaconBeam() centers
                 // itself by translating +0.5 X/Z just like the real beacon renderer.
-                out.add(new BeamState(
+                candidates.add(new BeamState(
                         waypoint.x(),
                         waypoint.z(),
                         color,
-                        radiusScale
+                        radiusScale,
+                        horizontalDistanceSquared
                 ));
             }
-            beams = List.copyOf(out);
+            candidates.sort(java.util.Comparator.comparingDouble(BeamState::distanceSquared));
+            if (candidates.size() > MAX_RENDERED_BEAMS) {
+                candidates.subList(MAX_RENDERED_BEAMS, candidates.size()).clear();
+            }
+            beams = List.copyOf(candidates);
         } catch (Throwable t) {
             fail(t);
         }
@@ -160,6 +164,6 @@ public final class Beam3D {
         }
     }
 
-    private record BeamState(double x, double z, int rgb, float radiusScale) {
+    private record BeamState(double x, double z, int rgb, float radiusScale, double distanceSquared) {
     }
 }
