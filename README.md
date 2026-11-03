@@ -29,3 +29,7 @@ The mod reduces its own per-frame rendering work, but no mod can guarantee 240 F
 ## Minecraft 26.3 notes
 
 The mod uses the `GuiGraphicsExtractor` and `MouseButtonEvent` GUI APIs, checks the open screen through `Minecraft.getInstance().gui.screen()`, and submits waypoint beams through Minecraft's native `BeaconRenderer` path.
+
+## Waypoint label depth behaviour
+
+Waypoint labels remain visible, but they now become translucent when a block or an entity is between the camera and the waypoint anchor. Foreground mobs and dropped items reduce label opacity more strongly, allowing the scene to show through the label rather than appearing fully covered by an opaque HUD card. Block obstruction softens the label without hiding it. Entity occlusion checks are limited to the nearest 48 blocks to keep the per-frame work bounded.

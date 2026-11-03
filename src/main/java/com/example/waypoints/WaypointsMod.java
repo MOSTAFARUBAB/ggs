@@ -25,6 +25,10 @@ import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.Vec3;
@@ -737,7 +741,13 @@ public class WaypointsMod implements ClientModInitializer {
                 occupiedTop[renderedLabels] = top;
                 occupiedRight[renderedLabels] = right;
                 occupiedBottom[renderedLabels] = bottom;
-                drawPill(graphics, font, w.name(), dist, rgb, sx, labelY, perspectiveScale);
+                // HUD labels are rendered after the world, so they would normally sit
+                // on top of mobs, dropped items and blocks. Fade the plate when the
+                // camera-to-waypoint line is occluded so the world remains visible
+                // through it instead of turning the label into an opaque foreground card.
+                Vec3 labelWorldPos = new Vec3(w.x() + 0.5, w.y() + 2.5, w.z() + 0.5);
+                float depthOpacity = labelDepthOpacity(mc, eye, labelWorldPos);
+                drawPill(graphics, font, w.name(), dist, rgb, sx, labelY, perspectiveScale, depthOpacity);
                 renderedLabels++;
                 placed = true;
                 break;
@@ -836,6 +846,52 @@ public class WaypointsMod implements ClientModInitializer {
         }
     }
 
+    /**
+     * Returns the opacity for a label based on what is between the camera and its
+     * world anchor. Since this label is a HUD element, it cannot use the scene depth
+     * buffer directly. A short world ray gives it useful depth-aware behaviour:
+     * blocks soften it, while mobs and dropped items soften it more strongly.
+     * The label is never removed completely, so distant waypoints remain findable.
+     */
+    private static float labelDepthOpacity(Minecraft mc, Vec3 from, Vec3 to) {
+        float opacity = 1.0f;
+        double distance = from.distanceTo(to);
+        if (distance < 0.05) return opacity;
+
+        try {
+            var blockHit = mc.level.clip(new ClipContext(
+                    from, to,
+                    ClipContext.Block.COLLIDER,
+                    ClipContext.Fluid.NONE,
+                    mc.player
+            ));
+            if (blockHit.getType() != HitResult.Type.MISS) {
+                opacity = 0.72f;
+            }
+        } catch (Throwable ignored) {
+            // Keep labels readable if a future game version changes clip behaviour.
+        }
+
+        // Avoid a huge broad-phase entity query for very distant waypoints. The
+        // nearest 48 blocks are where foreground mobs/items most often cross labels.
+        try {
+            Vec3 probeEnd = distance > 48.0 ? from.lerp(to, 48.0 / distance) : to;
+            AABB rayBounds = new AABB(from, probeEnd).inflate(0.18);
+            List<Entity> foreground = mc.level.getEntities(mc.player, rayBounds,
+                    entity -> entity.isAlive() && !entity.isSpectator());
+            double probeDistanceSquared = from.distanceToSqr(probeEnd);
+            for (Entity entity : foreground) {
+                var hit = entity.getBoundingBox().inflate(0.08).clip(from, probeEnd);
+                if (hit.isPresent() && from.distanceToSqr(hit.get()) < probeDistanceSquared - 0.04) {
+                    return 0.48f;
+                }
+            }
+        } catch (Throwable ignored) {
+            // Entity fading is a visual enhancement; a failure must not hide waypoints.
+        }
+        return opacity;
+    }
+
     // ---------------- Crisp waypoint marker ----------------
     // Draw the label using Minecraft's standard UI font and simple GUI geometry.
     // Avoid matrix scaling here: scaling extracted GUI text can cause glyph clipping/jitter.
@@ -881,7 +937,8 @@ public class WaypointsMod implements ClientModInitializer {
         return Math.max(0.68, Math.min(max, scale));
     }
 
-    private static void drawPill(GuiGraphicsExtractor g, Font font, String name, double dist, int rgb, int cx, int cy, double scale) {
+    private static void drawPill(GuiGraphicsExtractor g, Font font, String name, double dist, int rgb,
+                                 int cx, int cy, double scale, float opacity) {
         if (!scaleChecked) initScale(g);
         String distanceLine = formatDistance(dist) + " away";
 
@@ -894,9 +951,9 @@ public class WaypointsMod implements ClientModInitializer {
                 pushed = true;
                 M_TRANSLATE.invoke(pose, (float) cx, (float) cy);
                 M_SCALE.invoke(pose, (float) scale, (float) scale);
-                drawPillShape(g, font, name, distanceLine, rgb, 0, 0);
+                drawPillShape(g, font, name, distanceLine, rgb, 0, 0, opacity);
             } else {
-                drawPillShape(g, font, name, distanceLine, rgb, cx, cy);
+                drawPillShape(g, font, name, distanceLine, rgb, cx, cy, opacity);
             }
         } catch (Throwable t) {
             scaleOk = false;
@@ -932,8 +989,14 @@ public class WaypointsMod implements ClientModInitializer {
         return Math.max(84, Math.min(206, Math.max(nameWidth, metaWidth) + 24));
     }
 
+    private static int applyOpacity(int argb, float opacity) {
+        int originalAlpha = (argb >>> 24) & 0xFF;
+        int alpha = Math.max(0, Math.min(255, Math.round(originalAlpha * opacity)));
+        return (argb & 0x00FFFFFF) | (alpha << 24);
+    }
+
     private static void drawPillShape(GuiGraphicsExtractor g, Font font, String name, String distanceLine,
-                                      int rgb, int cx, int cy) {
+                                      int rgb, int cx, int cy, float opacity) {
         String displayName = fitPillName(font, name);
         int nameWidth = font.width(displayName);
         int metaWidth = font.width(distanceLine);
@@ -944,19 +1007,22 @@ public class WaypointsMod implements ClientModInitializer {
         int edge = 0xFF000000 | (rgb & 0xFFFFFF);
 
         // Flat black label: four cheap fills instead of dozens of rounded-corner
-        // scanline fills per waypoint. This substantially reduces HUD draw calls.
-        g.fill(x + 1, y + 2, x + width + 1, y + height + 2, 0x88000000);
-        g.fill(x, y, x + width, y + height, 0xFF383838);
-        g.fill(x + 1, y + 1, x + width - 1, y + height - 1, 0xF5080808);
-        g.fill(x + 6, y + 6, x + 8, y + height - 6, edge);
+        // scanline fills per waypoint. The alpha is reduced when the world occludes it.
+        g.fill(x + 1, y + 2, x + width + 1, y + height + 2, applyOpacity(0x88000000, opacity));
+        g.fill(x, y, x + width, y + height, applyOpacity(0xFF383838, opacity));
+        g.fill(x + 1, y + 1, x + width - 1, y + height - 1, applyOpacity(0xF5080808, opacity));
+        g.fill(x + 6, y + 6, x + 8, y + height - 6, applyOpacity(edge, opacity));
 
-        // Center both lines in the text area for balanced alignment.
+        // Center both lines in the text area for balanced alignment. Text remains
+        // slightly brighter than the plate so the waypoint can still be read through
+        // foreground entities without looking like it is painted over them.
         int textAreaLeft = x + 14;
         int textAreaWidth = width - 20;
         int nameX = textAreaLeft + Math.max(0, (textAreaWidth - nameWidth) / 2);
         int metaX = textAreaLeft + Math.max(0, (textAreaWidth - metaWidth) / 2);
-        g.text(font, displayName, nameX, y + 4, 0xFFF0F2F4, true);
-        g.text(font, distanceLine, metaX, y + 17, 0xFFB8C1CC, false);
+        float textOpacity = Math.min(1.0f, opacity + 0.20f);
+        g.text(font, displayName, nameX, y + 4, applyOpacity(0xFFF0F2F4, textOpacity), false);
+        g.text(font, distanceLine, metaX, y + 17, applyOpacity(0xFFB8C1CC, textOpacity), false);
     }
 
     /** Projects a world offset (relative to the eye) to {screenX, screenY, depth}, or null if behind the camera. */
