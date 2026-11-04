@@ -11,7 +11,7 @@ The interface combines all four selected visual concepts into one coherent exper
 - **In-world labels:** compact two-line waypoint name and distance labels rendered as actual world-space text with scene depth testing.
 - **Compact inspector:** selecting a waypoint shows its color preview, dimension, coordinates, distance, expiry, and edit / delete actions beside the list. The layout adapts on smaller game windows.
 
-The interface uses a true black surface, restrained gray controls, natural English capitalization, and Minecraft's standard UI font. The label renderer submits native world-space text rather than a 2D HUD overlay. It draws at most 16 nearby labels and 12 beams per frame; the color-picker texture is cached.
+The interface uses a true black surface, restrained gray controls, natural English capitalization, and Minecraft's standard UI font. The label renderer submits native world-space text rather than a 2D HUD overlay. It draws up to 16 labels and 12 beams per frame; the color-picker texture is cached. Label visibility is independent of the chunk render-distance setting.
 
 ## Controls
 
@@ -32,18 +32,16 @@ The mod uses the `GuiGraphicsExtractor` and `MouseButtonEvent` GUI APIs, checks 
 
 ## Waypoint label behaviour
 
-Labels are real world-space text, drawn the way vanilla name tags are.
+Labels are world-space text with a camera-relative rendering position. Their on-screen direction follows the saved waypoint, while the renderer keeps the text close enough to the camera to avoid Minecraft's far-world clipping.
 
-- **Clear view:** letters, dark plate and outline use normal depth testing, so a mob, player, dropped item or block
-  in front of the label hides exactly the pixels it covers. The label never draws on top of them.
-- **Terrain in the way:** every frame the mod checks whether a solid block is between you and the label. If so, the
-  label is drawn through the terrain (hills, placed blocks, walls) so it can always guide you back when you are lost.
-- **Size:** constant on screen at every distance (about 13 px per line), so distant labels do not grow over the terrain or collide visually with blocks.
-- **Outline:** a continuous 1-pixel rectangular frame around a dark inset plate in the same color as the beam.
-  The border is drawn as two complete rectangles, so the corners stay connected. A rainbow/chroma beam gives it a rainbow outline.
-- The label floats 2.5 blocks above the waypoint and sits toward you from the beam so it is not half-hidden inside it.
-  It is submitted facing both ways; text
-  that faces away is culled, so only the side facing you is drawn.
+- **Long-range visibility:** labels are not removed at the edge of the chunk render distance. They remain directionally positioned even for waypoints tens of millions of blocks away, provided they are saved in the active world and dimension.
+- **Clear nearby view:** letters, matte-black plate and colored outline use normal depth testing, so a mob, player, dropped item or block in front of the label hides it.
+- **Terrain in the way:** within 256 blocks, a terrain check switches the label to see-through rendering when a solid block blocks the view. Beyond 256 blocks, the label is deliberately see-through to avoid expensive ray casts through unloaded chunks.
+- **Plate and outline:** the inset is fully opaque matte black. A continuous 1-pixel rectangular frame uses the waypoint/beam color, including chroma colors.
+- **Size:** constant on screen at every distance (about 13 px per line); distance does not enlarge the text or plate.
+- **Position:** the label floats 2.5 blocks above the waypoint and sits slightly toward the camera from its beam.
+
+The native vertical beacon beam remains subject to Minecraft's normal world/chunk render distance. The long-range visibility behaviour described above applies to labels.
 
 If `.minecraft/logs/latest.log` contains `[Simple Waypoints] submitting N world-space label(s)`, labels are being sent
 to the renderer.

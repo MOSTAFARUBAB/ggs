@@ -34,7 +34,15 @@ public final class Beam3D {
     private static volatile boolean failed = false;
     private static final int MAX_RENDERED_LABELS = 16;
     private static final int FULL_BRIGHT = 0x00F000F0;
-    private static final int LABEL_BACKGROUND = 0x66000000;
+    // Fully opaque ARGB black: the world must never show through the label plate.
+    private static final int LABEL_BACKGROUND = 0xFF000000;
+    // Keep the billboard inside the normal world projection range even when its waypoint
+    // is millions of blocks away. Its direction is preserved, so its screen position is
+    // still the direction of the real waypoint.
+    private static final double LABEL_PROXY_DISTANCE = 16.0;
+    // Long-distance ray casts are both expensive and unreliable through unloaded chunks.
+    // Distant labels deliberately use SEE_THROUGH mode instead.
+    private static final double MAX_LABEL_OCCLUSION_CHECK_DISTANCE = 256.0;
 
     private Beam3D() {
     }
@@ -96,17 +104,21 @@ public final class Beam3D {
                 double dz = wz - cameraPosition.z;
                 double distanceSquared = dx * dx + dy * dy + dz * dz;
                 double horizontalDistanceSquared = dx * dx + dz * dz;
-                if (distanceSquared > maxRenderDistanceSquared) continue;
-
                 if (renderLabels) {
                     double playerDistance = Math.sqrt(playerPosition.distanceToSqr(wx, wy, wz));
-                    // Is terrain between you and the label? Then the label is drawn through it (so you can
-                    // find your way back); with a clear view it stays depth-tested like a vanilla name tag.
-                    boolean blocked = isBlockedByTerrain(mc, cameraPosition, new Vec3(wx, waypoint.y() + 2.5, wz));
+                    double cameraDistance = Math.sqrt(distanceSquared);
+                    // Do not tie label visibility to chunk render distance. For long-range
+                    // waypoints, skip the potentially huge ray cast and intentionally draw
+                    // through terrain so the marker remains a reliable direction indicator.
+                    boolean blocked = cameraDistance > MAX_LABEL_OCCLUSION_CHECK_DISTANCE
+                            || isBlockedByTerrain(mc, cameraPosition, new Vec3(wx, waypoint.y() + 2.5, wz));
                     labelCandidates.add(new LabelState(waypoint, playerDistance, distanceSquared, blocked));
                 }
 
-                if (renderBeams && horizontalDistanceSquared <= maxRenderDistanceSquared) {
+                // Beacon columns remain constrained to normal world render distance. Labels
+                // have their own camera-relative path and are not discarded by this limit.
+                if (renderBeams && distanceSquared <= maxRenderDistanceSquared
+                        && horizontalDistanceSquared <= maxRenderDistanceSquared) {
                     double horizontalDistance = Math.sqrt(horizontalDistanceSquared);
                     // Match BeaconRenderer.extract(): scoped players use normal width;
                     // otherwise the beam widens past 96 horizontal blocks.
@@ -255,17 +267,27 @@ public final class Beam3D {
             lz += toZ / len * push;
         }
 
-        // Keep a constant on-screen size at every distance. Growing the billboard with
-        // distance makes it dominate the view and visually run into nearby terrain.
-        double dx = lx - cameraPos.x;
-        double dy = ly - cameraPos.y;
-        double dz = lz - cameraPos.z;
-        double distance = Math.max(0.5, Math.sqrt(dx * dx + dy * dy + dz * dz));
+        // Preserve the real waypoint direction, but draw the billboard at a safe camera-
+        // relative distance. Minecraft's world projection clips far-away geometry, even
+        // when the waypoint data itself is still available. The proxy makes a marker at
+        // 60,000,000 blocks render just like the same marker at 16 blocks, without changing
+        // its horizontal/vertical screen direction or reported distance.
+        double realDx = lx - cameraPos.x;
+        double realDy = ly - cameraPos.y;
+        double realDz = lz - cameraPos.z;
+        double realDistance = Math.sqrt(realDx * realDx + realDy * realDy + realDz * realDz);
+        if (realDistance < 1.0e-6) return;
+        double drawDistance = Math.min(realDistance, LABEL_PROXY_DISTANCE);
+        double proxyRatio = drawDistance / realDistance;
+        double dx = realDx * proxyRatio;
+        double dy = realDy * proxyRatio;
+        double dz = realDz * proxyRatio;
+
         Minecraft mc = Minecraft.getInstance();
         double screenH = Math.max(1.0, mc.getWindow().getHeight());
         double tanHalfFov = Math.tan(Math.toRadians(mc.options.fov().get()) / 2.0);
         final double linePx = 13.0; // fixed text height on screen, independent of distance and size preset
-        float scale = (float) ((linePx / 9.0) * (2.0 * distance * tanHalfFov) / screenH);
+        float scale = (float) ((linePx / 9.0) * (2.0 * drawDistance * tanHalfFov) / screenH);
 
         Font.DisplayMode mode = label.blocked() ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.NORMAL;
         int outline = 0xFF000000 | (WaypointsMod.resolveColor(waypoint) & 0x00FFFFFF);
@@ -282,29 +304,39 @@ public final class Beam3D {
         final float bottom = 7.0f + verticalPadding;
         final float th = 1.0f;
 
-        // Submit both billboard sides so the label is readable from either direction.
-        for (int side = 0; side < 2; side++) {
-            float xScale = side == 0 ? scale : -scale;
-            poseStack.pushPose();
-            poseStack.translate(dx, dy, dz);
-            poseStack.mulPose(new Matrix4f().rotation(camera.orientation));
-            poseStack.scale(xScale, -scale, scale);
+        // Camera orientation already makes the billboard face the viewer, so one copy
+        // is enough. The previous mirrored duplicate occupied the exact same depth plane
+        // and could flicker against itself in the depth buffer.
+        poseStack.pushPose();
+        poseStack.translate(dx, dy, dz);
+        poseStack.mulPose(new Matrix4f().rotation(camera.orientation));
+        poseStack.scale(scale, -scale, 1.0f);
 
-            // A continuous color frame with a dark inset plate; all four corners share
-            // the same fill geometry, so there are no disconnected outline segments.
-            collector.submitTextBackground(poseStack,
-                    -half - th, top - th, half + th, bottom + th,
-                    outline, mode, FULL_BRIGHT);
-            collector.submitTextBackground(poseStack,
-                    -half, top, half, bottom,
-                    LABEL_BACKGROUND, mode, FULL_BRIGHT);
+        // Keep the full-color frame, opaque black inset and text on distinct, tiny depth
+        // offsets. This prevents coplanar background quads from fighting while preserving
+        // the single continuous rectangular outline.
+        poseStack.pushPose();
+        poseStack.translate(0.0, 0.0, -0.01);
+        collector.submitTextBackground(poseStack,
+                -half - th, top - th, half + th, bottom + th,
+                outline, mode, FULL_BRIGHT);
+        poseStack.popPose();
 
-            collector.submitText(poseStack, -nameWidth * 0.5f, -10.0f, nameSeq, false, mode,
-                    FULL_BRIGHT, 0xFFFFFFFF, 0x00000000, 0);
-            collector.submitText(poseStack, -distWidth * 0.5f, -1.0f, distSeq, false, mode,
-                    FULL_BRIGHT, 0xFFD0D6DC, 0x00000000, 0);
-            poseStack.popPose();
-        }
+        poseStack.pushPose();
+        poseStack.translate(0.0, 0.0, 0.0);
+        collector.submitTextBackground(poseStack,
+                -half, top, half, bottom,
+                LABEL_BACKGROUND, mode, FULL_BRIGHT);
+        poseStack.popPose();
+
+        poseStack.pushPose();
+        poseStack.translate(0.0, 0.0, 0.01);
+        collector.submitText(poseStack, -nameWidth * 0.5f, -10.0f, nameSeq, false, mode,
+                FULL_BRIGHT, 0xFFFFFFFF, 0x00000000, 0);
+        collector.submitText(poseStack, -distWidth * 0.5f, -1.0f, distSeq, false, mode,
+                FULL_BRIGHT, 0xFFD0D6DC, 0x00000000, 0);
+        poseStack.popPose();
+        poseStack.popPose();
     }
 
     private static String fitLabelName(Font font, String rawName) {
