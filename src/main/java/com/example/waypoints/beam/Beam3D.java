@@ -12,6 +12,8 @@ import net.minecraft.client.renderer.blockentity.BeaconRenderer;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
@@ -110,9 +112,16 @@ public final class Beam3D {
                     // Do not tie label visibility to chunk render distance. For long-range
                     // waypoints, skip the potentially huge ray cast and intentionally draw
                     // through terrain so the marker remains a reliable direction indicator.
+                    Vec3 labelTarget = new Vec3(wx, waypoint.y() + 2.5, wz);
                     boolean blocked = cameraDistance > MAX_LABEL_OCCLUSION_CHECK_DISTANCE
-                            || isBlockedByTerrain(mc, cameraPosition, new Vec3(wx, waypoint.y() + 2.5, wz));
-                    labelCandidates.add(new LabelState(waypoint, playerDistance, distanceSquared, blocked));
+                            || isBlockedByTerrain(mc, cameraPosition, labelTarget);
+                    // The label is drawn on a camera-relative proxy for extreme distances.
+                    // Check loaded mobs against the real waypoint ray so the proxy cannot
+                    // paint a label over a mob between the player and the waypoint.
+                    boolean mobOverlap = isBlockedByMob(mc, cameraPosition, labelTarget, maxRenderDistance);
+                    if (!mobOverlap) {
+                        labelCandidates.add(new LabelState(waypoint, playerDistance, distanceSquared, blocked));
+                    }
                 }
 
                 // Beacon columns remain constrained to normal world render distance. Labels
@@ -148,6 +157,21 @@ public final class Beam3D {
             labels = List.copyOf(labelCandidates);
         } catch (Throwable t) {
             fail(t);
+        }
+    }
+
+    /** Hide the label whenever a loaded mob intersects the camera-to-waypoint sightline. */
+    private static boolean isBlockedByMob(Minecraft mc, Vec3 from, Vec3 to, double renderDistance) {
+        try {
+            double searchRadius = Math.max(32.0, renderDistance);
+            AABB searchArea = mc.player.getBoundingBox().inflate(searchRadius);
+            return mc.level.getEntitiesOfClass(
+                    Mob.class,
+                    searchArea,
+                    mob -> mob.isAlive() && mob != mc.player
+            ).stream().anyMatch(mob -> mob.getBoundingBox().inflate(0.75).clip(from, to).isPresent());
+        } catch (Throwable t) {
+            return false;
         }
     }
 
@@ -286,7 +310,10 @@ public final class Beam3D {
         Minecraft mc = Minecraft.getInstance();
         double screenH = Math.max(1.0, mc.getWindow().getHeight());
         double tanHalfFov = Math.tan(Math.toRadians(mc.options.fov().get()) / 2.0);
-        final double linePx = 13.0; // fixed text height on screen, independent of distance and size preset
+        // Keep labels nearly the same size, with only a gentle reduction at distance.
+        // Even at millions of blocks away the scale bottoms out at 90% of near size.
+        double distanceScale = Math.max(0.90, 1.0 - 0.015 * Math.log10(1.0 + label.playerDistance()));
+        final double linePx = 13.0 * distanceScale;
         float scale = (float) ((linePx / 9.0) * (2.0 * drawDistance * tanHalfFov) / screenH);
 
         Font.DisplayMode mode = label.blocked() ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.NORMAL;
