@@ -195,7 +195,7 @@ public final class WaypointScreen extends Screen {
 
     private void showTransferMessage(String message, boolean refresh) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player != null) mc.player.displayClientMessage(Component.literal(message), false);
+        if (mc.player != null) mc.gui.chatListener().handleSystemMessage(Component.literal(message), false);
         if (refresh) Minecraft.getInstance().gui.setScreen(new WaypointScreen(currentPage(), searchQuery));
     }
 

@@ -1,3 +1,7 @@
+## Version 1.2.1
+
+Build compatibility fixes: define the editor alternate panel color and route local import/export notices through the 26.3 GUI chat listener API.
+
 # Simple Waypoints 1.2.0 — Waypoint Manager UI
 
 Client-side Fabric waypoint manager for Minecraft 26.3 (Java 25).

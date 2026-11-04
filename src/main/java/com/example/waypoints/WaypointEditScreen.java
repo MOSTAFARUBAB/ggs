@@ -26,6 +26,7 @@ import java.util.Locale;
 public class WaypointEditScreen extends Screen {
     // ---- theme ----
     private static final int PANEL = 0xF0080808;
+    private static final int PANEL_ALT = 0xFF0F1214;
     private static final int CARD = 0xFF121212;
     private static final int CARD_HOVER = 0xFF202020;
     private static final int CARD_BORDER = 0xFF383838;
