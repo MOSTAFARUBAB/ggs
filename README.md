@@ -30,15 +30,19 @@ The mod reduces its own per-frame rendering work, but no mod can guarantee 240 F
 
 The mod uses the `GuiGraphicsExtractor` and `MouseButtonEvent` GUI APIs, checks the open screen through `Minecraft.getInstance().gui.screen()`, submits waypoint beams through Minecraft's native `BeaconRenderer` path, and submits labels through the 26.3 world-text feature renderer.
 
-## Waypoint label depth behaviour
+## Waypoint label behaviour
 
-Labels are real world-space text, drawn the way vanilla name tags are. Both the letters and the dark strip behind
-them use normal depth testing, so a mob, player, dropped item or block in front of the label hides exactly the
-pixels it covers; the label never draws on top of them.
+Labels are real world-space text, drawn the way vanilla name tags are.
 
-The label floats 1.85 blocks above the waypoint and sits half a block toward you, so it is in front of its own beam
-instead of half-hidden inside it. It is submitted facing both ways, and only the side facing you is drawn (text that
-faces away is culled, which is what made the previous build show only the beam).
+- **Clear view:** letters, dark plate and outline use normal depth testing, so a mob, player, dropped item or block
+  in front of the label hides exactly the pixels it covers. The label never draws on top of them.
+- **Terrain in the way:** every frame the mod checks whether a solid block is between you and the label. If so, the
+  label is drawn through the terrain (hills, placed blocks, walls) so it can always guide you back when you are lost.
+- **Size:** small when you are close, growing smoothly with distance so it stays big and readable far away
+  (about 13 px per line near, about 34 px far). The "Logo" size setting scales it (Small 0.8x, Large 1.25x).
+- **Outline:** a 1-pixel outline around the plate in the same color as the beam. A rainbow/chroma beam gives a rainbow outline.
+- The label sits toward you from the beam so it is not half-hidden inside it. It is submitted facing both ways; text
+  that faces away is culled, so only the side facing you is drawn.
 
-If Minecraft's log (`.minecraft/logs/latest.log`) contains `[Simple Waypoints] submitting N world-space label(s)`,
-the labels are being sent to the renderer.
+If `.minecraft/logs/latest.log` contains `[Simple Waypoints] submitting N world-space label(s)`, labels are being sent
+to the renderer.

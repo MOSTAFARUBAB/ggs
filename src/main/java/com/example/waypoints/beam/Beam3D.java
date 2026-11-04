@@ -11,6 +11,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.blockentity.BeaconRenderer;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 
@@ -98,7 +100,10 @@ public final class Beam3D {
 
                 if (renderLabels) {
                     double playerDistance = Math.sqrt(playerPosition.distanceToSqr(wx, wy, wz));
-                    labelCandidates.add(new LabelState(waypoint, playerDistance, distanceSquared));
+                    // Is terrain between you and the label? Then the label is drawn through it (so you can
+                    // find your way back); with a clear view it stays depth-tested like a vanilla name tag.
+                    boolean blocked = isBlockedByTerrain(mc, cameraPosition, new Vec3(wx, waypoint.y() + 1.85, wz));
+                    labelCandidates.add(new LabelState(waypoint, playerDistance, distanceSquared, blocked));
                 }
 
                 if (renderBeams && horizontalDistanceSquared <= maxRenderDistanceSquared) {
@@ -131,6 +136,16 @@ public final class Beam3D {
             labels = List.copyOf(labelCandidates);
         } catch (Throwable t) {
             fail(t);
+        }
+    }
+
+    /** True when a solid block lies between the two points (checked every frame, no delay). */
+    private static boolean isBlockedByTerrain(Minecraft mc, Vec3 from, Vec3 to) {
+        try {
+            var hit = mc.level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
+            return hit.getType() != HitResult.Type.MISS;
+        } catch (Throwable t) {
+            return false;
         }
     }
 
@@ -201,10 +216,11 @@ public final class Beam3D {
     private static boolean loggedLabels = false;
 
     /**
-     * Submit the label as real world-space text, the same way vanilla name tags are drawn.
-     * Everything (letters AND the dark strip behind them) uses NORMAL depth testing, so a mob,
-     * dropped item, player or block in front of the label hides exactly the pixels it covers and
-     * the label never draws on top of them.
+     * World-space label, drawn like a vanilla name tag.
+     *  - Clear view: everything is depth-tested, so mobs, items, players and blocks in front hide it.
+     *  - Terrain in the way: it is drawn through the terrain, so it can always guide you back.
+     *  - Size: small when you are close, growing with distance so it stays big and readable far away.
+     *  - Outline: a border in the same color as the waypoint's beam (rainbow follows the beam).
      */
     private static void submitDepthTestedLabel(PoseStack poseStack,
                                                 net.minecraft.client.renderer.SubmitNodeCollector collector,
@@ -217,28 +233,18 @@ public final class Beam3D {
 
         String name = fitLabelName(font, waypoint.name());
         String distanceLine = formatDistance(label.playerDistance()) + " away";
-        // Both lines get a strip of the same width so they look like one tidy plate.
-        int plateWidth = Math.max(font.width(name), font.width(distanceLine)) + 8;
-        String nameLine = padToWidth(font, name, plateWidth);
-        String distLine = padToWidth(font, distanceLine, plateWidth);
+        int target = Math.max(font.width(name), font.width(distanceLine)) + 8;
+        String nameLine = padToWidth(font, name, target);
+        String distLine = padToWidth(font, distanceLine, target);
         int nameWidth = font.width(nameLine);
         int distWidth = font.width(distLine);
-
-        // World size of one font pixel. Constant size = it shrinks and grows with distance like any
-        // object in the world; it only grows a little when far away so it stays readable.
-        float sizeMode = switch (WaypointsMod.markerSizeMode) {
-            case 0 -> 0.060f;
-            case 2 -> 0.082f;
-            default -> 0.071f;
-        };
-        float distanceBoost = (float) Math.max(1.0, Math.min(1.30, label.playerDistance() / 32.0));
-        float scale = sizeMode * distanceBoost;
+        int plateWidth = Math.max(nameWidth, distWidth);
 
         double lx = waypoint.x() + 0.5;
         double ly = waypoint.y() + 1.85;
         double lz = waypoint.z() + 0.5;
-        // The beam runs through the middle of the waypoint, so move the label half a block toward you.
-        // That puts it in front of its own beam instead of half-hidden inside it.
+        // The beam runs through the middle of the waypoint, so move the label toward you so it is
+        // in front of its own beam instead of half-hidden inside it.
         double toX = cameraPos.x - lx;
         double toZ = cameraPos.z - lz;
         double len = Math.sqrt(toX * toX + toZ * toZ);
@@ -248,43 +254,52 @@ public final class Beam3D {
             lz += toZ / len * push;
         }
 
+        // Size on screen: small up close, big far away (smooth in between).
+        double dx = lx - cameraPos.x;
+        double dy = ly - cameraPos.y;
+        double dz = lz - cameraPos.z;
+        double distance = Math.max(0.5, Math.sqrt(dx * dx + dy * dy + dz * dz));
+        Minecraft mc = Minecraft.getInstance();
+        double screenH = Math.max(1.0, mc.getWindow().getHeight());
+        double tanHalfFov = Math.tan(Math.toRadians(mc.options.fov().get()) / 2.0);
+        double t = Math.max(0.0, Math.min(1.0, (distance - 6.0) / 54.0));
+        t = t * t * (3.0 - 2.0 * t);
+        double nearPx = 13.0;   // height of one text line on screen when you are close
+        double farPx = 34.0;    // ... and when you are far away (big, so it helps when you are lost)
+        double sizeMul = switch (WaypointsMod.markerSizeMode) { case 0 -> 0.8; case 2 -> 1.25; default -> 1.0; };
+        double linePx = (nearPx + (farPx - nearPx) * t) * sizeMul;
+        float scale = (float) ((linePx / 9.0) * (2.0 * distance * tanHalfFov) / screenH);
+
+        Font.DisplayMode mode = label.blocked() ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.NORMAL;
+        int outline = 0xFF000000 | (WaypointsMod.resolveColor(waypoint) & 0x00FFFFFF);
+
         var nameSeq = Component.literal(nameLine).getVisualOrderText();
         var distSeq = Component.literal(distLine).getVisualOrderText();
 
-        // Vanilla name tags use scale(+s, -s, +s) after the camera rotation in 26.x. Text that faces
-        // the wrong way is hidden (culled), not mirrored, so the label is submitted facing both
-        // ways: only the side that faces you is ever drawn.
+        // Plate edges in text space: two 9px strips from y=-11 to y=7.
+        float half = plateWidth * 0.5f + 1.0f;
+        final float top = -11.0f;
+        final float bottom = 7.0f;
+        final float th = 1.0f;   // outline thickness in font pixels
+
+        // Submitted facing both ways; text that faces away from you is culled, so only one side shows.
         for (int side = 0; side < 2; side++) {
             float xScale = side == 0 ? scale : -scale;
             poseStack.pushPose();
-            poseStack.translate(lx - cameraPos.x, ly - cameraPos.y, lz - cameraPos.z);
+            poseStack.translate(dx, dy, dz);
             poseStack.mulPose(new Matrix4f().rotation(camera.orientation));
             poseStack.scale(xScale, -scale, scale);
 
-            collector.submitText(
-                    poseStack,
-                    -nameWidth * 0.5f,
-                    -10.0f,
-                    nameSeq,
-                    false,
-                    Font.DisplayMode.NORMAL,
-                    FULL_BRIGHT,
-                    0xFFFFFFFF,
-                    LABEL_BACKGROUND,
-                    0
-            );
-            collector.submitText(
-                    poseStack,
-                    -distWidth * 0.5f,
-                    -1.0f,
-                    distSeq,
-                    false,
-                    Font.DisplayMode.NORMAL,
-                    FULL_BRIGHT,
-                    0xFFD0D6DC,
-                    LABEL_BACKGROUND,
-                    0
-            );
+            // outline (same color as the beam)
+            collector.submitTextBackground(poseStack, -half - th, top - th, half + th, top, outline, mode, FULL_BRIGHT);
+            collector.submitTextBackground(poseStack, -half - th, bottom, half + th, bottom + th, outline, mode, FULL_BRIGHT);
+            collector.submitTextBackground(poseStack, -half - th, top, -half, bottom, outline, mode, FULL_BRIGHT);
+            collector.submitTextBackground(poseStack, half, top, half + th, bottom, outline, mode, FULL_BRIGHT);
+
+            collector.submitText(poseStack, -nameWidth * 0.5f, -10.0f, nameSeq, false, mode,
+                    FULL_BRIGHT, 0xFFFFFFFF, LABEL_BACKGROUND, 0);
+            collector.submitText(poseStack, -distWidth * 0.5f, -1.0f, distSeq, false, mode,
+                    FULL_BRIGHT, 0xFFD0D6DC, LABEL_BACKGROUND, 0);
             poseStack.popPose();
         }
     }
@@ -319,6 +334,6 @@ public final class Beam3D {
     private record BeamState(double x, double z, int rgb, float radiusScale, double distanceSquared) {
     }
 
-    private record LabelState(Waypoint waypoint, double playerDistance, double distanceSquared) {
+    private record LabelState(Waypoint waypoint, double playerDistance, double distanceSquared, boolean blocked) {
     }
 }
