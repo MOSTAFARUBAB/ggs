@@ -3,7 +3,7 @@
   "id": "simplewaypoints",
   "version": "${version}",
   "name": "Simple Waypoints",
-  "description": "Client-side waypoints with native 3D beacon beams and clean floating name labels. No logo markers or ground rings.",
+  "description": "Full-screen waypoint manager with persistent dashboard, editor, color picker, and settings. Native 3D beacon beams and world-space labels.",
   "authors": [
     "You"
   ],

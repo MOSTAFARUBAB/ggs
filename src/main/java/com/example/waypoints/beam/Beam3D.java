@@ -71,7 +71,8 @@ public final class Beam3D {
 
         try {
             Minecraft mc = Minecraft.getInstance();
-            if (mc.level == null || mc.player == null) {
+            if (mc.level == null || mc.player == null
+                    || (WaypointsMod.hideHudWhenMenuOpen && mc.gui.screen() != null)) {
                 beams = List.of();
                 labels = List.of();
                 return;
@@ -106,8 +107,11 @@ public final class Beam3D {
                 double dz = wz - cameraPosition.z;
                 double distanceSquared = dx * dx + dy * dy + dz * dz;
                 double horizontalDistanceSquared = dx * dx + dz * dz;
-                if (renderLabels) {
-                    double playerDistance = Math.sqrt(playerPosition.distanceToSqr(wx, wy, wz));
+                double playerDistance = Math.sqrt(playerPosition.distanceToSqr(wx, wy, wz));
+                boolean withinDisplayRange = WaypointsMod.maxDisplayDistance <= 0
+                        || playerDistance <= WaypointsMod.maxDisplayDistance;
+                if (!withinDisplayRange) continue;
+                if (renderLabels && waypoint.isLabelEnabled()) {
                     double cameraDistance = Math.sqrt(distanceSquared);
                     // Do not tie label visibility to chunk render distance. For long-range
                     // waypoints, skip the potentially huge ray cast and intentionally draw
@@ -126,7 +130,7 @@ public final class Beam3D {
 
                 // Beacon columns remain constrained to normal world render distance. Labels
                 // have their own camera-relative path and are not discarded by this limit.
-                if (renderBeams && distanceSquared <= maxRenderDistanceSquared
+                if (renderBeams && waypoint.isBeamEnabled() && distanceSquared <= maxRenderDistanceSquared
                         && horizontalDistanceSquared <= maxRenderDistanceSquared) {
                     double horizontalDistance = Math.sqrt(horizontalDistanceSquared);
                     // Match BeaconRenderer.extract(): scoped players use normal width;
@@ -134,7 +138,12 @@ public final class Beam3D {
                     float radiusScale = mc.player.isScoping()
                             ? 1.0f
                             : (float) Math.max(1.0, horizontalDistance / 96.0);
-                    int color = 0xFF000000 | (WaypointsMod.resolveColor(waypoint) & 0x00FFFFFF);
+                    int rawColor = WaypointsMod.matchWaypointColor ? WaypointsMod.resolveColor(waypoint) : 0xFFFFFF;
+                    int intensity = WaypointsMod.beamOpacity;
+                    int red = ((rawColor >> 16) & 255) * intensity / 100;
+                    int green = ((rawColor >> 8) & 255) * intensity / 100;
+                    int blue = (rawColor & 255) * intensity / 100;
+                    int color = 0xFF000000 | (red << 16) | (green << 8) | blue;
                     beamCandidates.add(new BeamState(
                             waypoint.x(),
                             waypoint.z(),
@@ -268,14 +277,18 @@ public final class Beam3D {
         if (cameraPos == null || camera.orientation == null) return;
 
         String name = fitLabelName(font, waypoint.name());
-        String distanceLine = formatDistance(label.playerDistance()) + " away";
-        // Size presets change the plate padding, not the font/billboard zoom.
+        String distanceLine = WaypointsMod.showWaypointDistances
+                ? formatDistance(label.playerDistance()) + " away" : "";
+        String coordinateLine = WaypointsMod.showWaypointCoordinates
+                ? waypoint.x() + ", " + waypoint.y() + ", " + waypoint.z() : "";
+        // Size presets change the plate padding, not the billboard zoom.
         int horizontalPadding = switch (WaypointsMod.markerSizeMode) { case 0 -> 3; case 2 -> 7; default -> 5; };
         String nameLine = name;
-        String distLine = distanceLine;
         int nameWidth = font.width(nameLine);
-        int distWidth = font.width(distLine);
-        int plateWidth = Math.max(nameWidth, distWidth);
+        int distWidth = distanceLine.isEmpty() ? 0 : font.width(distanceLine);
+        int coordWidth = coordinateLine.isEmpty() ? 0 : font.width(coordinateLine);
+        int plateWidth = Math.max(nameWidth, Math.max(distWidth, coordWidth));
+        int lineCount = 1 + (distanceLine.isEmpty() ? 0 : 1) + (coordinateLine.isEmpty() ? 0 : 1);
 
         double lx = waypoint.x() + 0.5;
         double ly = waypoint.y() + 2.5;
@@ -320,7 +333,6 @@ public final class Beam3D {
         int outline = 0xFF000000 | (WaypointsMod.resolveColor(waypoint) & 0x00FFFFFF);
 
         var nameSeq = Component.literal(nameLine).getVisualOrderText();
-        var distSeq = Component.literal(distLine).getVisualOrderText();
 
         // Draw one complete outer rectangle, then one inset body rectangle. A single
         // border quad avoids the hairline corner gaps caused by four separately rounded
@@ -328,7 +340,7 @@ public final class Beam3D {
         float half = plateWidth * 0.5f + horizontalPadding;
         float verticalPadding = switch (WaypointsMod.markerSizeMode) { case 0 -> 0.0f; case 2 -> 2.0f; default -> 1.0f; };
         final float top = -11.0f - verticalPadding;
-        final float bottom = 7.0f + verticalPadding;
+        final float bottom = (lineCount == 3 ? 16.0f : lineCount == 2 ? 7.0f : -2.0f) + verticalPadding;
         final float th = 1.0f;
 
         // Camera orientation already makes the billboard face the viewer, so one copy
@@ -360,8 +372,15 @@ public final class Beam3D {
         poseStack.translate(0.0, 0.0, 0.01);
         collector.submitText(poseStack, -nameWidth * 0.5f, -10.0f, nameSeq, false, mode,
                 FULL_BRIGHT, 0xFFFFFFFF, 0x00000000, 0);
-        collector.submitText(poseStack, -distWidth * 0.5f, -1.0f, distSeq, false, mode,
-                FULL_BRIGHT, 0xFFD0D6DC, 0x00000000, 0);
+        if (!distanceLine.isEmpty()) {
+            collector.submitText(poseStack, -distWidth * 0.5f, -1.0f, Component.literal(distanceLine).getVisualOrderText(), false, mode,
+                    FULL_BRIGHT, 0xFFD0D6DC, 0x00000000, 0);
+        }
+        if (!coordinateLine.isEmpty()) {
+            float y = distanceLine.isEmpty() ? -1.0f : 8.0f;
+            collector.submitText(poseStack, -coordWidth * 0.5f, y, Component.literal(coordinateLine).getVisualOrderText(), false, mode,
+                    FULL_BRIGHT, 0xFFB8C0C8, 0x00000000, 0);
+        }
         poseStack.popPose();
         poseStack.popPose();
     }

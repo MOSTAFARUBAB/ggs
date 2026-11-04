@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Properties;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -56,6 +57,9 @@ public class WaypointsMod implements ClientModInitializer {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Type LIST_TYPE = new TypeToken<List<Waypoint>>() {}.getType();
     private static final Path FILE = FabricLoader.getInstance().getConfigDir().resolve("simple-waypoints.json");
+    private static final Path SETTINGS_FILE = FabricLoader.getInstance().getConfigDir().resolve("simple-waypoints-settings.properties");
+    private static final Path EXPORT_FILE = FabricLoader.getInstance().getConfigDir().resolve("simple-waypoints-export.json");
+    private static final Path IMPORT_FILE = FabricLoader.getInstance().getConfigDir().resolve("simple-waypoints-import.json");
 
     private static final List<Waypoint> WAYPOINTS = new ArrayList<>();
     private static KeyMapping addKey;
@@ -70,15 +74,25 @@ public class WaypointsMod implements ClientModInitializer {
     /** 0=thin, 1=normal (vanilla-sized), 2=thick. */
     public static volatile int beamThickness = 1;
     /** Menu-only dimension browser: CURRENT, OVERWORLD, NETHER, END, or ALL. */
-    public static volatile int menuDimensionMode = 0;
+    public static volatile int menuDimensionMode = 4;
     /** Optional label plate padding preset; text size itself stays constant. */
     public static volatile int markerSizeMode = 1; // 0 small, 1 medium, 2 large
+    public static volatile boolean showWaypointDistances = true;
+    public static volatile boolean showWaypointCoordinates = false;
+    public static volatile boolean matchWaypointColor = true;
+    public static volatile boolean currentDimensionOnly = true;
+    public static volatile boolean hideHudWhenMenuOpen = true;
+    /** 0 = unlimited; otherwise maximum world blocks from the player. */
+    public static volatile int maxDisplayDistance = 0;
+    /** 0–100; applied as beam color intensity on the vanilla beam renderer. */
+    public static volatile int beamOpacity = 75;
 
 
 
     @Override
     public void onInitializeClient() {
         load();
+        loadPreferences();
         // Initialize the native in-world 3D beacon renderer. Beam3D is part of the
         // normal client source set and is included in every installable mod JAR.
         beam3dActive = false;
@@ -178,7 +192,7 @@ public class WaypointsMod implements ClientModInitializer {
                                                         feedback(ctx.getSource(), "Unknown color. Use red, green, blue, yellow, pink, cyan, orange, white, a hex code like ff8800, or chroma.");
                                                         return 0;
                                                     }
-                                                    boolean ok = update(n, w -> new Waypoint(w.name(), w.x(), w.y(), w.z(), c, w.dimension(), w.expiresAt(), w.worldId(), w.safeMarkerText()));
+                                                    boolean ok = update(n, w -> new Waypoint(w.name(), w.x(), w.y(), w.z(), c, w.dimension(), w.expiresAt(), w.worldId(), w.safeMarkerText(), w.isLabelEnabled(), w.isBeamEnabled()));
                                                     feedback(ctx.getSource(), ok ? "Color changed." : "No waypoint with that name.");
                                                     return 1;
                                                 }))))
@@ -190,7 +204,7 @@ public class WaypointsMod implements ClientModInitializer {
                                                     String n = StringArgumentType.getString(ctx, "name");
                                                     int secs = IntegerArgumentType.getInteger(ctx, "seconds");
                                                     long at = secs == 0 ? 0L : System.currentTimeMillis() + secs * 1000L;
-                                                    boolean ok = update(n, w -> new Waypoint(w.name(), w.x(), w.y(), w.z(), w.color(), w.dimension(), at, w.worldId(), w.safeMarkerText()));
+                                                    boolean ok = update(n, w -> new Waypoint(w.name(), w.x(), w.y(), w.z(), w.color(), w.dimension(), at, w.worldId(), w.safeMarkerText(), w.isLabelEnabled(), w.isBeamEnabled()));
                                                     feedback(ctx.getSource(), ok ? (secs == 0 ? "Waypoint is now permanent." : "Waypoint will disappear in " + secs + "s.") : "No waypoint with that name.");
                                                     return 1;
                                                 }))))
@@ -224,7 +238,13 @@ public class WaypointsMod implements ClientModInitializer {
 
     /** Waypoints for the active save/server and the player's actual current dimension. Used by world rendering. */
     public static List<Waypoint> currentContextWaypoints() {
-        return waypointsForDimension(currentDimension());
+        return currentDimensionOnly ? waypointsForDimension(currentDimension()) : waypointsForActiveWorld();
+    }
+
+    private static List<Waypoint> waypointsForActiveWorld() {
+        String worldId = currentWorldId();
+        migrateLegacyWorldIds(worldId);
+        return WAYPOINTS.stream().filter(w -> java.util.Objects.equals(w.worldId(), worldId)).toList();
     }
 
     /** Menu list: lets the user browse dimensions without changing where the player currently is. */
@@ -278,7 +298,8 @@ public class WaypointsMod implements ClientModInitializer {
                     && (existingId.equals(oldSingleplayerId) || existingId.startsWith("singleplayer-name:"));
             if (unassigned || oldNameBasedId) {
                 WAYPOINTS.set(i, new Waypoint(w.name(), w.x(), w.y(), w.z(), w.color(),
-                        normalizeDimension(w.dimension()), w.expiresAt(), activeWorldId, w.safeMarkerText()));
+                        normalizeDimension(w.dimension()), w.expiresAt(), activeWorldId, w.safeMarkerText(),
+                        w.isLabelEnabled(), w.isBeamEnabled()));
                 changed = true;
             }
         }
@@ -481,6 +502,58 @@ public class WaypointsMod implements ClientModInitializer {
         save();
     }
 
+    /** Write all saved waypoints to a portable JSON export in the config directory. */
+    public static String exportWaypointsToFile() {
+        try {
+            List<Waypoint> activeWorldWaypoints = waypointsForActiveWorld();
+            Files.createDirectories(EXPORT_FILE.getParent());
+            Files.writeString(EXPORT_FILE, GSON.toJson(activeWorldWaypoints, LIST_TYPE));
+            return "Exported " + activeWorldWaypoints.size() + " waypoints to " + EXPORT_FILE.toAbsolutePath();
+        } catch (IOException e) {
+            return "Waypoint export failed: " + e.getMessage();
+        }
+    }
+
+    /**
+     * Import waypoints from config/simple-waypoints-import.json into the active world.
+     * Matching names in the same dimension are updated; other entries are appended.
+     */
+    public static String importWaypointsFromFile() {
+        if (!Files.exists(IMPORT_FILE)) {
+            return "Import file not found. Place a waypoint JSON file at " + IMPORT_FILE.toAbsolutePath();
+        }
+        try {
+            List<Waypoint> imported = GSON.fromJson(Files.readString(IMPORT_FILE), LIST_TYPE);
+            if (imported == null || imported.isEmpty()) return "The import file contains no waypoints.";
+            String activeWorld = currentWorldId();
+            int added = 0;
+            int updated = 0;
+            for (Waypoint source : imported) {
+                if (source == null || source.name() == null || source.name().isBlank()) continue;
+                String dimension = normalizeDimension(source.dimension());
+                Waypoint mapped = new Waypoint(source.name().trim(), source.x(), source.y(), source.z(),
+                        source.color(), dimension, source.expiresAt(), activeWorld, source.safeMarkerText(),
+                        source.isLabelEnabled(), source.isBeamEnabled());
+                int existing = -1;
+                for (int i = 0; i < WAYPOINTS.size(); i++) {
+                    Waypoint current = WAYPOINTS.get(i);
+                    if (java.util.Objects.equals(current.worldId(), activeWorld)
+                            && current.name().equalsIgnoreCase(mapped.name())
+                            && normalizeDimension(current.dimension()).equals(dimension)) {
+                        existing = i;
+                        break;
+                    }
+                }
+                if (existing >= 0) { WAYPOINTS.set(existing, mapped); updated++; }
+                else { WAYPOINTS.add(mapped); added++; }
+            }
+            if (added + updated > 0) save();
+            return "Imported " + added + " new and updated " + updated + " waypoints into this world.";
+        } catch (Exception e) {
+            return "Waypoint import failed: " + e.getMessage();
+        }
+    }
+
     /** Adds a new waypoint (old == null) or replaces an existing one. */
     static void upsert(Waypoint old, Waypoint neu) {
         if (old == null) {
@@ -516,7 +589,7 @@ public class WaypointsMod implements ClientModInitializer {
             if (COLORS[i] == w.color()) idx = i;
         }
         int next = COLORS[(idx + 1) % COLORS.length];
-        replace(w, new Waypoint(w.name(), w.x(), w.y(), w.z(), next, w.dimension(), w.expiresAt(), w.worldId(), w.safeMarkerText()));
+        replace(w, new Waypoint(w.name(), w.x(), w.y(), w.z(), next, w.dimension(), w.expiresAt(), w.worldId(), w.safeMarkerText(), w.isLabelEnabled(), w.isBeamEnabled()));
     }
 
     /** Timer cycle: permanent > 60s > 5 min > permanent. */
@@ -526,7 +599,7 @@ public class WaypointsMod implements ClientModInitializer {
         if (w.expiresAt() == 0) next = now + 60_000L;
         else if (w.expiresAt() - now < 120_000L) next = now + 300_000L;
         else next = 0L;
-        replace(w, new Waypoint(w.name(), w.x(), w.y(), w.z(), w.color(), w.dimension(), next, w.worldId(), w.safeMarkerText()));
+        replace(w, new Waypoint(w.name(), w.x(), w.y(), w.z(), w.color(), w.dimension(), next, w.worldId(), w.safeMarkerText(), w.isLabelEnabled(), w.isBeamEnabled()));
     }
 
     private static boolean update(String name, UnaryOperator<Waypoint> fn) {
@@ -602,6 +675,47 @@ public class WaypointsMod implements ClientModInitializer {
     private static void save() {
         try {
             Files.writeString(FILE, GSON.toJson(WAYPOINTS, LIST_TYPE));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void loadPreferences() {
+        Properties p = new Properties();
+        try {
+            if (Files.exists(SETTINGS_FILE)) {
+                try (var in = Files.newInputStream(SETTINGS_FILE)) { p.load(in); }
+            }
+            showWaypointLabels = Boolean.parseBoolean(p.getProperty("showLabels", "true"));
+            showWaypointBeams = Boolean.parseBoolean(p.getProperty("showBeams", "true"));
+            showWaypointDistances = Boolean.parseBoolean(p.getProperty("showDistances", "true"));
+            showWaypointCoordinates = Boolean.parseBoolean(p.getProperty("showCoordinates", "false"));
+            matchWaypointColor = Boolean.parseBoolean(p.getProperty("matchWaypointColor", "true"));
+            currentDimensionOnly = Boolean.parseBoolean(p.getProperty("currentDimensionOnly", "true"));
+            hideHudWhenMenuOpen = Boolean.parseBoolean(p.getProperty("hideHudWhenMenuOpen", "true"));
+            markerSizeMode = Math.max(0, Math.min(2, Integer.parseInt(p.getProperty("labelSize", "1"))));
+            beamOpacity = Math.max(0, Math.min(100, Integer.parseInt(p.getProperty("beamOpacity", "75"))));
+            maxDisplayDistance = Math.max(0, Integer.parseInt(p.getProperty("maxDisplayDistance", "0")));
+        } catch (Exception e) {
+            System.err.println("[Simple Waypoints] Could not read settings; using defaults.");
+        }
+    }
+
+    public static void savePreferences() {
+        Properties p = new Properties();
+        p.setProperty("showLabels", Boolean.toString(showWaypointLabels));
+        p.setProperty("showBeams", Boolean.toString(showWaypointBeams));
+        p.setProperty("showDistances", Boolean.toString(showWaypointDistances));
+        p.setProperty("showCoordinates", Boolean.toString(showWaypointCoordinates));
+        p.setProperty("matchWaypointColor", Boolean.toString(matchWaypointColor));
+        p.setProperty("currentDimensionOnly", Boolean.toString(currentDimensionOnly));
+        p.setProperty("hideHudWhenMenuOpen", Boolean.toString(hideHudWhenMenuOpen));
+        p.setProperty("labelSize", Integer.toString(markerSizeMode));
+        p.setProperty("beamOpacity", Integer.toString(beamOpacity));
+        p.setProperty("maxDisplayDistance", Integer.toString(maxDisplayDistance));
+        try {
+            Files.createDirectories(SETTINGS_FILE.getParent());
+            try (var out = Files.newOutputStream(SETTINGS_FILE)) { p.store(out, "Simple Waypoints preferences"); }
         } catch (IOException e) {
             e.printStackTrace();
         }

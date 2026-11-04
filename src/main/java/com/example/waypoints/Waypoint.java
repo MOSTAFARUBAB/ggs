@@ -1,12 +1,37 @@
 package com.example.waypoints;
 
 /**
- * color: 0xRRGGBB, or -1 for the rainbow chroma effect.
- * expiresAt: epoch millis when the waypoint disappears, 0 = permanent.
- * worldId: identifies the singleplayer save or multiplayer server that owns this waypoint.
- * markerText: one or more characters drawn inside this waypoint's colored square.
+ * Saved waypoint. The two Boolean visibility fields are nullable only for JSON
+ * backwards compatibility: saves created before 1.2.0 did not contain them,
+ * and a missing value is treated as enabled.
  */
-public record Waypoint(String name, int x, int y, int z, int color, String dimension, long expiresAt, String worldId, String markerText) {
+public record Waypoint(
+        String name,
+        int x,
+        int y,
+        int z,
+        int color,
+        String dimension,
+        long expiresAt,
+        String worldId,
+        String markerText,
+        Boolean labelEnabled,
+        Boolean beamEnabled
+) {
+    /** Backwards-compatible constructor for callers and older integrations. */
+    public Waypoint(String name, int x, int y, int z, int color, String dimension,
+                    long expiresAt, String worldId, String markerText) {
+        this(name, x, y, z, color, dimension, expiresAt, worldId, markerText, true, true);
+    }
+
+    public boolean isLabelEnabled() {
+        return labelEnabled == null || labelEnabled;
+    }
+
+    public boolean isBeamEnabled() {
+        return beamEnabled == null || beamEnabled;
+    }
+
     public String safeMarkerText() {
         if (markerText == null || markerText.isBlank()) return "W";
         String value = markerText.trim();

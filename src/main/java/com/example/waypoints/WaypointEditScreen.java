@@ -35,12 +35,13 @@ public class WaypointEditScreen extends Screen {
     private static final int CYAN = 0xFFE0E0E0;
     private static final int CYAN_HOVER = 0xFFFFFFFF;
     private static final int CYAN_DARK = 0xFF303030;
+    private static final int ACCENT = 0xFFB7F36B;
 
     // ---- color picker geometry ----
     // GUI-space dimensions stay compact; the backing texture is 2x resolution
     // so the gradient stays smooth on scaled/high-DPI displays.
-    private static final int PICKER_WIDTH = 128;
-    private static final int PICKER_HEIGHT = 56;
+    private static final int PICKER_WIDTH = 198;
+    private static final int PICKER_HEIGHT = 100;
     private static final int PICKER_TEXTURE_WIDTH = 256;
     private static final int PICKER_TEXTURE_HEIGHT = 128;
     private static final Identifier PICKER_TEXTURE_ID = Identifier.fromNamespaceAndPath(
@@ -50,7 +51,7 @@ public class WaypointEditScreen extends Screen {
     private static long lastPickerUploadNanos = 0L;
 
     // The hue strip is static, so generate it once and draw it as one texture.
-    private static final int HUE_DISPLAY_HEIGHT = 56;
+    private static final int HUE_DISPLAY_HEIGHT = 100;
     private static final int HUE_TEXTURE_HEIGHT = 256;
     private static final int HUE_TEXTURE_WIDTH = 8;
     private static final Identifier HUE_TEXTURE_ID = Identifier.fromNamespaceAndPath(
@@ -99,14 +100,22 @@ public class WaypointEditScreen extends Screen {
 
     private int cx;
     private int oy;
+    private int railWidth;
+    private int contentLeft;
+    private int contentRight;
+    private int formWidth;
+    private int colorX;
+    private int colorWidth;
+    private int coordinateWidth;
+    private boolean labelEnabled = true;
+    private boolean beamEnabled = true;
 
-    // Two-column editor geometry: a color workstation on the left and a compact
-    // location form / options row across the full panel.
-    private int formLeft() { return cx - 196; }
-    private int pickerX() { return cx - 196; }
-    private int pickerY() { return oy + 160; }
-    private int hueX() { return cx - 60; }
-    private int previewX() { return cx - 42; }
+    // Full-page editor geometry: location form on the left, color workstation on the right.
+    private int formLeft() { return contentLeft + 18; }
+    private int pickerX() { return colorX + 16; }
+    private int pickerY() { return oy + 40; }
+    private int hueX() { return pickerX() + PICKER_WIDTH + 8; }
+    private int previewX() { return colorX + 16; }
 
     public WaypointEditScreen(Waypoint original, int returnPage) {
         super(Component.literal(original == null ? "New Waypoint" : "Edit Waypoint"));
@@ -114,6 +123,8 @@ public class WaypointEditScreen extends Screen {
         this.returnPage = returnPage;
 
         if (original != null) {
+            labelEnabled = original.isLabelEnabled();
+            beamEnabled = original.isBeamEnabled();
             initName = original.name();
             initX = String.valueOf(original.x());
             initY = String.valueOf(original.y());
@@ -161,48 +172,75 @@ public class WaypointEditScreen extends Screen {
     // ------------------------------------------------------------------ layout / widgets
     @Override
     protected void init() {
-        cx = this.width / 2;
-        oy = Math.max(4, (this.height - 280) / 2);
+        clearWidgets();
+        railWidth = width >= 800 ? 150 : 0;
+        contentLeft = railWidth > 0 ? railWidth + 24 : 20;
+        contentRight = width - 24;
+        int available = Math.max(500, contentRight - contentLeft);
+        colorWidth = Math.max(250, Math.min(286, available / 3));
+        formWidth = Math.max(300, available - colorWidth - 16);
+        colorX = contentLeft + formWidth + 16;
+        coordinateWidth = Math.max(72, (formWidth - 52) / 3);
+        cx = contentRight;
+        oy = 94;
         int left = formLeft();
         int preview = previewX();
         int pickerTop = pickerY();
+        int nameY = oy + 44;
+        int coordsY = oy + 94;
+        int dimY = oy + 145;
+        int expiryY = oy + 190;
+        int nameWidth = formWidth - 36;
+        int coordGap = 8;
 
-        click(cx + 188, oy + 2, 18, 16, this::back);
-        click(left, oy + 22, 62, 16, this::back);
+        if (railWidth > 0) {
+            click(railWidth + 10, 140, railWidth - 20, 32,
+                    () -> Minecraft.getInstance().gui.setScreen(new WaypointScreen(returnPage < 0 ? 0 : returnPage)));
+            click(railWidth + 10, 179, railWidth - 20, 32,
+                    () -> Minecraft.getInstance().gui.setScreen(new WaypointSettingsScreen()));
+        }
+        // Visible breadcrumb is the actual Back action (do not place an invisible
+        // hit target over the subtitle or title).
+        click(contentLeft, 41, 104, 16, this::back);
 
-        nameBox = makeBox(nameBox, left, oy + 55, 392, 18, initName, 32, "Waypoint name");
-        xBox = makeBox(xBox, left, oy + 88, 122, 18, initX, 9, "X");
-        yBox = makeBox(yBox, left + 130, oy + 88, 122, 18, initY, 9, "Y");
-        zBox = makeBox(zBox, left + 260, oy + 88, 122, 18, initZ, 9, "Z");
+        nameBox = makeBox(nameBox, left, nameY, nameWidth, 23, initName, 32, "Waypoint name");
+        xBox = makeBox(xBox, left, coordsY, coordinateWidth, 24, initX, 9, "X");
+        yBox = makeBox(yBox, left + coordinateWidth + coordGap, coordsY, coordinateWidth, 24, initY, 9, "Y");
+        zBox = makeBox(zBox, left + (coordinateWidth + coordGap) * 2, coordsY, coordinateWidth, 24, initZ, 9, "Z");
 
         int dx = left;
+        int[] dimWidths = {70, 56, 44, Math.max(105, Math.min(118, nameWidth - 190))};
         for (int i = 0; i < DIM_LABELS.length; i++) {
             final int mode = i;
-            click(dx, oy + 121, DIM_W[i], 18, () -> dimMode = mode);
-            dx += DIM_W[i] + 4;
+            click(dx, dimY, dimWidths[i], 22, () -> dimMode = mode);
+            dx += dimWidths[i] + 5;
         }
 
-        // The color picker is a continuous drag surface; only the auxiliary
-        // controls need hit targets.
-        click(preview + 146, pickerTop + 2, 88, 17, () -> chroma = !chroma);
-        click(preview + 194, pickerTop + 21, 38, 16, this::resetColor);
+        // Color picker: full-resolution saturation/value field plus hue strip.
+        click(preview, pickerTop + 146, colorWidth - 32, 22, () -> chroma = !chroma);
+        click(colorX + colorWidth - 58, pickerTop + 174, 42, 18, this::resetColor);
         for (int i = 0; i < RECENT.size(); i++) {
             final int idx = i;
-            click(preview + 55 + i * 18, pickerTop + 39, 14, 14, () -> pickRecent(idx));
+            click(preview + 16 + i * 22, pickerTop + 190, 18, 18, () -> pickRecent(idx));
         }
-
-        hexBox = makeBox(hexBox, preview + 66, pickerTop + 21, 78, 16,
+        hexBox = makeBox(hexBox, preview + 42, pickerTop + 118, Math.max(76, colorWidth - 132), 22,
                 String.format(Locale.ROOT, "%06X", currentRgb()), 7, "HEX");
         lastHex = hexBox.getValue();
-        timerBox = makeBox(timerBox, left + 64, oy + 218, 72, 17, initTimer, 6, "Seconds");
+        timerBox = makeBox(timerBox, left + 72, expiryY - 3, 82, 22, initTimer, 9, "Seconds");
+
+        // Per-waypoint visibility, the same two switches shown in the reference editor.
+        int visibilityY = oy + 252;
+        // Align hit targets exactly with the two rendered toggle switches.
+        click(left + formWidth - 62, visibilityY + 29, 26, 15, () -> labelEnabled = !labelEnabled);
+        click(left + formWidth - 62, visibilityY + 61, 26, 15, () -> beamEnabled = !beamEnabled);
 
         refreshPickerTexture();
         ensureHueTexture();
-
-        int saveWidth = original != null ? 266 : 392;
-        click(left, oy + 238, saveWidth, 21, this::save);
+        int actionY = height - 30;
+        click(contentRight - 220, actionY, 94, 24, this::back);
+        click(contentRight - 116, actionY, 116, 24, this::save);
         if (original != null) {
-            click(left + 274, oy + 238, 118, 21, () -> {
+            click(contentLeft, actionY, 112, 24, () -> {
                 WaypointsMod.remove(original);
                 back();
             });
@@ -521,7 +559,7 @@ public class WaypointEditScreen extends Screen {
         String dim = dimMode >= 0 ? DIM_IDS[dimMode] : keepDimension;
         String worldId = original != null ? original.worldId() : WaypointsMod.currentWorldId();
 
-        WaypointsMod.upsert(original, new Waypoint(name, x, y, z, color, dim, expires, worldId, marker));
+        WaypointsMod.upsert(original, new Waypoint(name, x, y, z, color, dim, expires, worldId, marker, labelEnabled, beamEnabled));
 
         if (!chroma) {
             Integer rgb = color;
@@ -547,108 +585,195 @@ public class WaypointEditScreen extends Screen {
         int left = formLeft();
         int preview = previewX();
         int pickerTop = pickerY();
+        int nameY = oy + 44;
+        int coordsY = oy + 94;
+        int dimY = oy + 145;
+        int expiryY = oy + 190;
+        int nameWidth = formWidth - 36;
 
-        // Main editor shell and its section dividers.
-        rrect(g, cx - 204, oy + 16, cx + 204, oy + 274, PANEL);
-        g.fill(left, oy + 39, cx + 196, oy + 40, 0x55404040);
-        g.fill(left, oy + 143, cx + 196, oy + 144, 0x55404040);
+        drawSidebar(g, mouseX, mouseY);
+        g.fill(railWidth, 0, width, 39, 0xFF0C0E10);
+        g.fill(railWidth, 38, width, 39, CARD_BORDER);
+        g.text(font, "◇  " + worldTitle() + "   /   Waypoints   /   " + (original == null ? "New waypoint" : "Edit waypoint"), railWidth + 24, 15, MUTED, false);
+        g.text(font, returnPage < 0 ? "←  Back to game" : "←  All waypoints", contentLeft, 43, MUTED, false);
+        g.text(font, original == null ? "Mark somewhere new." : "Edit waypoint", contentLeft, 57, TEXT, true);
+        g.text(font, "Save a location now. Find your way back whenever you need it.", contentLeft, 76, MUTED, false);
 
-        // Header and navigation.
-        g.text(this.font, "Simple Waypoints  /  Editor", left, oy + 3, MUTED, false);
-        g.text(this.font, original == null ? "Create waypoint" : "Edit waypoint", left, oy + 16, TEXT, false);
-        boolean closeHover = inside(mouseX, mouseY, cx + 188, oy + 2, 18, 16);
-        rrect(g, cx + 188, oy + 2, cx + 206, oy + 18, closeHover ? CYAN_HOVER : CARD);
-        g.text(this.font, "X", cx + 194, oy + 6, MUTED, false);
-        boolean backHover = inside(mouseX, mouseY, left, oy + 22, 62, 16);
-        rrect(g, left, oy + 22, left + 62, oy + 38, backHover ? CARD_HOVER : CARD);
-        g.text(this.font, "< Back", left + 13, oy + 26, MUTED, false);
-
-        // Location fields.
-        g.text(this.font, "Waypoint name", left, oy + 42, QUIET, false);
-        drawBox(g, nameBox, left, oy + 55, 392, 18, "Waypoint name");
-        g.text(this.font, "Coordinates", left, oy + 75, QUIET, false);
-        drawBox(g, xBox, left, oy + 88, 122, 18, "X");
-        drawBox(g, yBox, left + 130, oy + 88, 122, 18, "Y");
-        drawBox(g, zBox, left + 260, oy + 88, 122, 18, "Z");
-
-        // Dimension selector.
-        g.text(this.font, "Dimension", left, oy + 108, QUIET, false);
+        // Location details card.
+        card(g, contentLeft, oy + 10, formWidth, 230);
+        g.text(font, "⌖  Location details", contentLeft + 18, oy + 23, TEXT, true);
+        g.text(font, "Waypoint name", left, oy + 34, MUTED, false);
+        drawBox(g, nameBox, left, nameY, nameWidth, 23, "Waypoint name");
+        g.text(font, "A memorable name for a memorable place.", left, nameY + 29, QUIET, false);
+        int cw = coordinateWidth;
+        int gap = 8;
+        g.text(font, "X", left, coordsY - 12, TEXT, false);
+        g.text(font, "Y", left + cw + gap, coordsY - 12, TEXT, false);
+        g.text(font, "Z", left + (cw + gap) * 2, coordsY - 12, TEXT, false);
+        drawBox(g, xBox, left, coordsY, cw, 24, "X");
+        drawBox(g, yBox, left + cw + gap, coordsY, cw, 24, "Y");
+        drawBox(g, zBox, left + (cw + gap) * 2, coordsY, cw, 24, "Z");
+        g.text(font, "ⓘ  Use your in-game coordinates. Press F3 to find them.", left, coordsY + 34, QUIET, false);
+        g.text(font, "Dimension", left, dimY - 13, TEXT, false);
         int dx = left;
+        int[] dimWidths = {70, 56, 44, Math.max(105, Math.min(118, nameWidth - 190))};
         for (int i = 0; i < DIM_LABELS.length; i++) {
             boolean selected = dimMode == i;
-            boolean hover = inside(mouseX, mouseY, dx, oy + 121, DIM_W[i], 18);
-            rrect(g, dx, oy + 121, dx + DIM_W[i], oy + 139, selected ? CYAN : CARD_BORDER);
-            rrect(g, dx + 1, oy + 122, dx + DIM_W[i] - 1, oy + 138,
-                    selected ? CYAN_DARK : (hover ? CARD_HOVER : CARD));
-            int tw = this.font.width(DIM_LABELS[i]);
-            g.text(this.font, DIM_LABELS[i], dx + (DIM_W[i] - tw) / 2, oy + 126,
-                    selected ? TEXT : MUTED, false);
-            dx += DIM_W[i] + 4;
+            int dw = dimWidths[i];
+            rrect(g, dx, dimY, dx + dw, dimY + 22, selected ? ACCENT : CARD_BORDER);
+            rrect(g, dx + 1, dimY + 1, dx + dw - 1, dimY + 21, selected ? 0xFF25321D : CARD);
+            String label = DIM_LABELS[i];
+            g.text(font, label, dx + (dw - font.width(label)) / 2, dimY + 7, selected ? ACCENT : MUTED, selected);
+            dx += dw + 5;
         }
+        g.text(font, "Expiry", left, expiryY + 3, TEXT, false);
+        drawBox(g, timerBox, left + 72, expiryY - 3, 82, 22, "Seconds");
+        g.text(font, "seconds  ·  0 means never", left + 163, expiryY + 4, MUTED, false);
 
-        // Color workspace: continuous saturation/value plane + hue strip + live preview.
-        g.text(this.font, "Beam color", left, oy + 147, TEXT, false);
+        // Individual label / beam visibility card.
+        int visibilityY = oy + 252;
+        card(g, contentLeft, visibilityY, formWidth, 91);
+        g.text(font, "Make it visible", contentLeft + 18, visibilityY + 12, TEXT, true);
+        settingLine(g, mouseX, left, visibilityY + 28, formWidth - 36,
+                "Show waypoint label", "Display the name and distance in your world.", labelEnabled);
+        settingLine(g, mouseX, left, visibilityY + 60, formWidth - 36,
+                "Show beacon beam", "A vertical beam to guide you from a distance.", beamEnabled);
+
+        // Color workspace.
+        card(g, colorX, oy + 10, colorWidth, 242);
+        g.text(font, "Waypoint color", colorX + 16, oy + 23, TEXT, true);
+        int previewRgb = chroma
+                ? WaypointsMod.resolveColor(new Waypoint("", 0, 0, 0, WaypointsMod.CHROMA, "", 0L, "", "W"))
+                : currentRgb();
+        g.text(font, chroma ? "Chroma" : "Custom", colorX + colorWidth - font.width(chroma ? "Chroma" : "Custom") - 16, oy + 23, ACCENT, false);
         refreshPickerTexture();
         g.blit(PICKER_TEXTURE_ID, pickerX(), pickerTop,
                 pickerX() + PICKER_WIDTH, pickerTop + PICKER_HEIGHT,
                 0.0f, 1.0f, 0.0f, 1.0f);
+        border(g, pickerX(), pickerTop, pickerX() + PICKER_WIDTH, pickerTop + PICKER_HEIGHT, CARD_BORDER);
         int markX = pickerX() + Math.round(sat * (PICKER_WIDTH - 1));
         int markY = pickerTop + Math.round((1f - val) * (PICKER_HEIGHT - 1));
         ring(g, markX, markY);
-
         ensureHueTexture();
         g.blit(HUE_TEXTURE_ID, hueX(), pickerTop, hueX() + 10, pickerTop + HUE_DISPLAY_HEIGHT,
                 0.0f, 1.0f, 0.0f, 1.0f);
         int hueY = pickerTop + Math.round(hue * (HUE_DISPLAY_HEIGHT - 1));
         g.fill(hueX() - 2, hueY - 1, hueX() + 12, hueY + 1, 0xFFFFFFFF);
-
-        // Live preview panel, hex input, chroma switch, reset and recent swatches.
-        rrect(g, preview, pickerTop, preview + 238, pickerTop + 56, CARD_BORDER);
-        rrect(g, preview + 1, pickerTop + 1, preview + 237, pickerTop + 55, CARD);
-        g.text(this.font, "Color preview", preview + 9, pickerTop + 7, MUTED, false);
-        int previewRgb = chroma
-                ? WaypointsMod.resolveColor(new Waypoint("", 0, 0, 0, WaypointsMod.CHROMA, "", 0L, "", "W"))
-                : currentRgb();
-        rrect(g, preview + 9, pickerTop + 22, preview + 58, pickerTop + 39, 0xFF000000 | previewRgb);
-        drawBox(g, hexBox, preview + 66, pickerTop + 21, 78, 16, "HEX");
-        g.text(this.font, "Chroma", preview + 151, pickerTop + 7, chroma ? CYAN : MUTED, false);
-        rrect(g, preview + 194, pickerTop + 5, preview + 232, pickerTop + 17,
-                chroma ? CYAN_DARK : 0xFF262626);
-        int chromaKnob = chroma ? preview + 215 : preview + 196;
-        rrect(g, chromaKnob, pickerTop + 7, chromaKnob + 15, pickerTop + 15,
-                chroma ? CYAN : 0xFF858585);
-        rrect(g, preview + 194, pickerTop + 21, preview + 232, pickerTop + 37,
-                inside(mouseX, mouseY, preview + 194, pickerTop + 21, 38, 16) ? CARD_HOVER : 0xFF262626);
-        g.text(this.font, "Reset", preview + 199, pickerTop + 25, MUTED, false);
-        g.text(this.font, "Recent", preview + 9, pickerTop + 40, QUIET, false);
+        int rowY = pickerTop + 118;
+        rrect(g, preview, rowY, preview + 30, rowY + 24, 0xFF000000 | previewRgb);
+        drawBox(g, hexBox, preview + 42, rowY, Math.max(76, colorWidth - 132), 22, "HEX");
+        g.text(font, "HEX", preview + 42, rowY + 25, QUIET, false);
+        int chromaY = pickerTop + 146;
+        rounded(g, preview, chromaY, preview + colorWidth - 32, chromaY + 22, PANEL_ALT, 6);
+        g.text(font, "✧  Chroma mode", preview + 10, chromaY + 7, TEXT, false);
+        toggle(g, preview + colorWidth - 58, chromaY + 4, chroma);
+        g.text(font, "Cycle through the spectrum", preview + 10, chromaY + 13, QUIET, false);
+        g.text(font, "Recent colors", preview, pickerTop + 176, MUTED, false);
+        String resetLabel = "Reset";
+        g.text(font, resetLabel, colorX + colorWidth - 16 - font.width(resetLabel), pickerTop + 176, MUTED, false);
         for (int i = 0; i < RECENT.size(); i++) {
-            int sx = preview + 55 + i * 18;
-            rrect(g, sx, pickerTop + 39, sx + 14, pickerTop + 53, 0xFF000000 | RECENT.get(i));
-            if (inside(mouseX, mouseY, sx, pickerTop + 39, 14, 14)) {
-                g.fill(sx - 1, pickerTop + 38, sx + 15, pickerTop + 39, TEXT);
-                g.fill(sx - 1, pickerTop + 53, sx + 15, pickerTop + 54, TEXT);
-            }
+            int sx = preview + 16 + i * 22;
+            rrect(g, sx, pickerTop + 190, sx + 18, pickerTop + 208, 0xFF000000 | RECENT.get(i));
+            if (!chroma && RECENT.get(i) == currentRgb()) border(g, sx - 1, pickerTop + 189, sx + 19, pickerTop + 209, TEXT);
         }
+        // Small in-game preview directly beneath the color workspace.
+        int previewPanelY = oy + 258;
+        card(g, colorX, previewPanelY, colorWidth, Math.max(110, Math.min(186, height - previewPanelY - 30)));
+        g.text(font, "IN-GAME PREVIEW", colorX + 14, previewPanelY + 11, QUIET, false);
+        int mid = colorX + colorWidth / 2;
+        g.fill(mid, previewPanelY + 24, mid + 1, previewPanelY + 62, 0xFF607F3E);
+        rrect(g, mid - 12, previewPanelY + 30, mid + 12, previewPanelY + 54, 0xFF24331D);
+        border(g, mid - 12, previewPanelY + 30, mid + 12, previewPanelY + 54, 0xFF000000 | previewRgb);
+        g.text(font, "⌖", mid - 4, previewPanelY + 38, ACCENT, false);
+        int previewW = Math.min(colorWidth - 24, Math.max(100, font.width(nameBox.getValue()) + 22));
+        rounded(g, mid - previewW / 2, previewPanelY + 64, mid + previewW / 2, previewPanelY + 86, PANEL_ALT, 5);
+        String previewName = fitPreview(nameBox.getValue(), previewW - 16);
+        g.text(font, previewName, mid - font.width(previewName) / 2, previewPanelY + 70, ACCENT, false);
 
-        // Expiry and primary actions.
-        g.text(this.font, "Expiry", left, oy + 222, QUIET, false);
-        drawBox(g, timerBox, left + 64, oy + 218, 72, 17, "Seconds");
-        g.text(this.font, "seconds  /  0 means never", left + 145, oy + 222, MUTED, false);
+        int actionY = height - 30;
+        actionButton(g, mouseX, mouseY, contentRight - 220, actionY, 94, 24, "Discard changes", false, false);
+        actionButton(g, mouseX, mouseY, contentRight - 116, actionY, 116, 24,
+                original == null ? "+  Create waypoint" : "✓  Save changes", true, false);
+        if (original != null) actionButton(g, mouseX, mouseY, contentLeft, actionY, 112, 24, "Delete waypoint", false, true);
+        if (!error.isEmpty()) g.text(font, error, contentLeft, height - 51, 0xFFFF8585, false);
+    }
 
-        int saveWidth = original != null ? 266 : 392;
-        boolean saveHover = inside(mouseX, mouseY, left, oy + 238, saveWidth, 21);
-        rrect(g, left, oy + 238, left + saveWidth, oy + 259, saveHover ? CYAN_HOVER : CYAN);
-        String saveLabel = original == null ? "Create waypoint" : "Save changes";
-        g.text(this.font, saveLabel, left + saveWidth / 2 - this.font.width(saveLabel) / 2,
-                oy + 245, 0xFF080808, false);
-        if (original != null) {
-            boolean delHover = inside(mouseX, mouseY, left + 274, oy + 238, 118, 21);
-            rrect(g, left + 274, oy + 238, left + 392, oy + 259,
-                    delHover ? 0xFF562626 : 0xFF301818);
-            g.text(this.font, "Delete", left + 333 - this.font.width("Delete") / 2,
-                    oy + 245, 0xFFF2B7B8, false);
+    private void drawSidebar(GuiGraphicsExtractor g, int mx, int my) {
+        if (railWidth <= 0) return;
+        g.fill(0, 0, railWidth, height, 0xFF101214);
+        g.fill(railWidth - 1, 0, railWidth, height, CARD_BORDER);
+        rrect(g, 14, 15, 43, 44, 0xFFB7F36B);
+        g.text(font, "➤", 24, 26, 0xFF101410, true);
+        if (railWidth > 70) {
+            g.text(font, "Waypoint", 51, 19, TEXT, false);
+            g.text(font, "M A N A G E R", 51, 31, MUTED, false);
+            rrect(g, 14, 62, railWidth - 14, 105, CARD);
+            g.text(font, worldTitle(), 24, 73, TEXT, true);
+            g.fill(24, 91, 28, 95, ACCENT);
+            g.text(font, "Java Edition · 26.3", 34, 89, MUTED, false);
+            g.text(font, "WORKSPACE", 16, 125, QUIET, false);
+            nav(g, mx, my, 10, 140, railWidth - 20, "◎", "Waypoints", false);
+            nav(g, mx, my, 10, 179, railWidth - 20, "☷", "Settings", false);
+        } else {
+            nav(g, mx, my, 8, 104, 38, "◎", "", false);
+            nav(g, mx, my, 8, 150, 38, "☷", "", false);
         }
-        if (!error.isEmpty()) g.text(this.font, error, left, oy + 262, 0xFFFF8585, false);
+    }
+
+    private void nav(GuiGraphicsExtractor g, int mx, int my, int x, int y, int w, String icon, String label, boolean active) {
+        if (active || inside(mx, my, x, y, w, 32)) rrect(g, x, y, x + w, y + 32, 0xFF202629);
+        g.text(font, icon, x + 10, y + 11, active ? ACCENT : MUTED, false);
+        if (!label.isEmpty()) g.text(font, label, x + 30, y + 11, active ? TEXT : MUTED, false);
+    }
+
+    private void card(GuiGraphicsExtractor g, int x, int y, int w, int h) {
+        rrect(g, x, y, x + w, y + h, CARD);
+        g.fill(x, y, x + w, y + 1, CARD_BORDER); g.fill(x, y + h - 1, x + w, y + h, CARD_BORDER);
+        g.fill(x, y, x + 1, y + h, CARD_BORDER); g.fill(x + w - 1, y, x + w, y + h, CARD_BORDER);
+    }
+
+    private void settingLine(GuiGraphicsExtractor g, int mx, int x, int y, int w,
+                             String title, String description, boolean enabled) {
+        g.text(font, title, x, y, TEXT, false);
+        g.text(font, description, x, y + 12, MUTED, false);
+        toggle(g, x + w - 26, y + 1, enabled);
+    }
+
+    private void toggle(GuiGraphicsExtractor g, int x, int y, boolean enabled) {
+        rrect(g, x, y, x + 26, y + 15, enabled ? 0xFF45652A : 0xFF3B4247);
+        rrect(g, enabled ? x + 13 : x + 2, y + 2, enabled ? x + 24 : x + 13, y + 13,
+                enabled ? ACCENT : 0xFF9BA4A8);
+    }
+
+    private void actionButton(GuiGraphicsExtractor g, int mx, int my, int x, int y, int w, int h,
+                              String label, boolean primary, boolean danger) {
+        boolean hover = inside(mx, my, x, y, w, h);
+        int fill = primary ? (hover ? 0xFFC9FF83 : ACCENT)
+                : danger ? (hover ? 0xFF4D2225 : 0xFF281719)
+                : (hover ? 0xFF242B2F : CARD);
+        rrect(g, x, y, x + w, y + h, fill);
+        if (!primary) {
+            g.fill(x, y, x + w, y + 1, danger ? 0xFF85464A : CARD_BORDER);
+            g.fill(x, y + h - 1, x + w, y + h, danger ? 0xFF85464A : CARD_BORDER);
+        }
+        int color = primary ? 0xFF101410 : danger ? 0xFFFF8C92 : TEXT;
+        g.text(font, label, x + (w - font.width(label)) / 2, y + (h - 8) / 2, color, false);
+    }
+
+    private String fitPreview(String value, int max) {
+        if (value == null) return "Waypoint";
+        String s = value;
+        while (!s.isEmpty() && font.width(s) > max) s = s.substring(0, s.length() - 1);
+        return s.isEmpty() ? "Waypoint" : s.equals(value) ? s : s + "…";
+    }
+
+    private String worldTitle() {
+        Minecraft mc = Minecraft.getInstance();
+        try {
+            if (mc.getCurrentServer() != null) return mc.getCurrentServer().name;
+            if (mc.getSingleplayerServer() != null) return mc.getSingleplayerServer().getWorldData().getLevelName();
+        } catch (Throwable ignored) { }
+        return "Survival Realm";
     }
 
     private void drawBox(GuiGraphicsExtractor g, EditBox box, int x, int y, int w, int h, String placeholder) {
@@ -665,6 +790,27 @@ public class WaypointEditScreen extends Screen {
                 int caretX = x + 8 + this.font.width(v);
                 g.fill(caretX, y + 3, caretX + 1, y + h - 3, TEXT);
             }
+        }
+    }
+
+    private static void border(GuiGraphicsExtractor g, int x, int y, int x2, int y2, int color) {
+        g.fill(x, y, x2, y + 1, color);
+        g.fill(x, y2 - 1, x2, y2, color);
+        g.fill(x, y, x + 1, y2, color);
+        g.fill(x2 - 1, y, x2, y2, color);
+    }
+
+    private static void rounded(GuiGraphicsExtractor g, int x, int y, int x2, int y2, int color, int radius) {
+        int w = x2 - x;
+        int h = y2 - y;
+        if (w <= 0 || h <= 0) return;
+        int r = Math.min(radius, Math.min(w / 2, h / 2));
+        g.fill(x + r, y, x2 - r, y2, color);
+        g.fill(x, y + r, x2, y2 - r, color);
+        for (int row = 0; row < r; row++) {
+            int inset = (int) Math.ceil(r - Math.sqrt(Math.max(0.0, r * r - Math.pow(r - row - 0.5, 2))));
+            g.fill(x + inset, y + row, x2 - inset, y + row + 1, color);
+            g.fill(x + inset, y2 - row - 1, x2 - inset, y2 - row, color);
         }
     }
 
