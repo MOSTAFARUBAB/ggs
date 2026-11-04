@@ -32,4 +32,4 @@ The mod uses the `GuiGraphicsExtractor` and `MouseButtonEvent` GUI APIs, checks 
 
 ## Waypoint label depth behaviour
 
-Labels are no longer drawn by the 2D HUD. They are submitted into Minecraft's 3D text rendering pipeline with `Font.DisplayMode.NORMAL`, not `SEE_THROUGH`. The scene depth buffer now determines visibility pixel by pixel: a mob, player, dropped item, or block in front of the waypoint masks only the exact text or panel pixels behind it. This is immediate during the same frame and does not depend on raycasts, an entity search radius, or a delayed opacity update.
+Labels are submitted into Minecraft's 3D text rendering pipeline. Letter glyphs use `Font.DisplayMode.NORMAL`, so the scene depth buffer masks only the exact glyph pixels behind a mob, player, dropped item, or block. The small, low-opacity panel background uses `SEE_THROUGH` independently, so the backing remains faintly visible instead of disappearing together with the letters; its low alpha keeps foreground entities visible beneath it. This is immediate during the same frame and does not depend on raycasts, an entity search radius, or a delayed opacity update.

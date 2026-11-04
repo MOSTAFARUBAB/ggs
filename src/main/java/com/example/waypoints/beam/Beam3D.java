@@ -235,16 +235,20 @@ public final class Beam3D {
         poseStack.mulPose(new Matrix4f().rotation(camera.orientation));
         poseStack.scale(-scale, -scale, scale);
 
-        // One translucent panel, two centered lines. NORMAL (not SEE_THROUGH) is
-        // important: mobs/items in front mask the card and glyphs immediately.
+        // Keep a low-opacity backing visible even when an entity crosses the
+        // waypoint, so the nameplate does not disappear as one solid unit.
+        // SEE_THROUGH is used ONLY for this subtle background; its low alpha
+        // lets the mob/item remain clearly visible beneath it. The glyphs below
+        // still use NORMAL depth testing and are naturally masked by foreground
+        // entities and blocks on a per-pixel basis.
         collector.submitTextBackground(
                 poseStack,
                 -halfWidth,
                 -12.0f,
                 halfWidth,
                 11.0f,
-                0x99070709,
-                Font.DisplayMode.NORMAL,
+                0x55070709,
+                Font.DisplayMode.SEE_THROUGH,
                 FULL_BRIGHT
         );
         collector.submitText(
