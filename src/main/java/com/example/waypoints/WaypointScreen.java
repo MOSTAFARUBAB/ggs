@@ -2,8 +2,8 @@ package com.example.waypoints;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -30,6 +30,14 @@ public final class WaypointScreen extends Screen {
     private String searchQuery;
     private int railWidth, contentX, contentRight, contentWidth;
     private int toolbarY, filtersY, gridY, footerY, columns, rows, cardWidth, cardHeight, pageSize;
+    private record HitTarget(int x, int y, int width, int height, Runnable action) {
+        boolean contains(double px, double py) {
+            return px >= x && px < x + width && py >= y && py < y + height;
+        }
+    }
+
+    private final List<HitTarget> hitTargets = new ArrayList<>();
+    private final List<HitTarget> cardHitTargets = new ArrayList<>();
     private List<Waypoint> entries = List.of();
     private List<Waypoint> filtered = List.of();
     private EditBox searchBox;
@@ -56,6 +64,8 @@ public final class WaypointScreen extends Screen {
     @Override
     protected void init() {
         clearWidgets();
+        hitTargets.clear();
+        cardHitTargets.clear();
         railWidth = width >= 800 ? 150 : 54;
         contentX = railWidth + 24;
         contentRight = width - 24;
@@ -100,8 +110,7 @@ public final class WaypointScreen extends Screen {
             searchQuery = value;
             page = 0;
             refreshFiltered();
-            // Card hit targets resolve the current filtered slot at click time, so
-            // they do not need to be recreated for every character typed.
+            rebuildCardTargets();
         });
         addRenderableWidget(searchBox);
         button(contentRight - 178, toolbarY, 116, 25, () -> {
@@ -144,15 +153,17 @@ public final class WaypointScreen extends Screen {
     private void rebuildCardTargets() {
         // One target set per visible slot. The slot is resolved at click time, so
         // search edits never leave stale buttons pointing to older waypoints.
-        for (int slot = 0; slot < pageSize; slot++) {
+        int visibleCount = Math.max(0, Math.min(pageSize, filtered.size() - currentPage() * pageSize));
+        cardHitTargets.clear();
+        for (int slot = 0; slot < visibleCount; slot++) {
             final int visibleSlot = slot;
             int col = slot % columns;
             int row = slot / columns;
             int x = contentX + col * (cardWidth + 12);
             int y = gridY + row * (cardHeight + 12);
-            button(x, y, Math.max(1, cardWidth - 54), cardHeight, () -> editSlot(visibleSlot));
-            button(x + cardWidth - 50, y + 8, 20, 20, () -> editSlot(visibleSlot));
-            button(x + cardWidth - 27, y + 8, 20, 20, () -> deleteSlot(visibleSlot));
+            cardHitTargets.add(new HitTarget(x, y, Math.max(1, cardWidth - 54), cardHeight, () -> editSlot(visibleSlot)));
+            cardHitTargets.add(new HitTarget(x + cardWidth - 50, y + 8, 20, 20, () -> editSlot(visibleSlot)));
+            cardHitTargets.add(new HitTarget(x + cardWidth - 27, y + 8, 20, 20, () -> deleteSlot(visibleSlot)));
         }
     }
 
@@ -175,15 +186,22 @@ public final class WaypointScreen extends Screen {
 
     private void refreshFiltered() {
         String q = searchQuery == null ? "" : searchQuery.trim().toLowerCase(Locale.ROOT);
-        if (q.isEmpty()) filtered = List.copyOf(entries);
-        else {
-            List<Waypoint> result = new ArrayList<>();
-            for (Waypoint w : entries) {
-                String value = (w.name() + " " + w.dimension() + " " + w.x() + " " + w.y() + " " + w.z()).toLowerCase(Locale.ROOT);
-                if (value.contains(q)) result.add(w);
-            }
-            filtered = List.copyOf(result);
+        String current = WaypointsMod.normalizeDimension(WaypointsMod.currentDimension());
+        List<Waypoint> result = new ArrayList<>();
+        for (Waypoint w : entries) {
+            String dimension = WaypointsMod.normalizeDimension(w.dimension());
+            boolean dimensionMatches = switch (WaypointsMod.menuDimensionMode) {
+                case 0 -> dimension.equals(current);
+                case 1 -> dimension.equals("minecraft:overworld");
+                case 2 -> dimension.equals("minecraft:the_nether");
+                case 3 -> dimension.equals("minecraft:the_end");
+                default -> true; // 4 = all dimensions
+            };
+            if (!dimensionMatches) continue;
+            String value = (w.name() + " " + w.dimension() + " " + w.x() + " " + w.y() + " " + w.z()).toLowerCase(Locale.ROOT);
+            if (q.isEmpty() || value.contains(q)) result.add(w);
         }
+        filtered = List.copyOf(result);
     }
 
     private int currentPage() { return Math.max(0, Math.min(page, Math.max(0, (filtered.size() - 1) / Math.max(1, pageSize)))); }
@@ -200,7 +218,30 @@ public final class WaypointScreen extends Screen {
     }
 
     private void button(int x, int y, int w, int h, Runnable action) {
-        addRenderableWidget(Button.builder(Component.literal(""), b -> action.run()).bounds(x, y, w, h).build());
+        // Pure hit target: the custom interface is drawn by extractRenderState.
+        // A vanilla Button here would paint a grey rectangle over the custom card.
+        hitTargets.add(new HitTarget(x, y, w, h, action));
+    }
+
+    @Override
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        if (event.button() == 1) {
+            for (int i = hitTargets.size() - 1; i >= 0; i--) {
+                HitTarget target = hitTargets.get(i);
+                if (target.contains(event.x(), event.y())) {
+                    target.action().run();
+                    return true;
+                }
+            }
+            for (int i = cardHitTargets.size() - 1; i >= 0; i--) {
+                HitTarget target = cardHitTargets.get(i);
+                if (target.contains(event.x(), event.y())) {
+                    target.action().run();
+                    return true;
+                }
+            }
+        }
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
@@ -241,7 +282,7 @@ public final class WaypointScreen extends Screen {
         g.fill(0, 0, railWidth, height, RAIL);
         g.fill(railWidth - 1, 0, railWidth, height, EDGE);
         rounded(g, 14, 15, 43, 44, ACCENT, 8);
-        g.text(font, "➤", 24, 26, 0xFF101410, true);
+        g.text(font, "W", 23, 25, 0xFF101410, true);
         if (railWidth > 70) {
             g.text(font, "Waypoint", 51, 19, TEXT, false);
             g.text(font, "M A N A G E R", 51, 31, MUTED, false);
@@ -335,8 +376,11 @@ public final class WaypointScreen extends Screen {
             rounded(g, x, y, x + cardWidth, y + cardHeight, hover ? 0xFF1A2023 : PANEL, 9);
             border(g, x, y, x + cardWidth, y + cardHeight, EDGE);
             int color = 0xFF000000 | WaypointsMod.resolveColor(w);
-            rounded(g, x + 12, y + 13, x + 36, y + 37, 0xFF252B2F, 7);
-            rounded(g, x + 20, y + 18, x + 28, y + 32, color, 4);
+            // The waypoint's own color is the avatar fill; its first letter is the mark.
+            rounded(g, x + 12, y + 13, x + 36, y + 37, color, 7);
+            String initial = firstInitial(w.name());
+            int initialColor = contrastText(color);
+            g.text(font, initial, x + 24 - font.width(initial) / 2, y + 20, initialColor, true);
             g.text(font, fit(w.name(), Math.max(45, cardWidth - 100)), x + 44, y + 12, TEXT, true);
             String sub = dimension(w.dimension()) + " · " + (w.expiresAt() > 0 ? "Temporary" : "Permanent");
             g.text(font, fit(sub, cardWidth - 60), x + 44, y + 26, MUTED, false);
@@ -351,6 +395,17 @@ public final class WaypointScreen extends Screen {
             g.text(font, "✎", x + cardWidth - 44, metaY, MUTED, false);
             g.text(font, "×", x + cardWidth - 21, metaY, MUTED, false);
         }
+    }
+
+    private String firstInitial(String name) {
+        if (name == null || name.isBlank()) return "?";
+        return name.strip().substring(0, 1).toUpperCase(Locale.ROOT);
+    }
+
+    private int contrastText(int argb) {
+        int r = (argb >> 16) & 255, g = (argb >> 8) & 255, b = argb & 255;
+        double luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        return luminance > 145 ? 0xFF101410 : 0xFFFFFFFF;
     }
 
     private void drawCoordinate(GuiGraphicsExtractor g, int x, int y, int w, String label, String value) {

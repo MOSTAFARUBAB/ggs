@@ -2,7 +2,6 @@ package com.example.waypoints;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.gui.screens.Screen;
@@ -20,8 +19,15 @@ public final class WaypointSettingsScreen extends Screen {
     private static final int QUIET = 0xFF687278;
     private static final int ACCENT = 0xFFB7F36B;
 
+    private record HitTarget(int x, int y, int width, int height, Runnable action) {
+        boolean contains(double px, double py) {
+            return px >= x && px < x + width && py >= y && py < y + height;
+        }
+    }
+    private final java.util.List<HitTarget> hitTargets = new java.util.ArrayList<>();
+
     private int railWidth, contentX, contentRight, contentWidth, leftW;
-    private int beamTrackX, beamTrackWidth;
+    private int beamTrackX, beamTrackWidth, beamTrackY;
     private boolean draggingBeamOpacity;
     private EditBox distanceBox;
 
@@ -35,6 +41,7 @@ public final class WaypointSettingsScreen extends Screen {
     @Override
     protected void init() {
         clearWidgets();
+        hitTargets.clear();
         railWidth = width >= 800 ? 150 : 54;
         contentX = railWidth + 24;
         contentRight = width - 24;
@@ -66,14 +73,15 @@ public final class WaypointSettingsScreen extends Screen {
         }
 
         // Beacon beam preferences.
-        int beamY = 214;
+        int beamY = 232;
         button(contentX + leftW - 42, beamY + 36, 28, 18, () -> toggleBeams());
         button(contentX + leftW - 42, beamY + 62, 28, 18, () -> toggleBeamColor());
         beamTrackX = contentX + 116;
         beamTrackWidth = Math.max(60, leftW - 140);
+        beamTrackY = beamY + 91;
 
         // Display preferences + editable maximum distance. 0 means unlimited.
-        int displayY = 330;
+        int displayY = 349;
         button(contentX + leftW - 42, displayY + 36, 28, 18, () -> {
             WaypointsMod.currentDimensionOnly = !WaypointsMod.currentDimensionOnly;
             save();
@@ -101,11 +109,20 @@ public final class WaypointSettingsScreen extends Screen {
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         if (event.button() == 1 && event.x() >= beamTrackX - 5 && event.x() <= beamTrackX + beamTrackWidth + 5
-                && event.y() >= 302 && event.y() <= 318) {
+                && event.y() >= beamTrackY - 5 && event.y() <= beamTrackY + 12) {
             draggingBeamOpacity = true;
             setDragging(true);
             updateBeamOpacity(event.x());
             return true;
+        }
+        if (event.button() == 1) {
+            for (int i = hitTargets.size() - 1; i >= 0; i--) {
+                HitTarget target = hitTargets.get(i);
+                if (target.contains(event.x(), event.y())) {
+                    target.action().run();
+                    return true;
+                }
+            }
         }
         return super.mouseClicked(event, doubleClick);
     }
@@ -138,7 +155,8 @@ public final class WaypointSettingsScreen extends Screen {
     }
 
     private void button(int x, int y, int w, int h, Runnable action) {
-        addRenderableWidget(Button.builder(Component.literal(""), b -> action.run()).bounds(x, y, w, h).build());
+        // Invisible pointer target; custom controls are rendered separately.
+        hitTargets.add(new HitTarget(x, y, w, h, action));
     }
     private void toggleLabels() { WaypointsMod.showWaypointLabels = !WaypointsMod.showWaypointLabels; save(); }
     private void toggleDistances() { WaypointsMod.showWaypointDistances = !WaypointsMod.showWaypointDistances; save(); }
@@ -194,7 +212,7 @@ public final class WaypointSettingsScreen extends Screen {
             sizeX += sizeW + 4;
         }
 
-        int beamY = 214;
+        int beamY = 232;
         card(g, contentX, beamY, leftW, 107);
         g.text(font, "◉  Beacon beams", contentX + 16, beamY + 14, TEXT, true);
         settingRow(g, mx, contentX + 16, beamY + 36, leftW - 32, "Show beacon beams", "Guide your way with a vertical beam at each waypoint.", WaypointsMod.showWaypointBeams);
@@ -208,7 +226,7 @@ public final class WaypointSettingsScreen extends Screen {
         rounded(g, knob - 4, beamY + 91, knob + 4, beamY + 102, ACCENT, 5);
         g.text(font, WaypointsMod.beamOpacity + "%", contentX + leftW - 44, beamY + 89, MUTED, false);
 
-        int displayY = 330;
+        int displayY = 349;
         card(g, contentX, displayY, leftW, Math.max(108, height - displayY - 42));
         g.text(font, "▣  Display preferences", contentX + 16, displayY + 14, TEXT, true);
         settingRow(g, mx, contentX + 16, displayY + 36, leftW - 32, "Current dimension only", "Hide waypoints from dimensions you’re not in.", WaypointsMod.currentDimensionOnly);
@@ -241,7 +259,7 @@ public final class WaypointSettingsScreen extends Screen {
 
     private void drawSidebar(GuiGraphicsExtractor g, int mx, int my) {
         g.fill(0, 0, railWidth, height, RAIL); g.fill(railWidth - 1, 0, railWidth, height, EDGE);
-        rounded(g, 14, 15, 43, 44, ACCENT, 8); g.text(font, "➤", 24, 26, 0xFF101410, true);
+        rounded(g, 14, 15, 43, 44, ACCENT, 8); g.text(font, "W", 23, 25, 0xFF101410, true);
         if (railWidth > 70) {
             g.text(font, "Waypoint", 51, 19, TEXT, false); g.text(font, "M A N A G E R", 51, 31, MUTED, false);
             rounded(g, 14, 62, railWidth - 14, 105, PANEL, 8);
@@ -274,20 +292,11 @@ public final class WaypointSettingsScreen extends Screen {
     }
     private void card(GuiGraphicsExtractor g, int x, int y, int w, int h) { rounded(g, x, y, x + w, y + h, PANEL, 9); border(g, x, y, x + w, y + h, EDGE); }
     private void drawPreview(GuiGraphicsExtractor g, int x, int y, int w, int h) {
-        card(g, x, y, w, h);
-        int mid = x + w / 2; int top = y + 15;
-        for (int r = 0; r < 4; r++) {
-            int yy = top + r * 24;
-            g.fill(x + 1, yy, x + w - 1, yy + 1, 0x26384738);
-        }
-        g.fill(mid, y + 1, mid + 1, y + h - 1, 0xFF5D7B3D);
-        rounded(g, mid - 13, y + 52, mid + 13, y + 78, 0xFF26371E, 7);
-        border(g, mid - 13, y + 52, mid + 13, y + 78, ACCENT);
-        g.text(font, "⌖", mid - 4, y + 61, ACCENT, false);
-        int labelW = Math.min(w - 24, Math.max(100, font.width("Home Base") + 20));
-        rounded(g, mid - labelW / 2, y + 83, mid + labelW / 2, y + 112, PANEL_ALT, 5);
-        g.text(font, "Home Base", mid - font.width("Home Base") / 2, y + 88, ACCENT, false);
-        if (WaypointsMod.showWaypointDistances) g.text(font, "256 m", mid - font.width("256 m") / 2, y + 101, MUTED, false);
+        Minecraft mc = Minecraft.getInstance();
+        int centerX = mc.player == null ? 0 : mc.player.blockPosition().getX();
+        int centerZ = mc.player == null ? 0 : mc.player.blockPosition().getZ();
+        SurfaceMapPreview.draw(g, font, x, y, w, h, centerX, centerZ,
+                WaypointsMod.currentDimension(), ACCENT);
     }
     private void buttonLabel(GuiGraphicsExtractor g, int mx, int my, int x, int y, int w, int h, String label, boolean primary) {
         boolean hover = inside(mx, my, x, y, w, h);

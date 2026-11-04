@@ -2,7 +2,6 @@ package com.example.waypoints;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.gui.screens.Screen;
@@ -20,8 +19,8 @@ import java.util.Locale;
  * Create / edit one waypoint in the Field Atlas editor: a wide location form above
  * a color workstation, live preview, dimension scope, and expiry controls.
  *
- * How it works: normal Minecraft buttons and text boxes sit invisibly in the right places and handle all
- * clicking and typing; everything you actually SEE is drawn on top of them in extractRenderState.
+ * Text inputs remain native Minecraft edit boxes; custom controls use separate
+ * hit targets so vanilla button backgrounds never cover the designed interface.
  */
 public class WaypointEditScreen extends Screen {
     // ---- theme ----
@@ -66,6 +65,13 @@ public class WaypointEditScreen extends Screen {
 
     /** Recently saved colors (kept until you quit the game). */
     private static final List<Integer> RECENT = new ArrayList<>();
+
+    private record HitTarget(int x, int y, int width, int height, Runnable action) {
+        boolean contains(double px, double py) {
+            return px >= x && px < x + width && py >= y && py < y + height;
+        }
+    }
+    private final List<HitTarget> hitTargets = new ArrayList<>();
 
     private final Waypoint original; // null = creating a new one
     private final int returnPage;
@@ -174,6 +180,7 @@ public class WaypointEditScreen extends Screen {
     @Override
     protected void init() {
         clearWidgets();
+        hitTargets.clear();
         railWidth = width >= 800 ? 150 : 0;
         contentLeft = railWidth > 0 ? railWidth + 24 : 20;
         contentRight = width - 24;
@@ -189,8 +196,8 @@ public class WaypointEditScreen extends Screen {
         int pickerTop = pickerY();
         int nameY = oy + 44;
         int coordsY = oy + 94;
-        int dimY = oy + 145;
-        int expiryY = oy + 190;
+        int dimY = oy + 164;
+        int expiryY = oy + 206;
         int nameWidth = formWidth - 36;
         int coordGap = 8;
 
@@ -218,11 +225,11 @@ public class WaypointEditScreen extends Screen {
         }
 
         // Color picker: full-resolution saturation/value field plus hue strip.
-        click(preview, pickerTop + 146, colorWidth - 32, 22, () -> chroma = !chroma);
+        click(preview, pickerTop + 140, colorWidth - 32, 30, () -> chroma = !chroma);
         click(colorX + colorWidth - 58, pickerTop + 174, 42, 18, this::resetColor);
         for (int i = 0; i < RECENT.size(); i++) {
             final int idx = i;
-            click(preview + 16 + i * 22, pickerTop + 190, 18, 18, () -> pickRecent(idx));
+            click(preview + 16 + i * 22, pickerTop + 184, 18, 18, () -> pickRecent(idx));
         }
         hexBox = makeBox(hexBox, preview + 42, pickerTop + 118, Math.max(76, colorWidth - 132), 22,
                 String.format(Locale.ROOT, "%06X", currentRgb()), 7, "HEX");
@@ -249,8 +256,9 @@ public class WaypointEditScreen extends Screen {
     }
 
     private void click(int x, int y, int w, int h, Runnable action) {
-        this.addRenderableWidget(Button.builder(Component.literal(""), btn -> action.run())
-                .bounds(x, y, w, h).build());
+        // Keep hit testing separate from rendering so no default Minecraft button
+        // background can cover the custom controls.
+        hitTargets.add(new HitTarget(x, y, w, h, action));
     }
 
     private EditBox makeBox(EditBox old, int x, int y, int w, int h, String initial, int maxLength, String label) {
@@ -309,6 +317,15 @@ public class WaypointEditScreen extends Screen {
             }
         }
 
+        if (event.button() == 1) {
+            for (int i = hitTargets.size() - 1; i >= 0; i--) {
+                HitTarget target = hitTargets.get(i);
+                if (target.contains(event.x(), event.y())) {
+                    target.action().run();
+                    return true;
+                }
+            }
+        }
         return super.mouseClicked(event, doubleClick);
     }
 
@@ -588,8 +605,8 @@ public class WaypointEditScreen extends Screen {
         int pickerTop = pickerY();
         int nameY = oy + 44;
         int coordsY = oy + 94;
-        int dimY = oy + 145;
-        int expiryY = oy + 190;
+        int dimY = oy + 164;
+        int expiryY = oy + 206;
         int nameWidth = formWidth - 36;
 
         drawSidebar(g, mouseX, mouseY);
@@ -660,36 +677,33 @@ public class WaypointEditScreen extends Screen {
                 0.0f, 1.0f, 0.0f, 1.0f);
         int hueY = pickerTop + Math.round(hue * (HUE_DISPLAY_HEIGHT - 1));
         g.fill(hueX() - 2, hueY - 1, hueX() + 12, hueY + 1, 0xFFFFFFFF);
-        int rowY = pickerTop + 118;
+        int rowY = pickerTop + 108;
         rrect(g, preview, rowY, preview + 30, rowY + 24, 0xFF000000 | previewRgb);
         drawBox(g, hexBox, preview + 42, rowY, Math.max(76, colorWidth - 132), 22, "HEX");
-        g.text(font, "HEX", preview + 42, rowY + 25, QUIET, false);
-        int chromaY = pickerTop + 146;
-        rounded(g, preview, chromaY, preview + colorWidth - 32, chromaY + 22, PANEL_ALT, 6);
-        g.text(font, "✧  Chroma mode", preview + 10, chromaY + 7, TEXT, false);
+        g.text(font, "HEX", preview + 42, rowY + 24, QUIET, false);
+        int chromaY = pickerTop + 140;
+        rounded(g, preview, chromaY, preview + colorWidth - 32, chromaY + 30, PANEL_ALT, 6);
+        g.text(font, "✧  Chroma mode", preview + 10, chromaY + 6, TEXT, false);
         toggle(g, preview + colorWidth - 58, chromaY + 4, chroma);
-        g.text(font, "Cycle through the spectrum", preview + 10, chromaY + 13, QUIET, false);
-        g.text(font, "Recent colors", preview, pickerTop + 176, MUTED, false);
+        g.text(font, "Cycle through the spectrum", preview + 10, chromaY + 19, QUIET, false);
+        g.text(font, "Recent colors", preview, pickerTop + 174, MUTED, false);
         String resetLabel = "Reset";
-        g.text(font, resetLabel, colorX + colorWidth - 16 - font.width(resetLabel), pickerTop + 176, MUTED, false);
+        g.text(font, resetLabel, colorX + colorWidth - 16 - font.width(resetLabel), pickerTop + 174, MUTED, false);
         for (int i = 0; i < RECENT.size(); i++) {
             int sx = preview + 16 + i * 22;
-            rrect(g, sx, pickerTop + 190, sx + 18, pickerTop + 208, 0xFF000000 | RECENT.get(i));
-            if (!chroma && RECENT.get(i) == currentRgb()) border(g, sx - 1, pickerTop + 189, sx + 19, pickerTop + 209, TEXT);
+            rrect(g, sx, pickerTop + 184, sx + 18, pickerTop + 202, 0xFF000000 | RECENT.get(i));
+            if (!chroma && RECENT.get(i) == currentRgb()) border(g, sx - 1, pickerTop + 183, sx + 19, pickerTop + 203, TEXT);
         }
-        // Small in-game preview directly beneath the color workspace.
+        // Top-down surface map: reads only already-loaded client chunks and samples
+        // the WORLD_SURFACE heightmap, so roofs/terrain appear but caves do not.
         int previewPanelY = oy + 258;
-        card(g, colorX, previewPanelY, colorWidth, Math.max(110, Math.min(186, height - previewPanelY - 30)));
-        g.text(font, "IN-GAME PREVIEW", colorX + 14, previewPanelY + 11, QUIET, false);
-        int mid = colorX + colorWidth / 2;
-        g.fill(mid, previewPanelY + 24, mid + 1, previewPanelY + 62, 0xFF607F3E);
-        rrect(g, mid - 12, previewPanelY + 30, mid + 12, previewPanelY + 54, 0xFF24331D);
-        border(g, mid - 12, previewPanelY + 30, mid + 12, previewPanelY + 54, 0xFF000000 | previewRgb);
-        g.text(font, "⌖", mid - 4, previewPanelY + 38, ACCENT, false);
-        int previewW = Math.min(colorWidth - 24, Math.max(100, font.width(nameBox.getValue()) + 22));
-        rounded(g, mid - previewW / 2, previewPanelY + 64, mid + previewW / 2, previewPanelY + 86, PANEL_ALT, 5);
-        String previewName = fitPreview(nameBox.getValue(), previewW - 16);
-        g.text(font, previewName, mid - font.width(previewName) / 2, previewPanelY + 70, ACCENT, false);
+        int mapCenterX = parseCoordinate(xBox, Minecraft.getInstance().player == null ? 0 : Minecraft.getInstance().player.blockPosition().getX());
+        int mapCenterZ = parseCoordinate(zBox, Minecraft.getInstance().player == null ? 0 : Minecraft.getInstance().player.blockPosition().getZ());
+        String mapDimension = dimMode >= 0 && dimMode < DIM_IDS.length ? DIM_IDS[dimMode] : keepDimension;
+        if ("all".equals(mapDimension)) mapDimension = WaypointsMod.currentDimension();
+        int mapHeight = Math.max(110, Math.min(186, height - previewPanelY - 30));
+        SurfaceMapPreview.draw(g, font, colorX, previewPanelY, colorWidth, mapHeight,
+                mapCenterX, mapCenterZ, mapDimension, 0xFF000000 | previewRgb);
 
         int actionY = height - 30;
         actionButton(g, mouseX, mouseY, contentRight - 220, actionY, 94, 24, "Discard changes", false, false);
@@ -704,7 +718,7 @@ public class WaypointEditScreen extends Screen {
         g.fill(0, 0, railWidth, height, 0xFF101214);
         g.fill(railWidth - 1, 0, railWidth, height, CARD_BORDER);
         rrect(g, 14, 15, 43, 44, 0xFFB7F36B);
-        g.text(font, "➤", 24, 26, 0xFF101410, true);
+        g.text(font, "W", 23, 25, 0xFF101410, true);
         if (railWidth > 70) {
             g.text(font, "Waypoint", 51, 19, TEXT, false);
             g.text(font, "M A N A G E R", 51, 31, MUTED, false);
@@ -759,6 +773,11 @@ public class WaypointEditScreen extends Screen {
         }
         int color = primary ? 0xFF101410 : danger ? 0xFFFF8C92 : TEXT;
         g.text(font, label, x + (w - font.width(label)) / 2, y + (h - 8) / 2, color, false);
+    }
+
+    private int parseCoordinate(EditBox box, int fallback) {
+        try { return Integer.parseInt(box.getValue().trim()); }
+        catch (NumberFormatException ignored) { return fallback; }
     }
 
     private String fitPreview(String value, int max) {

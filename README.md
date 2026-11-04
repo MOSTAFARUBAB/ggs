@@ -1,8 +1,8 @@
-## Version 1.2.1
+# Simple Waypoints 1.2.2
 
-Build compatibility fixes: define the editor alternate panel color and route local import/export notices through the 26.3 GUI chat listener API.
+Updated Waypoint Manager UI: custom click targets instead of visible vanilla placeholder buttons, cleaned-up editor/settings spacing, colored initial avatars, and a top-down surface-map preview. The preview samples only already-loaded client chunks and uses the world-surface heightmap, so it shows surface terrain and builds without loading chunks or revealing underground rooms.
 
-# Simple Waypoints 1.2.0 — Waypoint Manager UI
+# Simple Waypoints — Waypoint Manager UI
 
 Client-side Fabric waypoint manager for Minecraft 26.3 (Java 25).
 
