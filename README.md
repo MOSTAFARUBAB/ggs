@@ -45,3 +45,7 @@ The native vertical beacon beam remains subject to Minecraft's normal world/chun
 
 If `.minecraft/logs/latest.log` contains `[Simple Waypoints] submitting N world-space label(s)`, labels are being sent
 to the renderer.
+
+## 1.1.3 build fix
+
+- Fixed Java compilation: the mob query now uses `Mob::isAlive` without comparing `Mob` to `LocalPlayer`. The query is already restricted to `Mob.class`, so the player is not included.

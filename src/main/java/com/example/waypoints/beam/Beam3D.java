@@ -168,7 +168,7 @@ public final class Beam3D {
             return mc.level.getEntitiesOfClass(
                     Mob.class,
                     searchArea,
-                    mob -> mob.isAlive() && mob != mc.player
+                    Mob::isAlive
             ).stream().anyMatch(mob -> mob.getBoundingBox().inflate(0.75).clip(from, to).isPresent());
         } catch (Throwable t) {
             return false;
