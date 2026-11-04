@@ -105,7 +105,7 @@ final class SurfaceMapPreview {
             return;
         }
 
-        String currentDimension = WaypointsMod.normalizeDimension(level.dimension().location().toString());
+        String currentDimension = WaypointsMod.currentDimension();
         if (!dimension.equals("unknown") && !dimension.equals("all") && !dimension.equals(currentDimension)) {
             status = "Switch to this dimension to load its surface";
             texture.upload();
