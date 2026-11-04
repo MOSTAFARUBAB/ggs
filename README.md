@@ -32,4 +32,13 @@ The mod uses the `GuiGraphicsExtractor` and `MouseButtonEvent` GUI APIs, checks 
 
 ## Waypoint label depth behaviour
 
-Labels are submitted into Minecraft's 3D text rendering pipeline. Letter glyphs use `Font.DisplayMode.NORMAL`, so the scene depth buffer masks only the exact glyph pixels behind a mob, player, dropped item, or block. The small, low-opacity panel background uses `SEE_THROUGH` independently, so the backing remains faintly visible instead of disappearing together with the letters; its low alpha keeps foreground entities visible beneath it. This is immediate during the same frame and does not depend on raycasts, an entity search radius, or a delayed opacity update.
+Labels are real world-space text, drawn the way vanilla name tags are. Both the letters and the dark strip behind
+them use normal depth testing, so a mob, player, dropped item or block in front of the label hides exactly the
+pixels it covers; the label never draws on top of them.
+
+The label floats 1.85 blocks above the waypoint and sits half a block toward you, so it is in front of its own beam
+instead of half-hidden inside it. It is submitted facing both ways, and only the side facing you is drawn (text that
+faces away is culled, which is what made the previous build show only the beam).
+
+If Minecraft's log (`.minecraft/logs/latest.log`) contains `[Simple Waypoints] submitting N world-space label(s)`,
+the labels are being sent to the renderer.

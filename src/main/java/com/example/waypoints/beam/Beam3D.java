@@ -32,6 +32,7 @@ public final class Beam3D {
     private static volatile boolean failed = false;
     private static final int MAX_RENDERED_LABELS = 16;
     private static final int FULL_BRIGHT = 0x00F000F0;
+    private static final int LABEL_BACKGROUND = 0x66000000;
 
     private Beam3D() {
     }
@@ -184,6 +185,10 @@ public final class Beam3D {
             }
 
             if (WaypointsMod.showWaypointLabels) {
+                if (!loggedLabels && !labelStates.isEmpty()) {
+                    loggedLabels = true;
+                    System.out.println("[Simple Waypoints] submitting " + labelStates.size() + " world-space label(s)");
+                }
                 for (LabelState label : labelStates) {
                     submitDepthTestedLabel(poseStack, collector, cameraState, mc.font, label);
                 }
@@ -193,12 +198,13 @@ public final class Beam3D {
         }
     }
 
+    private static boolean loggedLabels = false;
+
     /**
-     * Submit the label as actual world-space text with NORMAL depth testing.
-     * The scene depth buffer now decides visibility independently for every pixel:
-     * a skeleton, dropped item, player or block in front of the label covers only
-     * the fragments it occupies. There is no raycast, entity-distance heuristic,
-     * frame delay, or screen-space text drawn over the whole scene.
+     * Submit the label as real world-space text, the same way vanilla name tags are drawn.
+     * Everything (letters AND the dark strip behind them) uses NORMAL depth testing, so a mob,
+     * dropped item, player or block in front of the label hides exactly the pixels it covers and
+     * the label never draws on top of them.
      */
     private static void submitDepthTestedLabel(PoseStack poseStack,
                                                 net.minecraft.client.renderer.SubmitNodeCollector collector,
@@ -211,12 +217,15 @@ public final class Beam3D {
 
         String name = fitLabelName(font, waypoint.name());
         String distanceLine = formatDistance(label.playerDistance()) + " away";
-        int nameWidth = font.width(name);
-        int distanceWidth = font.width(distanceLine);
-        float halfWidth = Math.max(nameWidth, distanceWidth) * 0.5f + 5.0f;
+        // Both lines get a strip of the same width so they look like one tidy plate.
+        int plateWidth = Math.max(font.width(name), font.width(distanceLine)) + 8;
+        String nameLine = padToWidth(font, name, plateWidth);
+        String distLine = padToWidth(font, distanceLine, plateWidth);
+        int nameWidth = font.width(nameLine);
+        int distWidth = font.width(distLine);
 
-        // Keep the text readable at ordinary ranges while still behaving like a
-        // physical world marker. Size grows gently with distance, then stops growing.
+        // World size of one font pixel. Constant size = it shrinks and grows with distance like any
+        // object in the world; it only grows a little when far away so it stays readable.
         float sizeMode = switch (WaypointsMod.markerSizeMode) {
             case 0 -> 0.060f;
             case 2 -> 0.082f;
@@ -225,57 +234,69 @@ public final class Beam3D {
         float distanceBoost = (float) Math.max(1.0, Math.min(1.30, label.playerDistance() / 32.0));
         float scale = sizeMode * distanceBoost;
 
-        poseStack.pushPose();
-        poseStack.translate(
-                waypoint.x() + 0.5 - cameraPos.x,
-                waypoint.y() + 1.85 - cameraPos.y,
-                waypoint.z() + 0.5 - cameraPos.z
-        );
-        // This is the same billboard orientation convention used by vanilla name tags.
-        poseStack.mulPose(new Matrix4f().rotation(camera.orientation));
-        poseStack.scale(-scale, -scale, scale);
+        double lx = waypoint.x() + 0.5;
+        double ly = waypoint.y() + 1.85;
+        double lz = waypoint.z() + 0.5;
+        // The beam runs through the middle of the waypoint, so move the label half a block toward you.
+        // That puts it in front of its own beam instead of half-hidden inside it.
+        double toX = cameraPos.x - lx;
+        double toZ = cameraPos.z - lz;
+        double len = Math.sqrt(toX * toX + toZ * toZ);
+        if (len > 0.001) {
+            double push = Math.min(0.55, len * 0.5);
+            lx += toX / len * push;
+            lz += toZ / len * push;
+        }
 
-        // Keep a low-opacity backing visible even when an entity crosses the
-        // waypoint, so the nameplate does not disappear as one solid unit.
-        // SEE_THROUGH is used ONLY for this subtle background; its low alpha
-        // lets the mob/item remain clearly visible beneath it. The glyphs below
-        // still use NORMAL depth testing and are naturally masked by foreground
-        // entities and blocks on a per-pixel basis.
-        collector.submitTextBackground(
-                poseStack,
-                -halfWidth,
-                -12.0f,
-                halfWidth,
-                11.0f,
-                0x55070709,
-                Font.DisplayMode.SEE_THROUGH,
-                FULL_BRIGHT
-        );
-        collector.submitText(
-                poseStack,
-                -nameWidth * 0.5f,
-                -9.0f,
-                Component.literal(name).getVisualOrderText(),
-                false,
-                Font.DisplayMode.NORMAL,
-                FULL_BRIGHT,
-                0xFFF0F2F4,
-                0,
-                0
-        );
-        collector.submitText(
-                poseStack,
-                -distanceWidth * 0.5f,
-                1.5f,
-                Component.literal(distanceLine).getVisualOrderText(),
-                false,
-                Font.DisplayMode.NORMAL,
-                FULL_BRIGHT,
-                0xFFD0D6DC,
-                0,
-                0
-        );
-        poseStack.popPose();
+        var nameSeq = Component.literal(nameLine).getVisualOrderText();
+        var distSeq = Component.literal(distLine).getVisualOrderText();
+
+        // Vanilla name tags use scale(+s, -s, +s) after the camera rotation in 26.x. Text that faces
+        // the wrong way is hidden (culled), not mirrored, so the label is submitted facing both
+        // ways: only the side that faces you is ever drawn.
+        for (int side = 0; side < 2; side++) {
+            float xScale = side == 0 ? scale : -scale;
+            poseStack.pushPose();
+            poseStack.translate(lx - cameraPos.x, ly - cameraPos.y, lz - cameraPos.z);
+            poseStack.mulPose(new Matrix4f().rotation(camera.orientation));
+            poseStack.scale(xScale, -scale, scale);
+
+            collector.submitText(
+                    poseStack,
+                    -nameWidth * 0.5f,
+                    -10.0f,
+                    nameSeq,
+                    false,
+                    Font.DisplayMode.NORMAL,
+                    FULL_BRIGHT,
+                    0xFFFFFFFF,
+                    LABEL_BACKGROUND,
+                    0
+            );
+            collector.submitText(
+                    poseStack,
+                    -distWidth * 0.5f,
+                    -1.0f,
+                    distSeq,
+                    false,
+                    Font.DisplayMode.NORMAL,
+                    FULL_BRIGHT,
+                    0xFFD0D6DC,
+                    LABEL_BACKGROUND,
+                    0
+            );
+            poseStack.popPose();
+        }
+    }
+
+    /** Adds equal spaces on both sides until the text is about {@code target} pixels wide. */
+    private static String padToWidth(Font font, String text, int target) {
+        int space = Math.max(1, font.width(" "));
+        StringBuilder sb = new StringBuilder(text);
+        while (font.width(sb.toString()) + 2 * space <= target) {
+            sb.insert(0, ' ').append(' ');
+        }
+        return sb.toString();
     }
 
     private static String fitLabelName(Font font, String rawName) {
