@@ -651,7 +651,6 @@ public class WaypointsMod implements ClientModInitializer {
         double tanHalfFov = Math.tan(Math.toRadians(effectiveRenderFov(mc, partial)) / 2.0);
 
         Font font = mc.font;
-        if (!scaleChecked) initScale(graphics);
         long gameTick = mc.level.getGameTime();
         if (gameTick != hudScopeTick) {
             hudWorldId = currentWorldId();
@@ -669,7 +668,24 @@ public class WaypointsMod implements ClientModInitializer {
         int[] occupiedRight = new int[maxLabels];
         int[] occupiedBottom = new int[maxLabels];
         int renderedLabels = 0;
-        for (Waypoint w : WAYPOINTS) {
+
+        // Nearest waypoints first, so a close label always wins a crowded spot.
+        java.util.List<Waypoint> ordered = new java.util.ArrayList<>(WAYPOINTS);
+        final Vec3 sortEye = playerEye;
+        ordered.sort(java.util.Comparator.comparingDouble(o -> {
+            double ox = o.x() + 0.5 - sortEye.x;
+            double oy = o.y() + 0.5 - sortEye.y;
+            double oz = o.z() + 0.5 - sortEye.z;
+            return ox * ox + oy * oy + oz * oz;
+        }));
+
+        long nowMs = System.nanoTime() / 1_000_000L;
+        double frameSeconds = Math.max(0.0, Math.min(0.1, (nowMs - lastLabelFrameMs) / 1000.0));
+        lastLabelFrameMs = nowMs;
+        double easeFactor = 1.0 - Math.exp(-frameSeconds * 16.0);
+        pruneLabelAnims(nowMs);
+
+        for (Waypoint w : ordered) {
             if (renderedLabels >= maxLabels) break;
             if (!java.util.Objects.equals(w.worldId(), worldId)) continue;
             if (!dimensionMatches(w, dim)) continue;
@@ -692,7 +708,7 @@ public class WaypointsMod implements ClientModInitializer {
             double dist = Math.sqrt(pdx * pdx + pdy * pdy + pdz * pdz);
             if (dist < 1.0) continue;
 
-            // Compact name and distance label with a black face and waypoint-color accent
+            // Name + distance label. Constant size, floats above the waypoint, never grows.
             double dx = bx;
             double dy = by + 2.5;
             double dz = bz;
@@ -700,26 +716,23 @@ public class WaypointsMod implements ClientModInitializer {
             if (p == null) continue;
             int sx = (int) p[0];
             int sy = (int) p[1];
-            if (sx < -80 || sx > sw + 80 || sy < -80 || sy > sh + 80) continue;
+            if (sx < -120 || sx > sw + 120 || sy < -80 || sy > sh + 80) continue;
 
-            // Distance is measured from the player, while size follows the actual camera depth.
-            double perspectiveScale = perspectivePillScale(p[2], tanHalfFov);
-            if (!scaleOk) perspectiveScale = 1.0;
             String distanceLine = formatDistance(dist) + " away";
-            int labelWidth = (int) Math.ceil(pillBaseWidth(font, w.name(), distanceLine) * perspectiveScale);
-            int labelHeight = (int) Math.ceil(30.0 * perspectiveScale);
+            LabelLook look = currentLook();
+            int labelWidth = pillWidth(font, w.name(), distanceLine, look);
+            int labelHeight = look.height;
+            int step = labelHeight + 3;
 
-            // Keep nearby labels from covering one another. Try the anchor first, then
-            // short vertical offsets; if the screen is too crowded, hide this label
-            // instead of drawing unreadable overlapping names.
-            boolean placed = false;
-            for (int offset : LABEL_VERTICAL_OFFSETS) {
-                int labelY = sy + offset;
+            // Pick the first spot that does not overlap a label that is already placed.
+            int targetOffset = 0;
+            boolean found = false;
+            for (int order : LABEL_OFFSET_ORDER) {
+                int offset = order * step;
                 int left = sx - labelWidth / 2;
-                int top = labelY - labelHeight / 2;
+                int top = sy + offset - labelHeight / 2;
                 int right = left + labelWidth;
                 int bottom = top + labelHeight;
-                if (left < 2 || right > sw - 2 || top < 2 || bottom > sh - 2) continue;
 
                 boolean overlaps = false;
                 for (int i = 0; i < renderedLabels; i++) {
@@ -735,18 +748,30 @@ public class WaypointsMod implements ClientModInitializer {
                 occupiedTop[renderedLabels] = top;
                 occupiedRight[renderedLabels] = right;
                 occupiedBottom[renderedLabels] = bottom;
-                // HUD labels are rendered after the world, so they would normally sit
-                // on top of mobs, dropped items and blocks. Fade the plate when the
-                // camera-to-waypoint line is occluded so the world remains visible
-                // through it instead of turning the label into an opaque foreground card.
-                Vec3 labelWorldPos = new Vec3(w.x() + 0.5, w.y() + 2.5, w.z() + 0.5);
-                float depthOpacity = labelDepthOpacity(mc, eye, labelWorldPos);
-                drawPill(graphics, font, w.name(), dist, rgb, sx, labelY, perspectiveScale, depthOpacity);
-                renderedLabels++;
-                placed = true;
+                targetOffset = offset;
+                found = true;
                 break;
             }
-            if (!placed) continue;
+            if (!found) continue; // too crowded: hide this one instead of overlapping
+
+            // Smooth motion: ease to the chosen spot, fade in, and bob gently so the label floats.
+            LabelAnim anim = LABEL_ANIMS.computeIfAbsent(w.hashCode(), k -> new LabelAnim(nowMs));
+            anim.lastSeen = nowMs;
+            if (!anim.placed) {
+                anim.offset = targetOffset;
+                anim.placed = true;
+            }
+            anim.offset += (targetOffset - anim.offset) * easeFactor;
+            double phase = (w.hashCode() & 0xFF) / 255.0 * Math.PI * 2.0;
+            double bob = Math.sin(nowMs / 1000.0 * 1.8 + phase) * 1.6;
+            int labelCenterY = (int) Math.round(sy + anim.offset + bob);
+            float appear = (float) Math.min(1.0, (nowMs - anim.firstSeen) / 250.0);
+
+            // Fade the label when the world is in front of it so it does not look painted over blocks or mobs.
+            Vec3 labelWorldPos = new Vec3(w.x() + 0.5, w.y() + 2.5, w.z() + 0.5);
+            float depthOpacity = labelDepthOpacity(mc, eye, labelWorldPos);
+            drawPill(graphics, font, w.name(), distanceLine, rgb, sx, labelCenterY, labelWidth, look, depthOpacity * appear);
+            renderedLabels++;
         }
     }
 
@@ -898,76 +923,56 @@ public class WaypointsMod implements ClientModInitializer {
     }
 
     // ---------------- pill label ----------------
-    private static java.lang.reflect.Method M_POSE, M_PUSH, M_POP, M_TRANSLATE, M_SCALE;
-    private static final int[] LABEL_VERTICAL_OFFSETS = {0, -34, 34, -68, 68, -102, 102, -136, 136};
-    private static boolean scaleChecked = false;
-    private static boolean scaleOk = false;
+    // ---------------- waypoint label: constant size, connected outline, floats above the beam ----------------
+    /** Layout of the label for the three "Logo" sizes. Constant sizes only, no matrix scaling, so edges stay sharp. */
+    private static final class LabelLook {
+        final int padX;
+        final int height;
+        final int nameY;
+        final int metaY;
 
-    /** Scaling uses the GUI pose stack (looked up by reflection). If it is not available the label simply stays at normal size. */
-    private static void initScale(GuiGraphicsExtractor g) {
-        scaleChecked = true;
-        try {
-            M_POSE = g.getClass().getMethod("pose");
-            Object pose = M_POSE.invoke(g);
-            Class<?> pc = pose.getClass();
-            M_PUSH = pc.getMethod("pushMatrix");
-            M_POP = pc.getMethod("popMatrix");
-            M_TRANSLATE = pc.getMethod("translate", float.class, float.class);
-            M_SCALE = pc.getMethod("scale", float.class, float.class);
-            scaleOk = true;
-        } catch (Throwable t) {
-            scaleOk = false;
+        LabelLook(int padX, int height, int nameY, int metaY) {
+            this.padX = padX;
+            this.height = height;
+            this.nameY = nameY;
+            this.metaY = metaY;
         }
     }
 
-    /**
-     * Close labels may be slightly larger; distant labels ease down to a fixed,
-     * readable minimum instead of growing with distance. The maximum stays capped.
-     */
-    private static double perspectivePillScale(double depth, double tanHalfFov) {
-        double safeDepth = Math.max(1.0, depth);
-        double scale = 12.0 / safeDepth;
-        double max = switch (markerSizeMode) { case 0 -> 0.95; case 2 -> 1.12; default -> 1.0; };
-        return Math.max(0.68, Math.min(max, scale));
+    private static final LabelLook LOOK_SMALL = new LabelLook(5, 22, 3, 12);
+    private static final LabelLook LOOK_MEDIUM = new LabelLook(7, 25, 4, 13);
+    private static final LabelLook LOOK_LARGE = new LabelLook(9, 29, 5, 15);
+
+    private static LabelLook currentLook() {
+        return markerSizeMode == 0 ? LOOK_SMALL : markerSizeMode == 2 ? LOOK_LARGE : LOOK_MEDIUM;
     }
 
-    private static void drawPill(GuiGraphicsExtractor g, Font font, String name, double dist, int rgb,
-                                 int cx, int cy, double scale, float opacity) {
-        if (!scaleChecked) initScale(g);
-        String distanceLine = formatDistance(dist) + " away";
+    /** Per-label animation state: eases to its spot (no popping), fades in, and bobs gently. */
+    private static final class LabelAnim {
+        final long firstSeen;
+        long lastSeen;
+        double offset;
+        boolean placed;
 
-        Object pose = null;
-        boolean pushed = false;
-        try {
-            if (scaleOk && Math.abs(scale - 1.0) > 0.001) {
-                pose = M_POSE.invoke(g);
-                M_PUSH.invoke(pose);
-                pushed = true;
-                M_TRANSLATE.invoke(pose, (float) cx, (float) cy);
-                M_SCALE.invoke(pose, (float) scale, (float) scale);
-                drawPillShape(g, font, name, distanceLine, rgb, 0, 0, opacity);
-            } else {
-                drawPillShape(g, font, name, distanceLine, rgb, cx, cy, opacity);
-            }
-        } catch (Throwable t) {
-            scaleOk = false;
-        } finally {
-            if (pushed) {
-                try {
-                    M_POP.invoke(pose);
-                } catch (Throwable ignored) {
-                    scaleOk = false;
-                }
-            }
+        LabelAnim(long now) {
+            this.firstSeen = now;
+            this.lastSeen = now;
         }
     }
 
-    /** Draws a compact two-line waypoint label: name first, distance second.
-     * The rounded panel uses a fixed number of fills to stay inexpensive per frame.
-     */
+    private static final java.util.HashMap<Integer, LabelAnim> LABEL_ANIMS = new java.util.HashMap<>();
+    private static long labelFrame = 0;
+    /** Try the anchor first, then spots above and below, in label-heights (nearest labels are placed first). */
+    private static final int[] LABEL_OFFSET_ORDER = {0, -1, 1, -2, 2, -3, 3, -4, 4};
+
+    private static void pruneLabelAnims(long nowMs) {
+        if ((++labelFrame % 120) != 0) return;
+        LABEL_ANIMS.values().removeIf(a -> nowMs - a.lastSeen > 1500);
+    }
+
     private static String fitPillName(Font font, String name) {
         String displayName = name == null || name.isBlank() ? "Waypoint" : name.trim();
-        final int maxTextWidth = 168;
+        final int maxTextWidth = 110;
         if (font.width(displayName) > maxTextWidth) {
             while (displayName.length() > 1 && font.width(displayName + "…") > maxTextWidth) {
                 displayName = displayName.substring(0, displayName.length() - 1);
@@ -977,10 +982,10 @@ public class WaypointsMod implements ClientModInitializer {
         return displayName;
     }
 
-    private static int pillBaseWidth(Font font, String name, String distanceLine) {
+    private static int pillWidth(Font font, String name, String distanceLine, LabelLook look) {
         int nameWidth = font.width(fitPillName(font, name));
         int metaWidth = font.width(distanceLine);
-        return Math.max(84, Math.min(206, Math.max(nameWidth, metaWidth) + 24));
+        return Math.max(46, Math.max(nameWidth, metaWidth) + look.padX * 2);
     }
 
     private static int applyOpacity(int argb, float opacity) {
@@ -989,35 +994,52 @@ public class WaypointsMod implements ClientModInitializer {
         return (argb & 0x00FFFFFF) | (alpha << 24);
     }
 
-    private static void drawPillShape(GuiGraphicsExtractor g, Font font, String name, String distanceLine,
-                                      int rgb, int cx, int cy, float opacity) {
+    /**
+     * Two-line label: name, then distance. Dark body with a 1 px outline in the waypoint color.
+     * Everything is drawn at whole-pixel positions with no scaling, so the outline is one continuous
+     * connected line (corners step diagonally) and never breaks into pieces.
+     */
+    private static void drawPill(GuiGraphicsExtractor g, Font font, String name, String distanceLine,
+                                 int rgb, int cx, int cy, int width, LabelLook look, float opacity) {
+        if (opacity <= 0.01f) return;
         String displayName = fitPillName(font, name);
         int nameWidth = font.width(displayName);
         int metaWidth = font.width(distanceLine);
-        int width = pillBaseWidth(font, displayName, distanceLine);
-        final int height = 30;
-        int x = cx - width / 2;
-        int y = cy - height / 2;
-        int edge = 0xFF000000 | (rgb & 0xFFFFFF);
+        int w = width;
+        int h = look.height;
+        int x = cx - w / 2;
+        int y = cy - h / 2;
 
-        // Flat black label: four cheap fills instead of dozens of rounded-corner
-        // scanline fills per waypoint. The alpha is reduced when the world occludes it.
-        g.fill(x + 1, y + 2, x + width + 1, y + height + 2, applyOpacity(0x88000000, opacity));
-        g.fill(x, y, x + width, y + height, applyOpacity(0xFF383838, opacity));
-        g.fill(x + 1, y + 1, x + width - 1, y + height - 1, applyOpacity(0xF5080808, opacity));
-        g.fill(x + 6, y + 6, x + 8, y + height - 6, applyOpacity(edge, opacity));
+        int body = applyOpacity(0xD00B0D10, opacity);
+        int outline = applyOpacity(0xFF000000 | (rgb & 0xFFFFFF), opacity);
+        int shadow = applyOpacity(0x55000000, opacity);
 
-        // Center both lines in the text area for balanced alignment. Text remains
-        // slightly brighter than the plate so the waypoint can still be read through
-        // foreground entities without looking like it is painted over them.
-        int textAreaLeft = x + 14;
-        int textAreaWidth = width - 20;
-        int nameX = textAreaLeft + Math.max(0, (textAreaWidth - nameWidth) / 2);
-        int metaX = textAreaLeft + Math.max(0, (textAreaWidth - metaWidth) / 2);
+        // soft shadow under the label
+        g.fill(x + 2, y + h, x + w - 2, y + h + 1, shadow);
+
+        // body (a plus shape, so the four corner pixels stay empty)
+        g.fill(x + 2, y + 1, x + w - 2, y + h - 1, body);
+        g.fill(x + 1, y + 2, x + w - 1, y + h - 2, body);
+
+        // outline: four edges plus one pixel at each corner, so the line is closed all the way round
+        g.fill(x + 2, y, x + w - 2, y + 1, outline);                 // top
+        g.fill(x + 2, y + h - 1, x + w - 2, y + h, outline);         // bottom
+        g.fill(x, y + 2, x + 1, y + h - 2, outline);                 // left
+        g.fill(x + w - 1, y + 2, x + w, y + h - 2, outline);         // right
+        g.fill(x + 1, y + 1, x + 2, y + 2, outline);                 // top-left corner
+        g.fill(x + w - 2, y + 1, x + w - 1, y + 2, outline);         // top-right corner
+        g.fill(x + 1, y + h - 2, x + 2, y + h - 1, outline);         // bottom-left corner
+        g.fill(x + w - 2, y + h - 2, x + w - 1, y + h - 1, outline); // bottom-right corner
+
+        // text, centered
         float textOpacity = Math.min(1.0f, opacity + 0.20f);
-        g.text(font, displayName, nameX, y + 4, applyOpacity(0xFFF0F2F4, textOpacity), false);
-        g.text(font, distanceLine, metaX, y + 17, applyOpacity(0xFFB8C1CC, textOpacity), false);
+        int nameX = x + (w - nameWidth) / 2;
+        int metaX = x + (w - metaWidth) / 2;
+        g.text(font, displayName, nameX, y + look.nameY, applyOpacity(0xFFF3F4F6, textOpacity), false);
+        g.text(font, distanceLine, metaX, y + look.metaY, applyOpacity(0xFFAEB6C2, textOpacity), false);
     }
+
+    private static long lastLabelFrameMs = 0L;
 
     /** Projects a world offset (relative to the eye) to {screenX, screenY, depth}, or null if behind the camera. */
     private static double[] project(double dx, double dy, double dz, double[] f, double[] r, double[] u,
