@@ -102,7 +102,7 @@ public final class Beam3D {
                     double playerDistance = Math.sqrt(playerPosition.distanceToSqr(wx, wy, wz));
                     // Is terrain between you and the label? Then the label is drawn through it (so you can
                     // find your way back); with a clear view it stays depth-tested like a vanilla name tag.
-                    boolean blocked = isBlockedByTerrain(mc, cameraPosition, new Vec3(wx, waypoint.y() + 1.85, wz));
+                    boolean blocked = isBlockedByTerrain(mc, cameraPosition, new Vec3(wx, waypoint.y() + 2.5, wz));
                     labelCandidates.add(new LabelState(waypoint, playerDistance, distanceSquared, blocked));
                 }
 
@@ -219,7 +219,7 @@ public final class Beam3D {
      * World-space label, drawn like a vanilla name tag.
      *  - Clear view: everything is depth-tested, so mobs, items, players and blocks in front hide it.
      *  - Terrain in the way: it is drawn through the terrain, so it can always guide you back.
-     *  - Size: small when you are close, growing with distance so it stays big and readable far away.
+     *  - Size: constant on screen, with a optional small/medium/large plate-padding presets.
      *  - Outline: a border in the same color as the waypoint's beam (rainbow follows the beam).
      */
     private static void submitDepthTestedLabel(PoseStack poseStack,
@@ -233,15 +233,16 @@ public final class Beam3D {
 
         String name = fitLabelName(font, waypoint.name());
         String distanceLine = formatDistance(label.playerDistance()) + " away";
-        int target = Math.max(font.width(name), font.width(distanceLine)) + 8;
-        String nameLine = padToWidth(font, name, target);
-        String distLine = padToWidth(font, distanceLine, target);
+        // Size presets change the plate padding, not the font/billboard zoom.
+        int horizontalPadding = switch (WaypointsMod.markerSizeMode) { case 0 -> 3; case 2 -> 7; default -> 5; };
+        String nameLine = name;
+        String distLine = distanceLine;
         int nameWidth = font.width(nameLine);
         int distWidth = font.width(distLine);
         int plateWidth = Math.max(nameWidth, distWidth);
 
         double lx = waypoint.x() + 0.5;
-        double ly = waypoint.y() + 1.85;
+        double ly = waypoint.y() + 2.5;
         double lz = waypoint.z() + 0.5;
         // The beam runs through the middle of the waypoint, so move the label toward you so it is
         // in front of its own beam instead of half-hidden inside it.
@@ -254,7 +255,8 @@ public final class Beam3D {
             lz += toZ / len * push;
         }
 
-        // Size on screen: small up close, big far away (smooth in between).
+        // Keep a constant on-screen size at every distance. Growing the billboard with
+        // distance makes it dominate the view and visually run into nearby terrain.
         double dx = lx - cameraPos.x;
         double dy = ly - cameraPos.y;
         double dz = lz - cameraPos.z;
@@ -262,12 +264,7 @@ public final class Beam3D {
         Minecraft mc = Minecraft.getInstance();
         double screenH = Math.max(1.0, mc.getWindow().getHeight());
         double tanHalfFov = Math.tan(Math.toRadians(mc.options.fov().get()) / 2.0);
-        double t = Math.max(0.0, Math.min(1.0, (distance - 6.0) / 54.0));
-        t = t * t * (3.0 - 2.0 * t);
-        double nearPx = 13.0;   // height of one text line on screen when you are close
-        double farPx = 34.0;    // ... and when you are far away (big, so it helps when you are lost)
-        double sizeMul = switch (WaypointsMod.markerSizeMode) { case 0 -> 0.8; case 2 -> 1.25; default -> 1.0; };
-        double linePx = (nearPx + (farPx - nearPx) * t) * sizeMul;
+        final double linePx = 13.0; // fixed text height on screen, independent of distance and size preset
         float scale = (float) ((linePx / 9.0) * (2.0 * distance * tanHalfFov) / screenH);
 
         Font.DisplayMode mode = label.blocked() ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.NORMAL;
@@ -276,13 +273,16 @@ public final class Beam3D {
         var nameSeq = Component.literal(nameLine).getVisualOrderText();
         var distSeq = Component.literal(distLine).getVisualOrderText();
 
-        // Plate edges in text space: two 9px strips from y=-11 to y=7.
-        float half = plateWidth * 0.5f + 1.0f;
-        final float top = -11.0f;
-        final float bottom = 7.0f;
-        final float th = 1.0f;   // outline thickness in font pixels
+        // Draw one complete outer rectangle, then one inset body rectangle. A single
+        // border quad avoids the hairline corner gaps caused by four separately rounded
+        // edge strips at different distances and display scales.
+        float half = plateWidth * 0.5f + horizontalPadding;
+        float verticalPadding = switch (WaypointsMod.markerSizeMode) { case 0 -> 0.0f; case 2 -> 2.0f; default -> 1.0f; };
+        final float top = -11.0f - verticalPadding;
+        final float bottom = 7.0f + verticalPadding;
+        final float th = 1.0f;
 
-        // Submitted facing both ways; text that faces away from you is culled, so only one side shows.
+        // Submit both billboard sides so the label is readable from either direction.
         for (int side = 0; side < 2; side++) {
             float xScale = side == 0 ? scale : -scale;
             poseStack.pushPose();
@@ -290,33 +290,26 @@ public final class Beam3D {
             poseStack.mulPose(new Matrix4f().rotation(camera.orientation));
             poseStack.scale(xScale, -scale, scale);
 
-            // outline (same color as the beam)
-            collector.submitTextBackground(poseStack, -half - th, top - th, half + th, top, outline, mode, FULL_BRIGHT);
-            collector.submitTextBackground(poseStack, -half - th, bottom, half + th, bottom + th, outline, mode, FULL_BRIGHT);
-            collector.submitTextBackground(poseStack, -half - th, top, -half, bottom, outline, mode, FULL_BRIGHT);
-            collector.submitTextBackground(poseStack, half, top, half + th, bottom, outline, mode, FULL_BRIGHT);
+            // A continuous color frame with a dark inset plate; all four corners share
+            // the same fill geometry, so there are no disconnected outline segments.
+            collector.submitTextBackground(poseStack,
+                    -half - th, top - th, half + th, bottom + th,
+                    outline, mode, FULL_BRIGHT);
+            collector.submitTextBackground(poseStack,
+                    -half, top, half, bottom,
+                    LABEL_BACKGROUND, mode, FULL_BRIGHT);
 
             collector.submitText(poseStack, -nameWidth * 0.5f, -10.0f, nameSeq, false, mode,
-                    FULL_BRIGHT, 0xFFFFFFFF, LABEL_BACKGROUND, 0);
+                    FULL_BRIGHT, 0xFFFFFFFF, 0x00000000, 0);
             collector.submitText(poseStack, -distWidth * 0.5f, -1.0f, distSeq, false, mode,
-                    FULL_BRIGHT, 0xFFD0D6DC, LABEL_BACKGROUND, 0);
+                    FULL_BRIGHT, 0xFFD0D6DC, 0x00000000, 0);
             poseStack.popPose();
         }
     }
 
-    /** Adds equal spaces on both sides until the text is about {@code target} pixels wide. */
-    private static String padToWidth(Font font, String text, int target) {
-        int space = Math.max(1, font.width(" "));
-        StringBuilder sb = new StringBuilder(text);
-        while (font.width(sb.toString()) + 2 * space <= target) {
-            sb.insert(0, ' ').append(' ');
-        }
-        return sb.toString();
-    }
-
     private static String fitLabelName(Font font, String rawName) {
         String name = rawName == null || rawName.isBlank() ? "Waypoint" : rawName.trim();
-        final int maxWidth = 160;
+        final int maxWidth = 110;
         if (font.width(name) <= maxWidth) return name;
         while (name.length() > 1 && font.width(name + "…") > maxWidth) {
             name = name.substring(0, name.length() - 1);

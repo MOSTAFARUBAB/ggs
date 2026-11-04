@@ -21,7 +21,7 @@ The interface uses a true black surface, restrained gray controls, natural Engli
 
 ## Build
 
-Use Java 25 and run `gradle clean build --no-daemon -PwithBeam=true`.
+Use Java 25 and run `gradle clean build --no-daemon`.
 The installable mod JAR is produced in `build/libs/`. GitHub Actions checks that the JAR contains `fabric.mod.json` and uploads only the installable JAR (not the sources JAR).
 
 The mod reduces its own per-frame rendering work, but no mod can guarantee 240 FPS. Actual frame rate still depends on hardware, Minecraft settings, shaders, render distance, and other mods.
@@ -38,10 +38,11 @@ Labels are real world-space text, drawn the way vanilla name tags are.
   in front of the label hides exactly the pixels it covers. The label never draws on top of them.
 - **Terrain in the way:** every frame the mod checks whether a solid block is between you and the label. If so, the
   label is drawn through the terrain (hills, placed blocks, walls) so it can always guide you back when you are lost.
-- **Size:** small when you are close, growing smoothly with distance so it stays big and readable far away
-  (about 13 px per line near, about 34 px far). The "Logo" size setting scales it (Small 0.8x, Large 1.25x).
-- **Outline:** a 1-pixel outline around the plate in the same color as the beam. A rainbow/chroma beam gives a rainbow outline.
-- The label sits toward you from the beam so it is not half-hidden inside it. It is submitted facing both ways; text
+- **Size:** constant on screen at every distance (about 13 px per line), so distant labels do not grow over the terrain or collide visually with blocks.
+- **Outline:** a continuous 1-pixel rectangular frame around a dark inset plate in the same color as the beam.
+  The border is drawn as two complete rectangles, so the corners stay connected. A rainbow/chroma beam gives it a rainbow outline.
+- The label floats 2.5 blocks above the waypoint and sits toward you from the beam so it is not half-hidden inside it.
+  It is submitted facing both ways; text
   that faces away is culled, so only the side facing you is drawn.
 
 If `.minecraft/logs/latest.log` contains `[Simple Waypoints] submitting N world-space label(s)`, labels are being sent

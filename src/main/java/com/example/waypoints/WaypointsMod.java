@@ -71,7 +71,7 @@ public class WaypointsMod implements ClientModInitializer {
     public static volatile int beamThickness = 1;
     /** Menu-only dimension browser: CURRENT, OVERWORLD, NETHER, END, or ALL. */
     public static volatile int menuDimensionMode = 0;
-    /** Marker settings are adjustable from the waypoint menu. */
+    /** Optional label plate padding preset; text size itself stays constant. */
     public static volatile int markerSizeMode = 1; // 0 small, 1 medium, 2 large
 
 
@@ -79,8 +79,8 @@ public class WaypointsMod implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         load();
-        // Initialize the native in-world 3D beacon renderer. The build workflow uses
-        // -PwithBeam=true so this class is included in the produced mod.
+        // Initialize the native in-world 3D beacon renderer. Beam3D is part of the
+        // normal client source set and is included in every installable mod JAR.
         beam3dActive = false;
         try {
             Class.forName("com.example.waypoints.beam.Beam3D").getMethod("init").invoke(null);

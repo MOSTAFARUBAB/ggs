@@ -1,13 +1,10 @@
-# Smooth floating label (connected outline, constant size)
+# Smooth world-space waypoint label
 
-Only WaypointsMod.java changed (the label code). Menus, beam, ring, colors and world separation are untouched.
+The active label renderer is `beam/Beam3D.java`. Labels are submitted through Minecraft's world-text renderer, not drawn as a 2D HUD overlay.
 
-- Outline: 1 px line in the waypoint color, closed all the way round (corners step diagonally). Drawn at whole
-  pixels with no scaling, so it can no longer break into pieces. Checked with a pixel test for all three sizes.
-- Size: constant. The label no longer grows or shrinks with distance (the matrix-scaling code is gone).
-  "Logo" button: Small / Medium / Large now change the label's padding and height, not a zoom.
-  Long names are cut at about 110 px so a label can't get huge.
-- Float and smooth: the label hovers 2.5 blocks above the waypoint and bobs gently (about 1.6 px, slow).
-  Labels fade in over a quarter second, and when two labels would touch, one eases to a free spot instead of popping.
-- Collisions: the nearest waypoint is placed first, so close labels win. A label that still has no free spot is hidden.
-  Labels near the screen edge are clipped by the screen instead of disappearing.
+- **Outline:** one complete waypoint-color rectangle with a dark inset plate. The shared rectangle geometry keeps all four corners connected.
+- **Size:** the text remains about 13 screen pixels high per line at every distance. It no longer grows from 13 px to 34 px as the waypoint gets farther away, which made distant labels overwhelm the scene.
+- **Plate:** horizontal and vertical padding can vary by the label-size mode without scaling the text itself.
+- **Position:** the label floats 2.5 blocks above the waypoint and is offset slightly toward the camera so it does not sit inside its own beam.
+- **Depth:** a clear view uses normal scene depth testing. When terrain blocks the waypoint, the label uses see-through rendering so it can still guide the player back.
+- **Name length:** long waypoint names are shortened with an ellipsis at about 110 px so the plate cannot grow without limit.
