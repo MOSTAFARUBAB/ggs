@@ -139,7 +139,7 @@ public final class Beam3D {
                             ? 1.0f
                             : (float) Math.max(1.0, horizontalDistance / 96.0);
                     int rawColor = WaypointsMod.matchWaypointColor ? WaypointsMod.resolveColor(waypoint) : 0xFFFFFF;
-                    int intensity = Math.min(100, Math.round(WaypointsMod.beamOpacity * 1.18f));
+                    int intensity = Math.min(100, Math.round(WaypointsMod.beamOpacity * 1.25f));
                     int red = ((rawColor >> 16) & 255) * intensity / 100;
                     int green = ((rawColor >> 8) & 255) * intensity / 100;
                     int blue = (rawColor & 255) * intensity / 100;

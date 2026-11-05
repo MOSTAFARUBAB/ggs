@@ -1,0 +1,23 @@
+{
+  "providers": [
+    {
+      "type": "bitmap",
+      "file": "simplewaypoints:font/ui.png",
+      "height": 10,
+      "ascent": 8,
+      "chars": [
+        " !\"#$%&'()*+,-./",
+        "0123456789:;<=>?",
+        "@ABCDEFGHIJKLMNO",
+        "PQRSTUVWXYZ[\\]^_",
+        "`abcdefghijklmno",
+        "pqrstuvwxyz{|}~ ",
+        "·…–—‹›×◇•✓⌖≋→←↑↓"
+      ]
+    },
+    {
+      "type": "reference",
+      "id": "minecraft:uniform"
+    }
+  ]
+}
