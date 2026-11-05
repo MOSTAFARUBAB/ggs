@@ -46,16 +46,18 @@ final class WaypointUiText {
     }
 
     static void drawStrong(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
-        Component c = component(text).withStyle(style -> style.withBold(true));
+        Component c = component(text);
         g.text(font, c, x, y, color, false);
+        g.text(font, c, x + 1, y, color, false);
     }
 
     static void drawTitle(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
-        Component c = component(text).withStyle(style -> style.withBold(true));
+        Component c = component(text);
         g.pose().pushMatrix();
         g.pose().translate(x, y);
         g.pose().scale(2.05f, 2.05f);
         g.text(font, c, 0, 0, color, false);
+        g.text(font, c, 1, 0, color, false);
         g.pose().popMatrix();
     }
 
