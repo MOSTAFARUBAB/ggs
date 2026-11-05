@@ -3,7 +3,7 @@
   "id": "simplewaypoints",
   "version": "${version}",
   "name": "Simple Waypoints",
-  "description": "Full-screen waypoint manager with persistent dashboard, editor, color picker, and settings. Native 3D beacon beams and world-space labels.",
+  "description": "Screenshot-matched waypoint dashboard, create/edit workspace, settings, color picker, and loaded-surface map preview with Minecraft 3D waypoint labels and beacon beams.",
   "authors": [
     "You"
   ],

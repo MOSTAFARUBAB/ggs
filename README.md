@@ -1,6 +1,6 @@
-# Simple Waypoints 1.2.2
+# Simple Waypoints 1.2.4
 
-Updated Waypoint Manager UI: custom click targets instead of visible vanilla placeholder buttons, cleaned-up editor/settings spacing, colored initial avatars, and a top-down surface-map preview. The preview samples only already-loaded client chunks and uses the world-surface heightmap, so it shows surface terrain and builds without loading chunks or revealing underground rooms.
+Updated Waypoint Manager UI: screenshot-matched dark workspace layout, invisible hit targets instead of vanilla placeholder buttons, responsive editor/color-picker spacing, colored initial avatars, and a top-down surface-map preview with a waypoint callout. The preview samples only already-loaded client chunks and uses the world-surface heightmap, so it shows surface terrain and builds without loading chunks or revealing underground rooms.
 
 # Simple Waypoints — Waypoint Manager UI
 
@@ -12,7 +12,7 @@ Client-side Fabric waypoint manager for Minecraft 26.3 (Java 25).
 - **B** opens the Create Waypoint editor prefilled with the player's coordinates.
 - The dashboard has dimension filters, search, recently-added/name sorting, grid/list layouts, cards, pagination, and JSON import/export.
 - Export writes the active world's waypoints to `config/simple-waypoints-export.json`. Import reads `config/simple-waypoints-import.json`, maps entries into the active world, and updates matching name/dimension pairs.
-- The editor has location details, dimension selection, HEX and visual color selection, Chroma, recent colors, expiry, an in-game preview, and per-waypoint label/beam switches.
+- The editor has location details, dimension selection, HEX and visual color selection, Chroma, recent colors, a live surface-map preview, and per-waypoint label/beam switches. Existing temporary-waypoint expiry data is preserved when editing.
 - Settings contains global label, distance, coordinate, label-size, beacon-beam, beam-color, beam-intensity, dimension-scope, HUD-visibility, and maximum display-distance preferences.
 
 ## Storage

@@ -29,6 +29,7 @@ public final class WaypointScreen extends Screen {
     private int page;
     private String searchQuery;
     private int railWidth, contentX, contentRight, contentWidth;
+    private int headingY, statsY, statsHeight, sectionY, transferY;
     private int toolbarY, filtersY, gridY, footerY, columns, rows, cardWidth, cardHeight, pageSize;
     private record HitTarget(int x, int y, int width, int height, Runnable action) {
         boolean contains(double px, double py) {
@@ -38,6 +39,7 @@ public final class WaypointScreen extends Screen {
 
     private final List<HitTarget> hitTargets = new ArrayList<>();
     private final List<HitTarget> cardHitTargets = new ArrayList<>();
+    private final List<HitTarget> paginationTargets = new ArrayList<>();
     private List<Waypoint> entries = List.of();
     private List<Waypoint> filtered = List.of();
     private EditBox searchBox;
@@ -66,21 +68,25 @@ public final class WaypointScreen extends Screen {
         clearWidgets();
         hitTargets.clear();
         cardHitTargets.clear();
-        railWidth = width >= 800 ? 150 : 54;
-        contentX = railWidth + 24;
-        contentRight = width - 24;
+        paginationTargets.clear();
+        railWidth = width >= 800 ? Math.max(150, Math.min(190, Math.round(width * 0.16f))) : 54;
+        int sideInset = width >= 800 ? 32 : 12;
+        contentX = railWidth + sideInset;
+        contentRight = width - sideInset;
         contentWidth = Math.max(220, contentRight - contentX);
-        int topBar = 38;
-        int headingY = 58;
-        int statsY = 99;
-        toolbarY = Math.max(148, Math.min(height - 230, 188));
-        filtersY = toolbarY + 34;
-        gridY = filtersY + 28;
-        footerY = height - 27;
+        headingY = Math.max(58, Math.round(height * 0.098f));
+        statsY = Math.max(110, Math.round(height * 0.184f));
+        statsHeight = Math.max(80, Math.round(height * 0.118f));
+        sectionY = Math.max(statsY + statsHeight + 20, Math.round(height * 0.337f));
+        transferY = sectionY - 7;
+        toolbarY = Math.max(sectionY + 36, Math.round(height * 0.385f));
+        filtersY = toolbarY + 50;
+        gridY = filtersY + 43;
+        footerY = height - 92;
         columns = listLayout ? 1 : contentWidth >= 620 ? 3 : contentWidth >= 390 ? 2 : 1;
-        rows = Math.max(1, Math.min(2, (footerY - gridY - 12) / 98));
+        rows = Math.max(1, Math.min(2, (footerY - gridY - 12) / 120));
         cardWidth = (contentWidth - (columns - 1) * 12) / columns;
-        cardHeight = Math.max(82, (footerY - gridY - 12 * (rows - 1) - 12) / rows);
+        cardHeight = Math.max(96, (footerY - gridY - 12 * (rows - 1) - 12) / rows);
         pageSize = columns * rows;
 
         entries = new ArrayList<>(WaypointsMod.menuWaypoints());
@@ -89,35 +95,39 @@ public final class WaypointScreen extends Screen {
         page = Math.max(0, Math.min(requestedPage, Math.max(0, (filtered.size() - 1) / pageSize)));
 
         // Sidebar navigation.
+        int navY = railWidth > 70 ? 153 : 104;
         if (railWidth > 70) {
-            button(10, 140, railWidth - 20, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointScreen(0)));
-            button(10, 179, railWidth - 20, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointSettingsScreen()));
+            button(10, navY, railWidth - 20, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointScreen(0)));
+            button(10, navY + 41, railWidth - 20, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointSettingsScreen()));
         } else {
-            button(8, 104, 38, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointScreen(0)));
-            button(8, 150, 38, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointSettingsScreen()));
+            button(8, navY, 38, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointScreen(0)));
+            button(8, navY + 46, 38, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointSettingsScreen()));
         }
         // Create action and data transfer controls.
-        button(contentRight - 126, headingY - 1, 126, 29,
+        button(contentRight - 132, headingY + 2, 132, 34,
                 () -> Minecraft.getInstance().gui.setScreen(new WaypointEditScreen(null, currentPage())));
-        button(contentRight - 190, 164, 86, 24, () -> showTransferMessage(WaypointsMod.importWaypointsFromFile(), true));
-        button(contentRight - 98, 164, 86, 24, () -> showTransferMessage(WaypointsMod.exportWaypointsToFile(), false));
-        searchBox = new EditBox(font, contentX + 1, toolbarY + 1,
-                Math.max(70, contentWidth - 190), 22, Component.literal("Search waypoints"));
+        button(contentRight - 190, transferY, 86, 27, () -> showTransferMessage(WaypointsMod.importWaypointsFromFile(), true));
+        button(contentRight - 98, transferY, 86, 27, () -> showTransferMessage(WaypointsMod.exportWaypointsToFile(), false));
+        int searchWidth = Math.max(70, contentWidth - 220);
+        searchBox = new EditBox(font, contentX + 30, toolbarY + 7,
+                Math.max(40, searchWidth - 42), 21, Component.literal("Search waypoints"));
         searchBox.setMaxLength(48);
         searchBox.setValue(searchQuery);
         searchBox.setBordered(false);
+        searchBox.setTextColor(0xFFF2F5F5);
         searchBox.setResponder(value -> {
             searchQuery = value;
             page = 0;
             refreshFiltered();
             rebuildCardTargets();
+            rebuildPaginationTargets();
         });
         addRenderableWidget(searchBox);
-        button(contentRight - 178, toolbarY, 116, 25, () -> {
+        button(contentRight - 190, toolbarY, 120, 35, () -> {
             sortByName = !sortByName;
             rebuildDashboard();
         });
-        button(contentRight - 54, toolbarY, 54, 25, () -> {
+        button(contentRight - 62, toolbarY, 62, 35, () -> {
             listLayout = !listLayout;
             rebuildDashboard();
         });
@@ -128,22 +138,45 @@ public final class WaypointScreen extends Screen {
         int[] widths = {106, 86, 86, 72};
         for (int i = 0; i < modes.length; i++) {
             final int mode = modes[i];
-            button(filterX, filtersY, widths[i], 21, () -> {
+            button(filterX, filtersY, widths[i], 27, () -> {
                 WaypointsMod.menuDimensionMode = mode;
                 page = 0;
                 rebuildDashboard();
             });
             filterX += widths[i] + 7;
         }
-        button(contentRight - 70, filtersY, 70, 21, () -> {
+        button(contentRight - 78, filtersY, 78, 24, () -> {
             WaypointsMod.menuDimensionMode = 0;
             page = 0;
             rebuildDashboard();
         });
         rebuildCardTargets();
-        // Pagination buttons.
-        button(contentRight - 106, footerY, 30, 22, () -> changePage(-1));
-        button(contentRight - 34, footerY, 30, 22, () -> changePage(1));
+        rebuildPaginationTargets();
+    }
+
+    private void rebuildPaginationTargets() {
+        paginationTargets.clear();
+        if (pageCount() <= 1) return;
+        int visiblePages = Math.min(width >= 800 ? 5 : 3, pageCount());
+        int startPage = Math.max(0, Math.min(currentPage() - visiblePages / 2, pageCount() - visiblePages));
+        int pageButton = 24;
+        int gap = 4;
+        int totalWidth = pageButton + 8 + visiblePages * pageButton + Math.max(0, visiblePages - 1) * gap + 8 + pageButton;
+        int x = contentRight - totalWidth;
+        int y = footerY;
+        paginationTargets.add(new HitTarget(x, y, pageButton, 24, () -> changePage(-1)));
+        int pagesX = x + pageButton + 8;
+        for (int i = 0; i < visiblePages; i++) {
+            final int pageIndex = startPage + i;
+            paginationTargets.add(new HitTarget(pagesX + i * (pageButton + gap), y, pageButton, 24,
+                    () -> {
+                        if (pageIndex != currentPage()) {
+                            Minecraft.getInstance().gui.setScreen(new WaypointScreen(pageIndex, searchQuery));
+                        }
+                    }));
+        }
+        int nextX = pagesX + visiblePages * (pageButton + gap) - gap + 8;
+        paginationTargets.add(new HitTarget(nextX, y, pageButton, 24, () -> changePage(1)));
     }
 
     private void rebuildDashboard() {
@@ -233,6 +266,13 @@ public final class WaypointScreen extends Screen {
                     return true;
                 }
             }
+            for (int i = paginationTargets.size() - 1; i >= 0; i--) {
+                HitTarget target = paginationTargets.get(i);
+                if (target.contains(event.x(), event.y())) {
+                    target.action().run();
+                    return true;
+                }
+            }
             for (int i = cardHitTargets.size() - 1; i >= 0; i--) {
                 HitTarget target = cardHitTargets.get(i);
                 if (target.contains(event.x(), event.y())) {
@@ -246,36 +286,41 @@ public final class WaypointScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
-        super.extractRenderState(g, mx, my, delta);
         drawSidebar(g, mx, my);
-        g.fill(railWidth, 0, width, 39, 0xFF0C0E10);
-        g.fill(railWidth, 38, width, 39, EDGE);
-        g.text(font, "◇  " + worldTitle(), railWidth + 26, 15, MUTED, false);
-        g.text(font, "/", railWidth + 140, 15, QUIET, false);
-        g.text(font, "Waypoints", railWidth + 154, 15, TEXT, false);
-        g.fill(width - 118, 17, width - 113, 22, ACCENT);
-        g.text(font, "Local workspace", width - 106, 15, MUTED, false);
+        g.fill(railWidth, 0, width, 44, 0xFF0C0E10);
+        g.fill(railWidth, 43, width, 44, EDGE);
+        String worldLabel = fit(worldTitle(), 112);
+        g.text(font, "◇  " + worldLabel, railWidth + 26, 16, MUTED, false);
+        int crumbX = railWidth + 30 + font.width(worldLabel) + 12;
+        g.text(font, "/", crumbX, 16, QUIET, false);
+        g.text(font, "Waypoints", crumbX + 14, 16, TEXT, false);
+        g.fill(width - 132, 18, width - 127, 23, ACCENT);
+        g.text(font, "Local workspace", width - 120, 16, MUTED, false);
 
-        g.text(font, "Every place, a waypoint.", contentX, 57, TEXT, true);
-        g.text(font, "Keep your world organized. Never lose a place worth returning to.", contentX, 75, MUTED, false);
-        primaryButton(g, mx, my, contentRight - 126, 56, 126, 29, "+  Create waypoint");
+        g.text(font, "Every place, a waypoint.", contentX, headingY, TEXT, true);
+        g.text(font, "Keep your world organized. Never lose a place worth returning to.", contentX, headingY + 35, MUTED, false);
+        primaryButton(g, mx, my, contentRight - 132, headingY + 2, 132, 34, "+  Create waypoint");
 
         int statGap = 12;
         int statW = (contentWidth - 2 * statGap) / 3;
-        statCard(g, contentX, 99, statW, 62, "Total waypoints", String.valueOf(entries.size()), "Across this world", "⌖");
-        statCard(g, contentX + statW + statGap, 99, statW, 62, "Dimensions explored", String.valueOf(countDimensions()), dimensionsText(), "◇");
+        statCard(g, contentX, statsY, statW, statsHeight, "Total waypoints", String.valueOf(entries.size()), "Across this world", "⌖");
+        statCard(g, contentX + statW + statGap, statsY, statW, statsHeight, "Dimensions explored", String.valueOf(countDimensions()), dimensionsText(), "◇");
         Waypoint last = entries.isEmpty() ? null : entries.get(entries.size() - 1);
-        statCard(g, contentX + (statW + statGap) * 2, 99, statW, 62, "Last added",
+        statCard(g, contentX + (statW + statGap) * 2, statsY, statW, statsHeight, "Last added",
                 last == null ? "—" : fit(last.name(), Math.max(40, statW - 18)), last == null ? "No waypoints yet" : "Saved in this world", "◷");
 
-        g.text(font, "Your waypoints", contentX, 170, TEXT, true);
-        g.text(font, String.valueOf(filtered.size()), contentX + font.width("Your waypoints") + 10, 171, MUTED, false);
-        actionButton(g, mx, my, contentRight - 190, 164, 86, 24, "Import", false);
-        actionButton(g, mx, my, contentRight - 98, 164, 86, 24, "Export", false);
+        g.text(font, "Your waypoints", contentX, sectionY, TEXT, true);
+        rounded(g, contentX + font.width("Your waypoints") + 9, sectionY - 1,
+                contentX + font.width("Your waypoints") + 34, sectionY + 15, PANEL_ALT, 5);
+        g.text(font, String.valueOf(filtered.size()), contentX + font.width("Your waypoints") + 16, sectionY + 3, MUTED, false);
+        actionButton(g, mx, my, contentRight - 190, transferY, 86, 27, "Import", false);
+        actionButton(g, mx, my, contentRight - 98, transferY, 86, 27, "Export", false);
         drawSearch(g, mx, my);
         drawFilters(g, mx, my);
         drawCards(g, mx, my);
         drawFooter(g, mx, my);
+        // Render native text input last, over the custom matte input shell.
+        super.extractRenderState(g, mx, my, delta);
     }
 
     private void drawSidebar(GuiGraphicsExtractor g, int mx, int my) {
@@ -286,13 +331,13 @@ public final class WaypointScreen extends Screen {
         if (railWidth > 70) {
             g.text(font, "Waypoint", 51, 19, TEXT, false);
             g.text(font, "M A N A G E R", 51, 31, MUTED, false);
-            rounded(g, 14, 62, railWidth - 14, 105, PANEL, 8);
-            g.text(font, worldTitle(), 24, 73, TEXT, true);
-            g.fill(24, 91, 28, 95, ACCENT);
-            g.text(font, "Java Edition · 26.3", 34, 89, MUTED, false);
-            g.text(font, "WORKSPACE", 16, 125, QUIET, false);
-            navItem(g, mx, my, 10, 140, railWidth - 20, "◎", "Waypoints", true);
-            navItem(g, mx, my, 10, 179, railWidth - 20, "☷", "Settings", false);
+            rounded(g, 14, 63, railWidth - 14, 108, PANEL, 8);
+            g.text(font, fit(worldTitle(), railWidth - 48), 24, 74, TEXT, true);
+            g.fill(24, 94, 28, 98, ACCENT);
+            g.text(font, "Java Edition · 26.3", 34, 92, MUTED, false);
+            g.text(font, "WORKSPACE", 16, 135, QUIET, false);
+            navItem(g, mx, my, 10, 153, railWidth - 20, "◎", "Waypoints", true);
+            navItem(g, mx, my, 10, 194, railWidth - 20, "☷", "Settings", false);
             rounded(g, 14, height - 109, railWidth - 14, height - 18, PANEL_ALT, 8);
             g.text(font, "Your world. Your waypoints.", 23, height - 94, TEXT, false);
             g.text(font, "Stored locally, ready for", 23, height - 76, MUTED, false);
@@ -315,31 +360,24 @@ public final class WaypointScreen extends Screen {
     private void statCard(GuiGraphicsExtractor g, int x, int y, int w, int h, String label, String value, String note, String icon) {
         rounded(g, x, y, x + w, y + h, PANEL, 9);
         border(g, x, y, x + w, y + h, EDGE);
-        g.text(font, label, x + 12, y + 10, MUTED, false);
-        g.text(font, fit(value, w - 24), x + 12, y + 27, TEXT, true);
+        g.text(font, label, x + 12, y + 9, MUTED, false);
+        g.text(font, fit(value, w - 24), x + 12, y + 25, TEXT, true);
         g.text(font, fit(note, w - 24), x + 12, y + h - 14, QUIET, false);
         g.text(font, icon, x + w - 24, y + 10, MUTED, false);
     }
 
     private void drawSearch(GuiGraphicsExtractor g, int mx, int my) {
         int y = toolbarY;
-        int w = contentWidth - 190;
-        rounded(g, contentX, y, contentX + w, y + 27, PANEL_ALT, 7);
-        border(g, contentX, y, contentX + w, y + 27, EDGE);
-        g.text(font, "⌕", contentX + 10, y + 9, MUTED, false);
+        int w = Math.max(60, contentWidth - 220);
+        rounded(g, contentX, y, contentX + w, y + 35, PANEL_ALT, 7);
+        border(g, contentX, y, contentX + w, y + 35, EDGE);
+        g.text(font, "⌕", contentX + 11, y + 13, MUTED, false);
         if (searchBox != null && searchBox.getValue().isEmpty() && !searchBox.isFocused()) {
-            g.text(font, "Search by name or coordinates…", contentX + 27, y + 10, QUIET, false);
-        } else if (searchBox != null) {
-            String value = searchBox.getValue();
-            g.text(font, value, contentX + 27, y + 10, TEXT, false);
-            if (searchBox.isFocused() && (System.currentTimeMillis() / 500) % 2 == 0) {
-                int caret = contentX + 27 + font.width(value);
-                g.fill(caret, y + 6, caret + 1, y + 20, TEXT);
-            }
+            g.text(font, "Search by name or coordinates…", contentX + 31, y + 14, QUIET, false);
         }
-        if (sortByName) actionButton(g, mx, my, contentRight - 178, y, 116, 27, "A–Z", false);
-        else actionButton(g, mx, my, contentRight - 178, y, 116, 27, "Recently added", false);
-        actionButton(g, mx, my, contentRight - 54, y, 54, 27, listLayout ? "Grid" : "List", false);
+        if (sortByName) actionButton(g, mx, my, contentRight - 190, y, 120, 35, "A–Z", false);
+        else actionButton(g, mx, my, contentRight - 190, y, 120, 35, "Recently added", false);
+        actionButton(g, mx, my, contentRight - 62, y, 62, 35, listLayout ? "Grid" : "List", false);
     }
 
     private void drawFilters(GuiGraphicsExtractor g, int mx, int my) {
@@ -350,10 +388,10 @@ public final class WaypointScreen extends Screen {
         String[] labels = {"All dimensions", "Overworld", "The Nether", "The End"};
         for (int i = 0; i < modes.length; i++) {
             boolean selected = WaypointsMod.menuDimensionMode == modes[i];
-            pill(g, x, y, widths[i], 21, labels[i], selected, mx, my);
+            pill(g, x, y, widths[i], 27, labels[i], selected, mx, my);
             x += widths[i] + 7;
         }
-        pill(g, contentRight - 70, y, 70, 21, "Current", WaypointsMod.menuDimensionMode == 0, mx, my);
+        pill(g, contentRight - 78, y, 78, 24, "Current", WaypointsMod.menuDimensionMode == 0, mx, my);
     }
 
     private void drawCards(GuiGraphicsExtractor g, int mx, int my) {
@@ -381,10 +419,10 @@ public final class WaypointScreen extends Screen {
             String initial = firstInitial(w.name());
             int initialColor = contrastText(color);
             g.text(font, initial, x + 24 - font.width(initial) / 2, y + 20, initialColor, true);
-            g.text(font, fit(w.name(), Math.max(45, cardWidth - 100)), x + 44, y + 12, TEXT, true);
+            g.text(font, fit(w.name(), Math.max(45, cardWidth - 100)), x + 44, y + 14, TEXT, true);
             String sub = dimension(w.dimension()) + " · " + (w.expiresAt() > 0 ? "Temporary" : "Permanent");
-            g.text(font, fit(sub, cardWidth - 60), x + 44, y + 26, MUTED, false);
-            int coordsY = y + 42;
+            g.text(font, fit(sub, cardWidth - 60), x + 44, y + 29, MUTED, false);
+            int coordsY = y + 58;
             int coordW = (cardWidth - 42) / 3;
             drawCoordinate(g, x + 12, coordsY, coordW, "X", Integer.toString(w.x()));
             drawCoordinate(g, x + 18 + coordW, coordsY, coordW, "Y", Integer.toString(w.y()));
@@ -419,9 +457,30 @@ public final class WaypointScreen extends Screen {
         int shown = filtered.isEmpty() ? 0 : Math.min(pageSize, filtered.size() - start);
         g.text(font, "Showing " + (filtered.isEmpty() ? 0 : start + 1) + "–" + (start + shown) + " of " + filtered.size() + " waypoints",
                 contentX, footerY + 7, MUTED, false);
-        actionButton(g, mx, my, contentRight - 106, footerY, 30, 22, "‹", false);
-        g.text(font, (currentPage() + 1) + " / " + pageCount(), contentRight - 68, footerY + 7, TEXT, false);
-        actionButton(g, mx, my, contentRight - 34, footerY, 30, 22, "›", false);
+        if (pageCount() > 1) {
+            int visiblePages = Math.min(width >= 800 ? 5 : 3, pageCount());
+            int startPage = Math.max(0, Math.min(currentPage() - visiblePages / 2, pageCount() - visiblePages));
+            int pageButton = 24;
+            int gap = 4;
+            int totalWidth = pageButton + 8 + visiblePages * pageButton + Math.max(0, visiblePages - 1) * gap + 8 + pageButton;
+            int pagerX = contentRight - totalWidth;
+            actionButton(g, mx, my, pagerX, footerY, pageButton, 24, "‹", false);
+            int pagesX = pagerX + pageButton + 8;
+            for (int i = 0; i < visiblePages; i++) {
+                int pageIndex = startPage + i;
+                int px = pagesX + i * (pageButton + gap);
+                boolean active = pageIndex == currentPage();
+                rounded(g, px, footerY, px + pageButton, footerY + 24,
+                        active ? 0xFF202629 : inside(mx, my, px, footerY, pageButton, 24) ? PANEL : PANEL_ALT, 5);
+                if (active) border(g, px, footerY, px + pageButton, footerY + 24, EDGE);
+                String pageText = Integer.toString(pageIndex + 1);
+                g.text(font, pageText, px + (pageButton - font.width(pageText)) / 2, footerY + 8,
+                        active ? TEXT : MUTED, active);
+            }
+            int nextX = pagesX + visiblePages * (pageButton + gap) - gap + 8;
+            actionButton(g, mx, my, nextX, footerY, pageButton, 24, "›", false);
+        }
+        g.text(font, "▦   A little less wandering. A lot more exploring.", contentX, height - 25, QUIET, false);
     }
 
     private int countDimensions() {
@@ -467,7 +526,7 @@ public final class WaypointScreen extends Screen {
         boolean hover = inside(mx, my, x, y, w, h);
         rounded(g, x, y, x + w, y + h, selected ? 0xFF26321F : hover ? PANEL : PANEL_ALT, 6);
         if (selected) border(g, x, y, x + w, y + h, 0xFF789D4C);
-        g.text(font, label, x + (w - font.width(label)) / 2, y + 7, selected ? ACCENT : MUTED, selected);
+        g.text(font, label, x + (w - font.width(label)) / 2, y + (h - 8) / 2, selected ? ACCENT : MUTED, selected);
     }
     private void actionButton(GuiGraphicsExtractor g, int mx, int my, int x, int y, int w, int h, String label, boolean primary) {
         boolean hover = inside(mx, my, x, y, w, h);

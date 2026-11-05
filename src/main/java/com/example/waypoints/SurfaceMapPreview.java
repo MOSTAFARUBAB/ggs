@@ -35,6 +35,13 @@ final class SurfaceMapPreview {
 
     static void draw(GuiGraphicsExtractor g, Font font, int x, int y, int width, int height,
                      int centerX, int centerZ, String requestedDimension, int markerColor) {
+        draw(g, font, x, y, width, height, centerX, centerZ, requestedDimension,
+                markerColor, "Waypoint", centerX + ", " + centerZ);
+    }
+
+    static void draw(GuiGraphicsExtractor g, Font font, int x, int y, int width, int height,
+                     int centerX, int centerZ, String requestedDimension, int markerColor,
+                     String markerLabel, String markerDetails) {
         rounded(g, x, y, x + width, y + height, 0xFF111518, 9);
         border(g, x, y, x + width, y + height, 0xFF30383C);
         g.text(font, "SURFACE MAP · TOP DOWN", x + 12, y + 9, 0xFF9BA4A8, false);
@@ -74,12 +81,39 @@ final class SurfaceMapPreview {
         g.fill(midX - 1, midY - 3, midX + 2, midY + 4, markerColor);
         g.fill(midX, midY, midX + 1, midY + 1, 0xFFFFFFFF);
 
+        // Compact map callout mirrors the in-world nameplate and shows the
+        // exact waypoint coordinates while the terrain remains visible behind it.
+        String safeName = markerLabel == null || markerLabel.isBlank() ? "Waypoint" : markerLabel;
+        String safeDetails = markerDetails == null ? "" : markerDetails;
+        int availableBadgeWidth = Math.max(80, drawWidth - 6);
+        int badgeWidth = Math.min(Math.max(104, font.width(safeName) + font.width(safeDetails) + 42), availableBadgeWidth);
+        int badgeX = Math.max(mapX + 3, Math.min(mapX + drawWidth - badgeWidth - 3, midX - badgeWidth / 2));
+        int badgeY = Math.min(mapY + drawHeight - 27, midY + 10);
+        rounded(g, badgeX, badgeY, badgeX + badgeWidth, badgeY + 28, 0xF20A0D0E, 6);
+        border(g, badgeX, badgeY, badgeX + badgeWidth, badgeY + 28, 0xFF394247);
+        rounded(g, badgeX + 5, badgeY + 5, badgeX + 23, badgeY + 23, markerColor, 5);
+        String initial = safeName.substring(0, 1).toUpperCase(java.util.Locale.ROOT);
+        g.text(font, initial, badgeX + 14 - font.width(initial) / 2, badgeY + 10, 0xFF101410, true);
+        int textMax = badgeWidth - 34;
+        String labelText = trim(font, safeName, textMax);
+        String detailsText = trim(font, safeDetails, textMax);
+        g.text(font, labelText, badgeX + 29, badgeY + 4, 0xFFB7F36B, true);
+        g.text(font, detailsText, badgeX + 29, badgeY + 16, 0xFF9BA4A8, false);
+
         String footer = status;
         while (!footer.isEmpty() && font.width(footer) > width - 22) {
             footer = footer.substring(0, footer.length() - 1);
         }
         if (!footer.equals(status) && !footer.isEmpty()) footer += "…";
         g.text(font, footer, x + 11, y + height - 13, 0xFF899398, false);
+    }
+
+    private static String trim(Font font, String value, int maxWidth) {
+        String result = value == null ? "" : value;
+        while (!result.isEmpty() && font.width(result) > maxWidth) {
+            result = result.substring(0, result.length() - 1);
+        }
+        return result.equals(value == null ? "" : value) ? result : result + "…";
     }
 
     private static void refreshIfNeeded(int centerX, int centerZ, String requestedDimension) {
