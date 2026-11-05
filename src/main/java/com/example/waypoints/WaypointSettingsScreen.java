@@ -303,8 +303,8 @@ public final class WaypointSettingsScreen extends Screen {
         List<Waypoint> saved = WaypointsMod.menuWaypoints();
         String currentDimension = WaypointsMod.normalizeDimension(WaypointsMod.currentDimension());
         Waypoint featured = saved.stream()
-                .filter(w -> {
-                    String d = WaypointsMod.normalizeDimension(w.dimension());
+                .filter(waypoint -> {
+                    String d = WaypointsMod.normalizeDimension(waypoint.dimension());
                     return d.equals(currentDimension) || d.equals("all");
                 })
                 .findFirst()

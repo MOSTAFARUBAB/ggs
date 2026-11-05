@@ -946,7 +946,7 @@ public class WaypointEditScreen extends Screen {
         g.fill(x + 2, y - 1, x + 3, y + 2, 0xFFFFFFFF);
     }
 
-    private static boolean inside(int mx, int my, int x, int y, int w, int h) {
+    private static boolean inside(double mx, double my, int x, int y, int w, int h) {
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
 }
