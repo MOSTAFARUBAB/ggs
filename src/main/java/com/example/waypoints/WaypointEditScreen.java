@@ -24,14 +24,14 @@ import java.util.Locale;
  */
 public class WaypointEditScreen extends Screen {
     // ---- theme ----
-    private static final int PANEL = 0xFF101214;
-    private static final int PANEL_ALT = 0xFF101214;
-    private static final int CARD = 0xFF141618;
-    private static final int CARD_HOVER = 0xFF1B1F20;
-    private static final int CARD_BORDER = 0xFF2A2F31;
+    private static final int PANEL = 0xFF0D0F10;
+    private static final int PANEL_ALT = 0xFF0B0D0E;
+    private static final int CARD = 0xFF111314;
+    private static final int CARD_HOVER = 0xFF191D1E;
+    private static final int CARD_BORDER = 0xFF252A2C;
     private static final int TEXT = 0xFFF2F2F2;
     private static final int MUTED = 0xFF9FA7A9;
-    private static final int QUIET = 0xFF737C7F;
+    private static final int QUIET = 0xFF858F92;
     private static final int CYAN = 0xFFE0E0E0;
     private static final int CYAN_HOVER = 0xFFFFFFFF;
     private static final int CYAN_DARK = 0xFF303030;
@@ -242,10 +242,10 @@ public class WaypointEditScreen extends Screen {
         // The breadcrumb is the only Back hit area; it never overlaps the page title.
         click(contentLeft, breadcrumbY - 4, 126, 18, this::back);
 
-        nameBox = makeBox(nameBox, left, nameY, nameWidth, 34, initName, 32, "Waypoint name");
-        xBox = makeBox(xBox, left, coordsY, coordinateWidth, 34, initX, 9, "X");
-        yBox = makeBox(yBox, left + coordinateWidth + coordGap, coordsY, coordinateWidth, 34, initY, 9, "Y");
-        zBox = makeBox(zBox, left + (coordinateWidth + coordGap) * 2, coordsY, coordinateWidth, 34, initZ, 9, "Z");
+        nameBox = makeBox(nameBox, left + 10, nameY + 7, nameWidth - 20, 20, initName, 32, "Waypoint name");
+        xBox = makeBox(xBox, left + 10, coordsY + 7, coordinateWidth - 20, 20, initX, 9, "X");
+        yBox = makeBox(yBox, left + coordinateWidth + coordGap + 10, coordsY + 7, coordinateWidth - 20, 20, initY, 9, "Y");
+        zBox = makeBox(zBox, left + (coordinateWidth + coordGap) * 2 + 10, coordsY + 7, coordinateWidth - 20, 20, initZ, 9, "Z");
 
         clickContent(left, dimY, nameWidth, 34, () -> dimensionMenuOpen = !dimensionMenuOpen);
 
@@ -257,13 +257,13 @@ public class WaypointEditScreen extends Screen {
             clickContent(previewX() + 1 + i * 25, recentColorsY(), 21, 21, () -> pickRecent(idx));
         }
         int rowY = hexRowY();
-        hexBox = makeBox(hexBox, previewX() + 84, rowY + 3 - scrollOffset, Math.max(72, colorWidth - 128), 28,
+        hexBox = makeBox(hexBox, previewX() + 52, rowY + 7 - scrollOffset, Math.max(72, colorWidth - 96), 20,
                 String.format(Locale.ROOT, "%06X", currentRgb()), 7, "HEX");
         lastHex = hexBox.getValue();
-        nameBox.setY(nameY - scrollOffset);
-        xBox.setY(coordsY - scrollOffset);
-        yBox.setY(coordsY - scrollOffset);
-        zBox.setY(coordsY - scrollOffset);
+        nameBox.setY(nameY + 7 - scrollOffset);
+        xBox.setY(coordsY + 7 - scrollOffset);
+        yBox.setY(coordsY + 7 - scrollOffset);
+        zBox.setY(coordsY + 7 - scrollOffset);
 
         // Per-waypoint visibility controls.
         clickContent(left + formWidth - 62, visibilityY + 55, 26, 15, () -> labelEnabled = !labelEnabled);
@@ -404,11 +404,11 @@ public class WaypointEditScreen extends Screen {
         int next = Math.max(0, Math.min(maxScroll, scrollOffset - (int)Math.round(scrollY * 30.0)));
         if (next == scrollOffset) return false;
         scrollOffset = next;
-        if (nameBox != null) nameBox.setY(nameFieldY() - scrollOffset);
-        if (xBox != null) xBox.setY(coordinateFieldsY() - scrollOffset);
-        if (yBox != null) yBox.setY(coordinateFieldsY() - scrollOffset);
-        if (zBox != null) zBox.setY(coordinateFieldsY() - scrollOffset);
-        if (hexBox != null) hexBox.setY(hexRowY() + 3 - scrollOffset);
+        if (nameBox != null) nameBox.setY(nameFieldY() + 7 - scrollOffset);
+        if (xBox != null) xBox.setY(coordinateFieldsY() + 7 - scrollOffset);
+        if (yBox != null) yBox.setY(coordinateFieldsY() + 7 - scrollOffset);
+        if (zBox != null) zBox.setY(coordinateFieldsY() + 7 - scrollOffset);
+        if (hexBox != null) hexBox.setY(hexRowY() + 7 - scrollOffset);
         unfocusIfOutside(nameBox);
         unfocusIfOutside(xBox);
         unfocusIfOutside(yBox);
@@ -706,7 +706,7 @@ public class WaypointEditScreen extends Screen {
         g.text(font, original == null ? "Save a location now. Find your way back whenever you need it." : "Fine-tune the details. Keep your favorite place within reach.",
                 contentLeft, titleY + 35, MUTED, false);
         if (original != null) {
-            rounded(g, formRight - 88, titleY + 10, formRight, titleY + 34, 0xFF182019, 6);
+            rounded(g, formRight - 88, titleY + 10, formRight, titleY + 34, 0xFF151B14, 6);
             g.text(font, "• Unsaved changes", formRight - 81, titleY + 18, ACCENT, false);
         }
 
@@ -750,7 +750,7 @@ public class WaypointEditScreen extends Screen {
         if (dimensionMenuOpen) {
             int menuY = dimY + locationOffset(36);
             int optionHeight = locationOffset(24);
-            rounded(g, left, menuY, left + nameWidth, menuY + DIM_LABELS.length * optionHeight, 0xFF080A0B, 7);
+            rounded(g, left, menuY, left + nameWidth, menuY + DIM_LABELS.length * optionHeight, 0xFF070809, 7);
             border(g, left, menuY, left + nameWidth, menuY + DIM_LABELS.length * optionHeight, CARD_BORDER);
             for (int i = 0; i < DIM_LABELS.length; i++) {
                 int optionY = menuY + i * optionHeight;
@@ -784,15 +784,13 @@ public class WaypointEditScreen extends Screen {
 
         int rowY = hexRowY();
         rounded(g, preview, rowY, preview + 32, rowY + 34, 0xFF000000 | previewRgb, 6);
-        drawBox(g, hexBox, preview + 42, rowY + 3, Math.max(100, colorWidth - 74), 28, "HEX");
-        g.text(font, "HEX", preview + 50, rowY + 12, QUIET, false);
-        g.text(font, "E", colorX + colorWidth - 30, rowY + 12, MUTED, false);
+        drawBox(g, hexBox, preview + 42, rowY + 3, Math.max(100, colorWidth - 74), 28, "");
 
         int chromaRow = chromaY();
-        rounded(g, preview, chromaRow, preview + colorWidth - 32, chromaRow + 46, PANEL_ALT, 7);
-        g.text(font, "Chroma mode", preview + 11, chromaRow + 8, TEXT, false);
-        toggle(g, preview + colorWidth - 59, chromaRow + 8, chroma);
-        g.text(font, "Cycle through the spectrum", preview + 11, chromaRow + 25, QUIET, false);
+        rounded(g, preview, chromaRow, preview + colorWidth - 32, chromaRow + 54, PANEL_ALT, 7);
+        g.text(font, "Chroma mode", preview + 11, chromaRow + 9, TEXT, false);
+        toggle(g, preview + colorWidth - 59, chromaRow + 17, chroma);
+        g.text(font, "Cycle through the spectrum", preview + 11, chromaRow + 32, QUIET, false);
 
         int recentY = recentLabelY();
         g.text(font, "Recent colors", preview, recentY, MUTED, false);
@@ -962,7 +960,7 @@ public class WaypointEditScreen extends Screen {
     private void drawBox(GuiGraphicsExtractor g, EditBox box, int x, int y, int w, int h, String placeholder) {
         boolean focused = box.isFocused();
         rrect(g, x, y, x + w, y + h, focused ? 0xFF536044 : CARD_BORDER);
-        rrect(g, x + 1, y + 1, x + w - 1, y + h - 1, 0xFF0E1011);
+        rrect(g, x + 1, y + 1, x + w - 1, y + h - 1, 0xFF08090A);
     }
 
     private static void border(GuiGraphicsExtractor g, int x, int y, int x2, int y2, int color) {

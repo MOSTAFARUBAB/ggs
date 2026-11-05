@@ -14,11 +14,11 @@ import java.util.Locale;
 /** Full workspace dashboard replacing the former compact modal waypoint menu. */
 public final class WaypointScreen extends Screen {
     private static final String[] FILTER_LABELS = {"All dimensions", "Overworld", "The Nether", "The End"};
-    private static final int BG = 0xFF090A0C;
-    private static final int RAIL = 0xFF101214;
-    private static final int PANEL = 0xFF141618;
-    private static final int PANEL_ALT = 0xFF101214;
-    private static final int EDGE = 0xFF292D30;
+    private static final int BG = 0xFF08090A;
+    private static final int RAIL = 0xFF0D0F10;
+    private static final int PANEL = 0xFF111314;
+    private static final int PANEL_ALT = 0xFF0D0F10;
+    private static final int EDGE = 0xFF252A2C;
     private static final int TEXT = 0xFFF2F5F5;
     private static final int MUTED = 0xFF9BA4A8;
     private static final int QUIET = 0xFF687278;

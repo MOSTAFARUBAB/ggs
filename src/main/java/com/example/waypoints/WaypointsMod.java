@@ -85,7 +85,7 @@ public class WaypointsMod implements ClientModInitializer {
     /** 0 = unlimited; otherwise maximum world blocks from the player. */
     public static volatile int maxDisplayDistance = 0;
     /** 0–100; applied as beam color intensity on the vanilla beam renderer. */
-    public static volatile int beamOpacity = 75;
+    public static volatile int beamOpacity = 90;
 
 
 

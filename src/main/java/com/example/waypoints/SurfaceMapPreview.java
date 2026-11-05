@@ -42,7 +42,7 @@ final class SurfaceMapPreview {
     static void draw(GuiGraphicsExtractor g, Font font, int x, int y, int width, int height,
                      int centerX, int centerZ, String requestedDimension, int markerColor,
                      String markerLabel, String markerDetails) {
-        rounded(g, x, y, x + width, y + height, 0xFF111518, 9);
+        rounded(g, x, y, x + width, y + height, 0xFF0D1011, 9);
         border(g, x, y, x + width, y + height, 0xFF30383C);
         g.text(font, "SURFACE MAP · TOP DOWN", x + 12, y + 9, 0xFF9BA4A8, false);
 
@@ -55,7 +55,7 @@ final class SurfaceMapPreview {
         int mapX = x + (width - drawWidth) / 2;
         int mapY = y + 24 + Math.max(0, (mapAreaHeight - drawHeight) / 2);
 
-        g.fill(mapX - 1, mapY - 1, mapX + drawWidth + 1, mapY + drawHeight + 1, 0xFF050708);
+        g.fill(mapX - 1, mapY - 1, mapX + drawWidth + 1, mapY + drawHeight + 1, 0xFF050607);
         if (texture != null) {
             g.blit(MAP_TEXTURE_ID, mapX, mapY, mapX + drawWidth, mapY + drawHeight,
                     0.0f, 1.0f, 0.0f, 1.0f);
@@ -214,7 +214,7 @@ final class SurfaceMapPreview {
     private static void fillUnknown(NativeImage image) {
         for (int y = 0; y < MAP_HEIGHT; y++) {
             for (int x = 0; x < MAP_WIDTH; x++) {
-                int shade = ((x / 8 + y / 8) & 1) == 0 ? 0xFF1A2023 : 0xFF14191C;
+                int shade = ((x / 8 + y / 8) & 1) == 0 ? 0xFF15191B : 0xFF101416;
                 image.setPixel(x, y, shade);
             }
         }

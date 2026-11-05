@@ -11,11 +11,11 @@ import java.util.List;
 
 /** Preferences workspace matching the dark, lime-accented Waypoint Manager design. */
 public final class WaypointSettingsScreen extends Screen {
-    private static final int BG = 0xFF090A0C;
-    private static final int RAIL = 0xFF101214;
-    private static final int PANEL = 0xFF141618;
-    private static final int PANEL_ALT = 0xFF101214;
-    private static final int EDGE = 0xFF292D30;
+    private static final int BG = 0xFF08090A;
+    private static final int RAIL = 0xFF0D0F10;
+    private static final int PANEL = 0xFF111314;
+    private static final int PANEL_ALT = 0xFF0D0F10;
+    private static final int EDGE = 0xFF252A2C;
     private static final int TEXT = 0xFFF2F5F5;
     private static final int MUTED = 0xFF9BA4A8;
     private static final int QUIET = 0xFF687278;
@@ -218,7 +218,7 @@ public final class WaypointSettingsScreen extends Screen {
         WaypointsMod.markerSizeMode = 1;
         WaypointsMod.showWaypointBeams = true;
         WaypointsMod.matchWaypointColor = true;
-        WaypointsMod.beamOpacity = 75;
+        WaypointsMod.beamOpacity = 90;
         WaypointsMod.currentDimensionOnly = true;
         WaypointsMod.hideHudWhenMenuOpen = true;
         WaypointsMod.maxDisplayDistance = 0;
