@@ -16,14 +16,14 @@ public final class WaypointScreen extends Screen {
     private static final String[] FILTER_LABELS = {"All dimensions", "Overworld", "The Nether", "The End"};
     private static final int BG = 0xFF090A0C;
     private static final int RAIL = 0xFF101214;
-    private static final int PANEL = 0xFF131619;
-    private static final int PANEL_ALT = 0xFF0F1214;
-    private static final int EDGE = 0xFF30373B;
+    private static final int PANEL = 0xFF141618;
+    private static final int PANEL_ALT = 0xFF101214;
+    private static final int EDGE = 0xFF292D30;
     private static final int TEXT = 0xFFF2F5F5;
     private static final int MUTED = 0xFF9BA4A8;
     private static final int QUIET = 0xFF687278;
-    private static final int ACCENT = 0xFFB7F36B;
-    private static final int RED = 0xFFFF777F;
+    private static final int ACCENT = 0xFFA9D879;
+    private static final int RED = 0xFFE58A8A;
 
     private final int requestedPage;
     private int page;
@@ -290,26 +290,26 @@ public final class WaypointScreen extends Screen {
         g.fill(railWidth, 0, width, 44, 0xFF0C0E10);
         g.fill(railWidth, 43, width, 44, EDGE);
         String worldLabel = fit(worldTitle(), 112);
-        g.text(font, "◇  " + worldLabel, railWidth + 26, 16, MUTED, false);
+        g.text(font, "" + worldLabel, railWidth + 26, 16, MUTED, false);
         int crumbX = railWidth + 30 + font.width(worldLabel) + 12;
         g.text(font, "/", crumbX, 16, QUIET, false);
         g.text(font, "Waypoints", crumbX + 14, 16, TEXT, false);
         g.fill(width - 132, 18, width - 127, 23, ACCENT);
         g.text(font, "Local workspace", width - 120, 16, MUTED, false);
 
-        g.text(font, "Every place, a waypoint.", contentX, headingY, TEXT, true);
+        g.text(font, "Every place, a waypoint.", contentX, headingY, TEXT, false);
         g.text(font, "Keep your world organized. Never lose a place worth returning to.", contentX, headingY + 35, MUTED, false);
         primaryButton(g, mx, my, contentRight - 132, headingY + 2, 132, 34, "+  Create waypoint");
 
         int statGap = 12;
         int statW = (contentWidth - 2 * statGap) / 3;
-        statCard(g, contentX, statsY, statW, statsHeight, "Total waypoints", String.valueOf(entries.size()), "Across this world", "⌖");
+        statCard(g, contentX, statsY, statW, statsHeight, "Total waypoints", String.valueOf(entries.size()), "Across this world", "•");
         statCard(g, contentX + statW + statGap, statsY, statW, statsHeight, "Dimensions explored", String.valueOf(countDimensions()), dimensionsText(), "◇");
         Waypoint last = entries.isEmpty() ? null : entries.get(entries.size() - 1);
         statCard(g, contentX + (statW + statGap) * 2, statsY, statW, statsHeight, "Last added",
-                last == null ? "—" : fit(last.name(), Math.max(40, statW - 18)), last == null ? "No waypoints yet" : "Saved in this world", "◷");
+                last == null ? "—" : fit(last.name(), Math.max(40, statW - 18)), last == null ? "No waypoints yet" : "Saved in this world", "•");
 
-        g.text(font, "Your waypoints", contentX, sectionY, TEXT, true);
+        g.text(font, "Your waypoints", contentX, sectionY, TEXT, false);
         rounded(g, contentX + font.width("Your waypoints") + 9, sectionY - 1,
                 contentX + font.width("Your waypoints") + 34, sectionY + 15, PANEL_ALT, 5);
         g.text(font, String.valueOf(filtered.size()), contentX + font.width("Your waypoints") + 16, sectionY + 3, MUTED, false);
@@ -327,17 +327,17 @@ public final class WaypointScreen extends Screen {
         g.fill(0, 0, railWidth, height, RAIL);
         g.fill(railWidth - 1, 0, railWidth, height, EDGE);
         rounded(g, 14, 15, 43, 44, ACCENT, 8);
-        g.text(font, "W", 23, 25, 0xFF101410, true);
+        g.text(font, "W", 23, 25, 0xFF101410, false);
         if (railWidth > 70) {
             g.text(font, "Waypoint", 51, 19, TEXT, false);
             g.text(font, "M A N A G E R", 51, 31, MUTED, false);
             rounded(g, 14, 63, railWidth - 14, 108, PANEL, 8);
-            g.text(font, fit(worldTitle(), railWidth - 48), 24, 74, TEXT, true);
+            g.text(font, fit(worldTitle(), railWidth - 48), 24, 74, TEXT, false);
             g.fill(24, 94, 28, 98, ACCENT);
             g.text(font, "Java Edition · 26.3", 34, 92, MUTED, false);
             g.text(font, "WORKSPACE", 16, 135, QUIET, false);
-            navItem(g, mx, my, 10, 153, railWidth - 20, "◎", "Waypoints", true);
-            navItem(g, mx, my, 10, 194, railWidth - 20, "☷", "Settings", false);
+            navItem(g, mx, my, 10, 153, railWidth - 20, "•", "Waypoints", true);
+            navItem(g, mx, my, 10, 194, railWidth - 20, "=", "Settings", false);
             rounded(g, 14, height - 109, railWidth - 14, height - 18, PANEL_ALT, 8);
             g.text(font, "Your world. Your waypoints.", 23, height - 94, TEXT, false);
             g.text(font, "Stored locally, ready for", 23, height - 76, MUTED, false);
@@ -345,8 +345,8 @@ public final class WaypointScreen extends Screen {
             g.fill(23, height - 43, 28, height - 38, ACCENT);
             g.text(font, "All changes saved", 34, height - 44, MUTED, false);
         } else {
-            navItem(g, mx, my, 8, 104, 38, "◎", "", true);
-            navItem(g, mx, my, 8, 150, 38, "☷", "", false);
+            navItem(g, mx, my, 8, 104, 38, "•", "", true);
+            navItem(g, mx, my, 8, 150, 38, "=", "", false);
         }
     }
 
@@ -361,7 +361,7 @@ public final class WaypointScreen extends Screen {
         rounded(g, x, y, x + w, y + h, PANEL, 9);
         border(g, x, y, x + w, y + h, EDGE);
         g.text(font, label, x + 12, y + 9, MUTED, false);
-        g.text(font, fit(value, w - 24), x + 12, y + 25, TEXT, true);
+        g.text(font, fit(value, w - 24), x + 12, y + 25, TEXT, false);
         g.text(font, fit(note, w - 24), x + 12, y + h - 14, QUIET, false);
         g.text(font, icon, x + w - 24, y + 10, MUTED, false);
     }
@@ -371,7 +371,7 @@ public final class WaypointScreen extends Screen {
         int w = Math.max(60, contentWidth - 220);
         rounded(g, contentX, y, contentX + w, y + 35, PANEL_ALT, 7);
         border(g, contentX, y, contentX + w, y + 35, EDGE);
-        g.text(font, "⌕", contentX + 11, y + 13, MUTED, false);
+        g.text(font, "", contentX + 11, y + 13, MUTED, false);
         if (searchBox != null && searchBox.getValue().isEmpty() && !searchBox.isFocused()) {
             g.text(font, "Search by name or coordinates…", contentX + 31, y + 14, QUIET, false);
         }
@@ -399,7 +399,7 @@ public final class WaypointScreen extends Screen {
         int end = Math.min(filtered.size(), start + pageSize);
         if (filtered.isEmpty()) {
             rounded(g, contentX, gridY, contentRight, gridY + 88, PANEL, 10);
-            g.text(font, searchQuery.isBlank() ? "No waypoints yet" : "No matching waypoints", contentX + 18, gridY + 23, TEXT, true);
+            g.text(font, searchQuery.isBlank() ? "No waypoints yet" : "No matching waypoints", contentX + 18, gridY + 23, TEXT, false);
             g.text(font, "Create a waypoint to save a place in this world.", contentX + 18, gridY + 43, MUTED, false);
             return;
         }
@@ -418,8 +418,8 @@ public final class WaypointScreen extends Screen {
             rounded(g, x + 12, y + 13, x + 36, y + 37, color, 7);
             String initial = firstInitial(w.name());
             int initialColor = contrastText(color);
-            g.text(font, initial, x + 24 - font.width(initial) / 2, y + 20, initialColor, true);
-            g.text(font, fit(w.name(), Math.max(45, cardWidth - 100)), x + 44, y + 14, TEXT, true);
+            g.text(font, initial, x + 24 - font.width(initial) / 2, y + 20, initialColor, false);
+            g.text(font, fit(w.name(), Math.max(45, cardWidth - 100)), x + 44, y + 14, TEXT, false);
             String sub = dimension(w.dimension()) + " · " + (w.expiresAt() > 0 ? "Temporary" : "Permanent");
             g.text(font, fit(sub, cardWidth - 60), x + 44, y + 29, MUTED, false);
             int coordsY = y + 58;
@@ -430,7 +430,7 @@ public final class WaypointScreen extends Screen {
             int metaY = y + cardHeight - 15;
             g.fill(x + 12, metaY + 4, x + 16, metaY + 8, color);
             g.text(font, dimension(w.dimension()), x + 22, metaY + 1, MUTED, false);
-            g.text(font, "✎", x + cardWidth - 44, metaY, MUTED, false);
+            g.text(font, "E", x + cardWidth - 44, metaY, MUTED, false);
             g.text(font, "×", x + cardWidth - 21, metaY, MUTED, false);
         }
     }
@@ -480,7 +480,7 @@ public final class WaypointScreen extends Screen {
             int nextX = pagesX + visiblePages * (pageButton + gap) - gap + 8;
             actionButton(g, mx, my, nextX, footerY, pageButton, 24, "›", false);
         }
-        g.text(font, "▦   A little less wandering. A lot more exploring.", contentX, height - 25, QUIET, false);
+        g.text(font, "A little less wandering. A lot more exploring.", contentX, height - 25, QUIET, false);
     }
 
     private int countDimensions() {
@@ -530,7 +530,7 @@ public final class WaypointScreen extends Screen {
     }
     private void actionButton(GuiGraphicsExtractor g, int mx, int my, int x, int y, int w, int h, String label, boolean primary) {
         boolean hover = inside(mx, my, x, y, w, h);
-        rounded(g, x, y, x + w, y + h, primary ? (hover ? 0xFFC9FF83 : ACCENT) : (hover ? 0xFF242B2F : PANEL), 6);
+        rounded(g, x, y, x + w, y + h, primary ? (hover ? 0xFFBDE39A : ACCENT) : (hover ? 0xFF242B2F : PANEL), 6);
         if (!primary) border(g, x, y, x + w, y + h, EDGE);
         int color = primary ? 0xFF12170C : TEXT;
         g.text(font, label, x + (w - font.width(label)) / 2, y + (h - 8) / 2, color, false);

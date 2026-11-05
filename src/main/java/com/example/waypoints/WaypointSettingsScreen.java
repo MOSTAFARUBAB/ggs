@@ -13,13 +13,13 @@ import java.util.List;
 public final class WaypointSettingsScreen extends Screen {
     private static final int BG = 0xFF090A0C;
     private static final int RAIL = 0xFF101214;
-    private static final int PANEL = 0xFF131619;
-    private static final int PANEL_ALT = 0xFF0F1214;
-    private static final int EDGE = 0xFF30373B;
+    private static final int PANEL = 0xFF141618;
+    private static final int PANEL_ALT = 0xFF101214;
+    private static final int EDGE = 0xFF292D30;
     private static final int TEXT = 0xFFF2F5F5;
     private static final int MUTED = 0xFF9BA4A8;
     private static final int QUIET = 0xFF687278;
-    private static final int ACCENT = 0xFFB7F36B;
+    private static final int ACCENT = 0xFFA9D879;
 
     private record HitTarget(int x, int y, int width, int height, Runnable action) {
         boolean contains(double px, double py) {
@@ -27,6 +27,11 @@ public final class WaypointSettingsScreen extends Screen {
         }
     }
     private final java.util.List<HitTarget> hitTargets = new java.util.ArrayList<>();
+    private final java.util.List<HitTarget> scrollHitTargets = new java.util.ArrayList<>();
+    private int scrollOffset;
+    private int maxScroll;
+    private int scrollTop;
+    private int scrollBottom;
 
     private int railWidth, contentX, contentRight, contentWidth, leftW;
     private int headingY, cardsY, labelCardHeight, beamY, beamCardHeight, displayY, displayCardHeight;
@@ -45,6 +50,7 @@ public final class WaypointSettingsScreen extends Screen {
     protected void init() {
         clearWidgets();
         hitTargets.clear();
+        scrollHitTargets.clear();
         railWidth = width >= 800 ? Math.max(150, Math.min(190, Math.round(width * 0.16f))) : 54;
         int sideInset = width >= 800 ? 32 : 12;
         contentX = railWidth + sideInset;
@@ -53,11 +59,15 @@ public final class WaypointSettingsScreen extends Screen {
         headingY = Math.max(58, Math.round(height * 0.095f));
         cardsY = Math.max(112, Math.round(height * 0.172f));
         leftW = contentWidth < 520 ? contentWidth : Math.min(570, Math.max(330, Math.round(contentWidth * 0.68f)));
-        labelCardHeight = Math.max(196, Math.round(height * 0.278f));
+        labelCardHeight = Math.max(210, Math.round(height * 0.278f));
         beamY = cardsY + labelCardHeight + 14;
-        beamCardHeight = Math.max(168, Math.round(height * 0.23f));
+        beamCardHeight = Math.max(190, Math.round(height * 0.23f));
         displayY = beamY + beamCardHeight + 15;
-        displayCardHeight = Math.max(150, height - displayY - 58);
+        displayCardHeight = 178;
+        scrollTop = cardsY;
+        scrollBottom = height - 48;
+        maxScroll = Math.max(0, displayY + displayCardHeight - scrollBottom);
+        scrollOffset = Math.min(scrollOffset, maxScroll);
 
         if (railWidth > 70) {
             button(10, 153, railWidth - 20, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointScreen(0)));
@@ -67,36 +77,36 @@ public final class WaypointSettingsScreen extends Screen {
 
         // Waypoint label preferences.
         int toggleX = contentX + leftW - 42;
-        button(toggleX, cardsY + 55, 28, 18, this::toggleLabels);
-        button(toggleX, cardsY + 100, 28, 18, this::toggleDistances);
-        button(toggleX, cardsY + 144, 28, 18, this::toggleCoordinates);
+        scrollButton(toggleX, cardsY + 55, 28, 18, this::toggleLabels);
+        scrollButton(toggleX, cardsY + 100, 28, 18, this::toggleDistances);
+        scrollButton(toggleX, cardsY + 144, 28, 18, this::toggleCoordinates);
         int sizeW = Math.max(42, (leftW - 190) / 3);
         int sizeStart = contentX + leftW - (sizeW * 3 + 28);
         for (int i = 0; i < 3; i++) {
             final int size = i;
-            button(sizeStart + i * (sizeW + 4), cardsY + 177, sizeW, 26, () -> {
+            scrollButton(sizeStart + i * (sizeW + 4), cardsY + 177, sizeW, 26, () -> {
                 WaypointsMod.markerSizeMode = size;
                 save();
             });
         }
 
         // Beacon beam preferences.
-        button(toggleX, beamY + 55, 28, 18, this::toggleBeams);
-        button(toggleX, beamY + 100, 28, 18, this::toggleBeamColor);
+        scrollButton(toggleX, beamY + 55, 28, 18, this::toggleBeams);
+        scrollButton(toggleX, beamY + 100, 28, 18, this::toggleBeamColor);
         beamTrackX = contentX + 116;
         beamTrackWidth = Math.max(60, leftW - 140);
         beamTrackY = beamY + 171;
 
         // Display preferences + editable maximum distance. 0 means unlimited.
-        button(toggleX, displayY + 55, 28, 18, () -> {
+        scrollButton(toggleX, displayY + 55, 28, 18, () -> {
             WaypointsMod.currentDimensionOnly = !WaypointsMod.currentDimensionOnly;
             save();
         });
-        button(toggleX, displayY + 100, 28, 18, () -> {
+        scrollButton(toggleX, displayY + 100, 28, 18, () -> {
             WaypointsMod.hideHudWhenMenuOpen = !WaypointsMod.hideHudWhenMenuOpen;
             save();
         });
-        distanceBox = new EditBox(font, contentX + leftW - 110, displayY + 140, 58, 23, Component.literal("Maximum display distance"));
+        distanceBox = new EditBox(font, contentX + leftW - 110, displayY + 140 - scrollOffset, 58, 23, Component.literal("Maximum display distance"));
         distanceBox.setMaxLength(9);
         distanceBox.setValue(Integer.toString(WaypointsMod.maxDisplayDistance));
         distanceBox.setBordered(false);
@@ -116,13 +126,23 @@ public final class WaypointSettingsScreen extends Screen {
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         if (event.button() == 1 && event.x() >= beamTrackX - 5 && event.x() <= beamTrackX + beamTrackWidth + 5
-                && event.y() >= beamTrackY - 5 && event.y() <= beamTrackY + 12) {
+                && event.y() >= beamTrackY - scrollOffset - 5 && event.y() <= beamTrackY - scrollOffset + 12) {
             draggingBeamOpacity = true;
             setDragging(true);
             updateBeamOpacity(event.x());
             return true;
         }
         if (event.button() == 1) {
+            if (event.y() >= scrollTop && event.y() <= scrollBottom
+                    && event.x() >= contentX && event.x() <= contentX + leftW) {
+            for (int i = scrollHitTargets.size() - 1; i >= 0; i--) {
+                HitTarget target = scrollHitTargets.get(i);
+                if (target.contains(event.x(), event.y() + scrollOffset)) {
+                    target.action().run();
+                    return true;
+                }
+            }
+            }
             for (int i = hitTargets.size() - 1; i >= 0; i--) {
                 HitTarget target = hitTargets.get(i);
                 if (target.contains(event.x(), event.y())) {
@@ -155,6 +175,23 @@ public final class WaypointSettingsScreen extends Screen {
         return super.mouseReleased(event);
     }
 
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (mouseX < contentX || mouseX > contentX + leftW || mouseY < scrollTop || mouseY > scrollBottom) {
+            return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        }
+        int next = Math.max(0, Math.min(maxScroll, scrollOffset - (int)Math.round(scrollY * 28.0)));
+        if (next == scrollOffset) return false;
+        scrollOffset = next;
+        if (distanceBox != null) {
+            distanceBox.setY(displayY + 140 - scrollOffset);
+            if (distanceBox.getY() + distanceBox.getHeight() <= scrollTop || distanceBox.getY() >= scrollBottom) {
+                distanceBox.setFocused(false);
+            }
+        }
+        return true;
+    }
+
     private void updateBeamOpacity(double mouseX) {
         double ratio = Math.max(0.0, Math.min(1.0, (mouseX - beamTrackX) / Math.max(1.0, beamTrackWidth)));
         WaypointsMod.beamOpacity = (int) Math.round(ratio * 100.0);
@@ -162,8 +199,10 @@ public final class WaypointSettingsScreen extends Screen {
     }
 
     private void button(int x, int y, int w, int h, Runnable action) {
-        // Invisible pointer target; custom controls are rendered separately.
         hitTargets.add(new HitTarget(x, y, w, h, action));
+    }
+    private void scrollButton(int x, int y, int w, int h, Runnable action) {
+        scrollHitTargets.add(new HitTarget(x, y, w, h, action));
     }
     private void toggleLabels() { WaypointsMod.showWaypointLabels = !WaypointsMod.showWaypointLabels; save(); }
     private void toggleDistances() { WaypointsMod.showWaypointDistances = !WaypointsMod.showWaypointDistances; save(); }
@@ -193,20 +232,23 @@ public final class WaypointSettingsScreen extends Screen {
         int topBarHeight = Math.max(42, Math.round(height * 0.055f));
         g.fill(railWidth, 0, width, topBarHeight, PANEL_ALT);
         g.fill(railWidth, topBarHeight - 1, width, topBarHeight, EDGE);
-        g.text(font, "◇  " + fit(worldTitle(), 120) + "   /   Settings", railWidth + 24, 15, MUTED, false);
+        g.text(font, "" + fit(worldTitle(), 120) + "   /   Settings", railWidth + 24, 15, MUTED, false);
         g.fill(width - 132, 17, width - 127, 22, ACCENT);
         g.text(font, "Local workspace", width - 120, 15, MUTED, false);
-        g.text(font, "Your world. Your view.", contentX, headingY, TEXT, true);
+        g.text(font, "Your world. Your view.", contentX, headingY, TEXT, false);
         g.text(font, "Make waypoints work the way you explore.", contentX, headingY + 31, MUTED, false);
-        g.text(font, "✓  Changes saved", contentRight - 100, headingY + 16, ACCENT, false);
+        g.text(font, "Changes saved", contentRight - 100, headingY + 16, ACCENT, false);
 
         int rightX = contentX + leftW + 18;
         int rightW = Math.max(0, contentRight - rightX);
+        g.enableScissor(contentX, scrollTop, contentX + leftW, scrollBottom);
+        g.pose().pushMatrix();
+        g.pose().translate(0.0f, -scrollOffset);
         int y = cardsY;
 
         // Waypoint labels card: four well-spaced rows, no overlapping descriptions.
         card(g, contentX, y, leftW, labelCardHeight);
-        g.text(font, "⚑  Waypoint labels", contentX + 16, y + 18, TEXT, true);
+        g.text(font, "Waypoint labels", contentX + 16, y + 18, TEXT, false);
         settingRow(g, mx, contentX + 16, y + 55, leftW - 32, "Show waypoint labels", "See waypoint names while exploring your world.", WaypointsMod.showWaypointLabels);
         settingRow(g, mx, contentX + 16, y + 100, leftW - 32, "Show distance", "Display your distance to each waypoint in blocks.", WaypointsMod.showWaypointDistances);
         settingRow(g, mx, contentX + 16, y + 144, leftW - 32, "Show coordinates", "Include X, Y and Z beneath each waypoint name.", WaypointsMod.showWaypointCoordinates);
@@ -224,7 +266,7 @@ public final class WaypointSettingsScreen extends Screen {
 
         // Beacon beams card.
         card(g, contentX, beamY, leftW, beamCardHeight);
-        g.text(font, "◉  Beacon beams", contentX + 16, beamY + 18, TEXT, true);
+        g.text(font, "Beacon beams", contentX + 16, beamY + 18, TEXT, false);
         settingRow(g, mx, contentX + 16, beamY + 55, leftW - 32, "Show beacon beams", "Guide your way with a vertical beam at each waypoint.", WaypointsMod.showWaypointBeams);
         settingRow(g, mx, contentX + 16, beamY + 100, leftW - 32, "Match waypoint color", "Use each waypoint's color for its beacon beam.", WaypointsMod.matchWaypointColor);
         g.text(font, "Beam opacity", contentX + 16, beamY + 151, MUTED, false);
@@ -236,7 +278,7 @@ public final class WaypointSettingsScreen extends Screen {
 
         // Display preferences card.
         card(g, contentX, displayY, leftW, displayCardHeight);
-        g.text(font, "▣  Display preferences", contentX + 16, displayY + 18, TEXT, true);
+        g.text(font, "Display preferences", contentX + 16, displayY + 18, TEXT, false);
         settingRow(g, mx, contentX + 16, displayY + 55, leftW - 32, "Current dimension only", "Hide waypoints from dimensions you're not in.", WaypointsMod.currentDimensionOnly);
         settingRow(g, mx, contentX + 16, displayY + 100, leftW - 32, "Hide HUD when menu is open", "Keep your view clean while browsing menus.", WaypointsMod.hideHudWhenMenuOpen);
         g.text(font, "Maximum display distance", contentX + 16, displayY + 148, MUTED, false);
@@ -244,44 +286,58 @@ public final class WaypointSettingsScreen extends Screen {
         border(g, contentX + leftW - 110, displayY + 138, contentX + leftW - 18, displayY + 165, EDGE);
         g.text(font, "blocks", contentX + leftW - 48, displayY + 148, QUIET, false);
 
-        // Right preview and compact help card, placed beside the controls like the reference.
+        g.pose().popMatrix();
+        g.disableScissor();
+
+        // Right preview and compact help card stay fixed while the settings column scrolls.
         if (rightW >= 160) {
             g.text(font, "IN-GAME PREVIEW", rightX, y + 2, QUIET, false);
             drawPreview(g, rightX, y + 22, rightW, Math.min(180, Math.round(height * 0.205f)));
             int infoY = y + 22 + Math.min(180, Math.round(height * 0.205f)) + 53;
             card(g, rightX, infoY, rightW, 130);
-            g.text(font, "ⓘ", rightX + 14, infoY + 14, MUTED, false);
+            g.text(font, "", rightX + 14, infoY + 14, MUTED, false);
             g.text(font, "A starting point, not a limit.", rightX + 14, infoY + 36, TEXT, false);
-            g.text(font, "These are your world defaults. You can customize", rightX + 14, infoY + 56, MUTED, false);
-            g.text(font, "labels and beams for individual waypoints when", rightX + 14, infoY + 69, MUTED, false);
-            g.text(font, "creating or editing them.", rightX + 14, infoY + 82, MUTED, false);
-            g.text(font, "✓  Preferences save automatically", rightX + 14, infoY + 108, ACCENT, false);
+            g.text(font, fit("These are your world defaults. You can customize", rightW - 28), rightX + 14, infoY + 56, MUTED, false);
+            g.text(font, fit("labels and beams for individual waypoints when", rightW - 28), rightX + 14, infoY + 69, MUTED, false);
+            g.text(font, fit("creating or editing them.", rightW - 28), rightX + 14, infoY + 82, MUTED, false);
+            g.text(font, "Preferences save automatically", rightX + 14, infoY + 108, ACCENT, false);
         }
         buttonLabel(g, mx, my, contentX, height - 36, 105, 25, "Reset defaults", false);
         buttonLabel(g, mx, my, contentRight - 92, height - 36, 92, 25, "Done", false);
+        if (maxScroll > 0) {
+            int trackX = contentX + leftW - 4;
+            int trackTop = scrollTop + 3;
+            int trackHeight = scrollBottom - scrollTop - 6;
+            int thumbHeight = Math.max(24, trackHeight * trackHeight / (trackHeight + maxScroll));
+            int thumbY = trackTop + (trackHeight - thumbHeight) * scrollOffset / maxScroll;
+            rounded(g, trackX, trackTop, trackX + 2, trackTop + trackHeight, EDGE, 1);
+            rounded(g, trackX, thumbY, trackX + 2, thumbY + thumbHeight, MUTED, 1);
+        }
 
-        // EditBox text is drawn once above the custom matte field background.
+        // Keep the native distance input inside the same scroll viewport as its card.
+        g.enableScissor(contentX, scrollTop, contentX + leftW, scrollBottom);
         super.extractRenderState(g, mx, my, delta);
+        g.disableScissor();
     }
 
     private void drawSidebar(GuiGraphicsExtractor g, int mx, int my) {
         g.fill(0, 0, railWidth, height, RAIL); g.fill(railWidth - 1, 0, railWidth, height, EDGE);
-        rounded(g, 14, 15, 43, 44, ACCENT, 8); g.text(font, "W", 23, 25, 0xFF101410, true);
+        rounded(g, 14, 15, 43, 44, ACCENT, 8); g.text(font, "W", 23, 25, 0xFF101410, false);
         if (railWidth > 70) {
             g.text(font, "Waypoint", 51, 19, TEXT, false); g.text(font, "M A N A G E R", 51, 31, MUTED, false);
             rounded(g, 14, 63, railWidth - 14, 108, PANEL, 8);
-            g.text(font, fit(worldTitle(), railWidth - 48), 24, 74, TEXT, true); g.fill(24, 94, 28, 98, ACCENT);
+            g.text(font, fit(worldTitle(), railWidth - 48), 24, 74, TEXT, false); g.fill(24, 94, 28, 98, ACCENT);
             g.text(font, "Java Edition · 26.3", 34, 92, MUTED, false);
             g.text(font, "WORKSPACE", 16, 135, QUIET, false);
-            nav(g, mx, my, 10, 153, railWidth - 20, "◎", "Waypoints", false);
-            nav(g, mx, my, 10, 194, railWidth - 20, "☷", "Settings", true);
+            nav(g, mx, my, 10, 153, railWidth - 20, "•", "Waypoints", false);
+            nav(g, mx, my, 10, 194, railWidth - 20, "=", "Settings", true);
             rounded(g, 14, height - 109, railWidth - 14, height - 18, PANEL_ALT, 8);
-            g.text(font, "Your world. Your waypoints.", 23, height - 94, TEXT, false);
-            g.text(font, "Stored locally, ready for", 23, height - 76, MUTED, false);
-            g.text(font, "your next adventure.", 23, height - 63, MUTED, false);
+            g.text(font, fit("Your world. Your waypoints.", railWidth - 36), 23, height - 94, TEXT, false);
+            g.text(font, fit("Stored locally, ready for", railWidth - 36), 23, height - 76, MUTED, false);
+            g.text(font, fit("your next adventure.", railWidth - 36), 23, height - 63, MUTED, false);
             g.fill(23, height - 43, 28, height - 38, ACCENT); g.text(font, "All changes saved", 34, height - 44, MUTED, false);
         } else {
-            nav(g, mx, my, 8, 104, 38, "◎", "", false); nav(g, mx, my, 8, 150, 38, "☷", "", true);
+            nav(g, mx, my, 8, 104, 38, "•", "", false); nav(g, mx, my, 8, 150, 38, "=", "", true);
         }
     }
     private void nav(GuiGraphicsExtractor g, int mx, int my, int x, int y, int w, String icon, String label, boolean active) {
@@ -290,8 +346,14 @@ public final class WaypointSettingsScreen extends Screen {
         if (!label.isEmpty()) g.text(font, label, x + 30, y + 11, active ? TEXT : MUTED, false);
     }
     private void settingRow(GuiGraphicsExtractor g, int mx, int x, int y, int w, String title, String desc, boolean enabled) {
-        g.text(font, title, x, y, TEXT, false); g.text(font, fit(desc, w - 65), x, y + 13, MUTED, false);
-        int sx = x + w - 26; toggle(g, sx, y + 1, enabled);
+        g.text(font, fit(title, w - 54), x, y, TEXT, false);
+        int textWidth = Math.max(70, w - 58);
+        var lines = font.split(Component.literal(desc), textWidth);
+        for (int i = 0; i < Math.min(2, lines.size()); i++) {
+            g.text(font, lines.get(i), x, y + 13 + i * 9, MUTED, false);
+        }
+        int sx = x + w - 26;
+        toggle(g, sx, y + 1, enabled);
     }
     private void toggle(GuiGraphicsExtractor g, int x, int y, boolean enabled) {
         rounded(g, x, y, x + 26, y + 15, enabled ? 0xFF45652A : 0xFF3B4247, 8);

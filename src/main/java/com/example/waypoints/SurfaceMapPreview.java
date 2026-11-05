@@ -18,8 +18,8 @@ import net.minecraft.client.gui.Font;
  * then samples the WORLD_SURFACE heightmap (not cave/underground blocks).
  */
 final class SurfaceMapPreview {
-    private static final int MAP_WIDTH = 128;
-    private static final int MAP_HEIGHT = 64;
+    private static final int MAP_WIDTH = 256;
+    private static final int MAP_HEIGHT = 128;
     private static final Identifier MAP_TEXTURE_ID = Identifier.fromNamespaceAndPath(
             "simplewaypoints", "gui/surface_map_preview");
 
@@ -93,11 +93,11 @@ final class SurfaceMapPreview {
         border(g, badgeX, badgeY, badgeX + badgeWidth, badgeY + 28, 0xFF394247);
         rounded(g, badgeX + 5, badgeY + 5, badgeX + 23, badgeY + 23, markerColor, 5);
         String initial = safeName.substring(0, 1).toUpperCase(java.util.Locale.ROOT);
-        g.text(font, initial, badgeX + 14 - font.width(initial) / 2, badgeY + 10, 0xFF101410, true);
+        g.text(font, initial, badgeX + 14 - font.width(initial) / 2, badgeY + 10, 0xFF101410, false);
         int textMax = badgeWidth - 34;
         String labelText = trim(font, safeName, textMax);
         String detailsText = trim(font, safeDetails, textMax);
-        g.text(font, labelText, badgeX + 29, badgeY + 4, 0xFFB7F36B, true);
+        g.text(font, labelText, badgeX + 29, badgeY + 4, 0xFFA9D879, false);
         g.text(font, detailsText, badgeX + 29, badgeY + 16, 0xFF9BA4A8, false);
 
         String footer = status;
@@ -181,9 +181,15 @@ final class SurfaceMapPreview {
                     else if (rise < -1) shade = 0.86f;
                 }
                 previousHeight = surfaceY;
-                int r = Math.min(255, Math.round(((rgb >> 16) & 255) * shade));
-                int green = Math.min(255, Math.round(((rgb >> 8) & 255) * shade));
-                int b = Math.min(255, Math.round((rgb & 255) * shade));
+                int sourceR = (rgb >> 16) & 255;
+                int sourceG = (rgb >> 8) & 255;
+                int sourceB = rgb & 255;
+                // Slightly mute vanilla map colors so the preview feels calm and
+                // doesn't overpower the rest of the dark interface.
+                float luma = sourceR * 0.2126f + sourceG * 0.7152f + sourceB * 0.0722f;
+                int r = Math.min(255, Math.round((luma * 0.28f + sourceR * 0.72f) * shade));
+                int green = Math.min(255, Math.round((luma * 0.28f + sourceG * 0.72f) * shade));
+                int b = Math.min(255, Math.round((luma * 0.28f + sourceB * 0.72f) * shade));
                 image.setPixel(px, py, 0xFF000000 | (r << 16) | (green << 8) | b);
                 loadedSamples++;
             }
