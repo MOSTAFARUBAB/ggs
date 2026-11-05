@@ -330,22 +330,6 @@ public final class WaypointScreen extends Screen {
         WaypointUiText.drawInput(g, font, searchBox, contentX + 31, toolbarY + 13, Math.max(36, searchBox.getWidth() - 8));
     }
 
-    private void drawBrandMark(GuiGraphicsExtractor g, int x, int y) {
-        int c = 0xFF101410;
-        drawPixelLine(g, x + 6, y + 14, x + 20, y + 6, c);
-        drawPixelLine(g, x + 20, y + 6, x + 15, y + 21, c);
-        drawPixelLine(g, x + 15, y + 21, x + 12, y + 14, c);
-        drawPixelLine(g, x + 12, y + 14, x + 6, y + 14, c);
-        drawPixelLine(g, x + 12, y + 14, x + 20, y + 6, c);
-    }
-    private void drawPixelLine(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2, int color) {
-        int dx = Math.abs(x2 - x1), sx = x1 < x2 ? 1 : -1;
-        int dy = -Math.abs(y2 - y1), sy = y1 < y2 ? 1 : -1;
-        int err = dx + dy, x = x1, y = y1;
-        while (true) { g.fill(x, y, x + 1, y + 1, color); if (x == x2 && y == y2) break; int e2 = 2 * err; if (e2 >= dy) { err += dy; x += sx; } if (e2 <= dx) { err += dx; y += sy; } }
-    }
-
-
     private void drawSidebar(GuiGraphicsExtractor g, int mx, int my) {
         g.fill(0, 0, railWidth, height, RAIL);
         g.fill(railWidth - 1, 0, railWidth, height, EDGE);
@@ -383,6 +367,28 @@ public final class WaypointScreen extends Screen {
         } else {
             navItem(g, mx, my, 8, 104, 38, "", "", true);
             navItem(g, mx, my, 8, 150, 38, "", "", false);
+        }
+    }
+
+    private void drawBrandMark(GuiGraphicsExtractor g, int x, int y) {
+        int c = 0xFF101410;
+        drawPixelLine(g, x + 6, y + 14, x + 20, y + 6, c);
+        drawPixelLine(g, x + 20, y + 6, x + 15, y + 21, c);
+        drawPixelLine(g, x + 15, y + 21, x + 12, y + 14, c);
+        drawPixelLine(g, x + 12, y + 14, x + 6, y + 14, c);
+        drawPixelLine(g, x + 12, y + 14, x + 20, y + 6, c);
+    }
+
+    private void drawPixelLine(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2, int color) {
+        int dx = Math.abs(x2 - x1), sx = x1 < x2 ? 1 : -1;
+        int dy = -Math.abs(y2 - y1), sy = y1 < y2 ? 1 : -1;
+        int err = dx + dy, x = x1, y = y1;
+        while (true) {
+            g.fill(x, y, x + 1, y + 1, color);
+            if (x == x2 && y == y2) break;
+            int e2 = 2 * err;
+            if (e2 >= dy) { err += dy; x += sx; }
+            if (e2 <= dx) { err += dx; y += sy; }
         }
     }
 
