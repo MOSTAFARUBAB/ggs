@@ -4,6 +4,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.FontDescription;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.FormattedCharSequence;
@@ -15,7 +16,7 @@ final class WaypointUiText {
 
     private WaypointUiText() {}
 
-    static Component component(String text) {
+    static MutableComponent component(String text) {
         return Component.literal(text == null ? "" : text)
                 .withStyle(style -> style.withFont(new FontDescription.Resource(FONT_ID)));
     }
@@ -46,18 +47,16 @@ final class WaypointUiText {
     }
 
     static void drawStrong(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
-        Component c = component(text);
+        Component c = component(text).withStyle(style -> style.withBold(true));
         g.text(font, c, x, y, color, false);
-        g.text(font, c, x + 1, y, color, false);
     }
 
     static void drawTitle(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
-        Component c = component(text);
+        Component c = component(text).withStyle(style -> style.withBold(true));
         g.pose().pushMatrix();
         g.pose().translate(x, y);
         g.pose().scale(2.05f, 2.05f);
         g.text(font, c, 0, 0, color, false);
-        g.text(font, c, 1, 0, color, false);
         g.pose().popMatrix();
     }
 
