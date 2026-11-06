@@ -13,6 +13,7 @@ import net.minecraft.util.FormattedCharSequence;
 final class WaypointUiText {
     private static final Identifier FONT_ID = Identifier.fromNamespaceAndPath("simplewaypoints", "ui");
     private static final int TEXT = 0xFFF2F4F5;
+    static final int LINE_HEIGHT = 12;
 
     private WaypointUiText() {}
 
@@ -77,7 +78,7 @@ final class WaypointUiText {
         draw(g, font, shown, x, y, TEXT, false);
         if (box.isFocused() && ((System.currentTimeMillis() / 500L) & 1L) == 0L) {
             int caretX = x + width(font, shown.substring(0, Math.min(shownCursor, shown.length())));
-            g.fill(caretX, y - 1, caretX + 1, y + 10, TEXT);
+            g.fill(caretX, y - 1, caretX + 1, y + 12, TEXT);
         }
     }
 }

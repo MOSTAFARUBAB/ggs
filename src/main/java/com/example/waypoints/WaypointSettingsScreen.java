@@ -326,7 +326,7 @@ public final class WaypointSettingsScreen extends Screen {
         // Native edit-box owns input; draw the shared UI glyphs over its transparent text.
         g.enableScissor(contentX, scrollTop, contentX + leftW, scrollBottom);
         super.extractRenderState(g, mx, my, delta);
-        WaypointUiText.drawInput(g, font, distanceBox, contentX + leftW - 84, displayY + 149 - scrollOffset, 48);
+        WaypointUiText.drawInput(g, font, distanceBox, contentX + leftW - 84, displayY + 147 - scrollOffset, 48);
         g.disableScissor();
     }
 
@@ -419,14 +419,14 @@ public final class WaypointSettingsScreen extends Screen {
         int tint = active ? ACCENT : MUTED;
         if ("Waypoints".equals(label) || label.isEmpty()) drawPinGlyph(g, x + 11, y + 9, tint);
         else drawSlidersGlyph(g, x + 10, y + 10, tint);
-        if (!label.isEmpty()) WaypointUiText.draw(g, font, label, x + 30, y + 11, active ? TEXT : MUTED, false);
+        if (!label.isEmpty()) WaypointUiText.draw(g, font, label, x + 30, y + 10, active ? TEXT : MUTED, false);
     }
     private void settingRow(GuiGraphicsExtractor g, int mx, int x, int y, int w, String title, String desc, boolean enabled) {
         WaypointUiText.draw(g, font, fit(title, w - 54), x, y, TEXT, false);
         int textWidth = Math.max(70, w - 58);
         var lines = font.split(WaypointUiText.component(desc), textWidth);
         for (int i = 0; i < Math.min(2, lines.size()); i++) {
-            WaypointUiText.draw(g, font, lines.get(i), x, y + 13 + i * 9, MUTED, false);
+            WaypointUiText.draw(g, font, lines.get(i), x, y + 13 + i * 12, MUTED, false);
         }
         int sx = x + w - 26;
         toggle(g, sx, y + 1, enabled);
@@ -463,7 +463,7 @@ public final class WaypointSettingsScreen extends Screen {
         boolean hover = inside(mx, my, x, y, w, h);
         rounded(g, x, y, x + w, y + h, primary ? ACCENT : hover ? 0xFF242B2F : PANEL, 6);
         if (!primary) border(g, x, y, x + w, y + h, EDGE);
-        WaypointUiText.draw(g, font, label, x + (w - WaypointUiText.width(font, label)) / 2, y + (h - 8) / 2, primary ? BG : TEXT, false);
+        WaypointUiText.draw(g, font, label, x + (w - WaypointUiText.width(font, label)) / 2, y + (h - WaypointUiText.LINE_HEIGHT) / 2, primary ? BG : TEXT, false);
     }
     private String fit(String value, int max) { String s = value; while (!s.isEmpty() && WaypointUiText.width(font, s) > max) s = s.substring(0, s.length() - 1); return s.equals(value) ? s : s + "..."; }
     private String worldTitle() {

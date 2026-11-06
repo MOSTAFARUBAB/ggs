@@ -750,7 +750,7 @@ public class WaypointEditScreen extends Screen {
         rounded(g, left, dimY, left + nameWidth, dimY + 34, PANEL_ALT, 6);
         border(g, left, dimY, left + nameWidth, dimY + 34, CARD_BORDER);
         String selectedDimension = dimMode >= 0 ? DIM_LABELS[dimMode] : dimensionName(keepDimension);
-        WaypointUiText.draw(g, font, fitText(selectedDimension, nameWidth - 42), left + 11, dimY + 13, TEXT, false);
+        WaypointUiText.draw(g, font, fitText(selectedDimension, nameWidth - 42), left + 11, dimY + 11, TEXT, false);
         WaypointUiText.draw(g, font, "v", left + nameWidth - 19, dimY + 12, MUTED, false);
         WaypointUiText.draw(g, font, "Only visible when you're in this dimension.", left, dimY + locationOffset(44), QUIET, false);
         card(g, contentLeft, visibilityY, formWidth, visibilityHeight);
@@ -770,7 +770,7 @@ public class WaypointEditScreen extends Screen {
             for (int i = 0; i < DIM_LABELS.length; i++) {
                 int optionY = menuY + i * optionHeight;
                 if (i == dimMode) rounded(g, left + 2, optionY + 1, left + nameWidth - 2, optionY + optionHeight - 1, 0xFF202B1B, 5);
-                WaypointUiText.draw(g, font, DIM_LABELS[i], left + 11, optionY + (optionHeight - 8) / 2, i == dimMode ? ACCENT : TEXT, false);
+                WaypointUiText.draw(g, font, DIM_LABELS[i], left + 11, optionY + (optionHeight - WaypointUiText.LINE_HEIGHT) / 2, i == dimMode ? ACCENT : TEXT, false);
             }
         }
 
@@ -848,7 +848,7 @@ public class WaypointEditScreen extends Screen {
                 previewName, previewDetails);
         var previewCaption = font.split(WaypointUiText.component("A clear marker, right where you need it. Your color is used for labels and beacon beams."), colorWidth);
         for (int i = 0; i < Math.min(2, previewCaption.size()); i++) {
-            WaypointUiText.draw(g, font, previewCaption.get(i), colorX, previewPanelY + mapHeight + 8 + i * 11, QUIET, false);
+            WaypointUiText.draw(g, font, previewCaption.get(i), colorX, previewPanelY + mapHeight + 8 + i * WaypointUiText.LINE_HEIGHT, QUIET, false);
         }
         if (original != null) WaypointUiText.draw(g, font, "CREATED IN THIS WORLD", colorX, previewPanelY + mapHeight + 62, QUIET, false);
         g.pose().popMatrix();
@@ -879,11 +879,11 @@ public class WaypointEditScreen extends Screen {
         // Native EditBoxes are rendered once and clipped to the scroll viewport.
         g.enableScissor(contentLeft, scrollTop, width - 12, scrollBottom);
         super.extractRenderState(g, mouseX, mouseY, delta);
-        WaypointUiText.drawInput(g, font, nameBox, left + 12, nameY + 12 - scrollOffset, nameWidth - 28);
-        WaypointUiText.drawInput(g, font, xBox, left + 12, coordsY + 12 - scrollOffset, coordinateWidth - 28);
-        WaypointUiText.drawInput(g, font, yBox, left + coordinateWidth + 20, coordsY + 12 - scrollOffset, coordinateWidth - 28);
-        WaypointUiText.drawInput(g, font, zBox, left + (coordinateWidth + 8) * 2 + 12, coordsY + 12 - scrollOffset, coordinateWidth - 28);
-        WaypointUiText.drawInput(g, font, hexBox, preview + 127, hexRowY() + 12 - scrollOffset, Math.max(48, hexW - 145));
+        WaypointUiText.drawInput(g, font, nameBox, left + 12, nameY + 11 - scrollOffset, nameWidth - 28);
+        WaypointUiText.drawInput(g, font, xBox, left + 12, coordsY + 11 - scrollOffset, coordinateWidth - 28);
+        WaypointUiText.drawInput(g, font, yBox, left + coordinateWidth + 20, coordsY + 11 - scrollOffset, coordinateWidth - 28);
+        WaypointUiText.drawInput(g, font, zBox, left + (coordinateWidth + 8) * 2 + 12, coordsY + 11 - scrollOffset, coordinateWidth - 28);
+        WaypointUiText.drawInput(g, font, hexBox, preview + 127, hexRowY() + 10 - scrollOffset, Math.max(48, hexW - 145));
         g.disableScissor();
     }
 
@@ -999,7 +999,7 @@ public class WaypointEditScreen extends Screen {
         int tint = active ? ACCENT : MUTED;
         if ("Waypoints".equals(label) || label.isEmpty()) drawPinGlyph(g, x + 11, y + 9, tint);
         else drawSlidersGlyph(g, x + 10, y + 10, tint);
-        if (!label.isEmpty()) WaypointUiText.draw(g, font, label, x + 30, y + 11, active ? TEXT : MUTED, false);
+        if (!label.isEmpty()) WaypointUiText.draw(g, font, label, x + 30, y + 10, active ? TEXT : MUTED, false);
     }
 
     private void card(GuiGraphicsExtractor g, int x, int y, int w, int h) {
@@ -1033,7 +1033,7 @@ public class WaypointEditScreen extends Screen {
             g.fill(x, y + h - 1, x + w, y + h, danger ? 0xFF85464A : CARD_BORDER);
         }
         int color = primary ? 0xFF101410 : danger ? 0xFFFF8C92 : TEXT;
-        WaypointUiText.draw(g, font, label, x + (w - WaypointUiText.width(font, label)) / 2, y + (h - 8) / 2, color, false);
+        WaypointUiText.draw(g, font, label, x + (w - WaypointUiText.width(font, label)) / 2, y + (h - WaypointUiText.LINE_HEIGHT) / 2, color, false);
     }
 
     private int parseCoordinate(EditBox box, int fallback) {

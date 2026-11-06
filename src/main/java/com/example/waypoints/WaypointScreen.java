@@ -327,7 +327,7 @@ public final class WaypointScreen extends Screen {
         drawFooter(g, mx, my);
         // Native EditBox handles input; the shared UI font draws its visible text.
         super.extractRenderState(g, mx, my, delta);
-        WaypointUiText.drawInput(g, font, searchBox, contentX + 31, toolbarY + 13, Math.max(36, searchBox.getWidth() - 8));
+        WaypointUiText.drawInput(g, font, searchBox, contentX + 31, toolbarY + 11, Math.max(36, searchBox.getWidth() - 8));
     }
 
     private void drawSidebar(GuiGraphicsExtractor g, int mx, int my) {
@@ -414,7 +414,7 @@ public final class WaypointScreen extends Screen {
         int tint = active ? ACCENT : MUTED;
         if ("Waypoints".equals(label) || label.isEmpty()) drawPinGlyph(g, x + 11, y + 9, tint);
         else drawSlidersGlyph(g, x + 10, y + 10, tint);
-        if (!label.isEmpty()) WaypointUiText.draw(g, font, label, x + 30, y + 11, active ? TEXT : MUTED, false);
+        if (!label.isEmpty()) WaypointUiText.draw(g, font, label, x + 30, y + 10, active ? TEXT : MUTED, false);
     }
 
     private void statCard(GuiGraphicsExtractor g, int x, int y, int w, int h, String label, String value, String note, String icon) {
@@ -433,7 +433,7 @@ public final class WaypointScreen extends Screen {
         border(g, contentX, y, contentX + w, y + 35, EDGE);
         WaypointUiText.draw(g, font, "", contentX + 11, y + 13, MUTED, false);
         if (searchBox != null && searchBox.getValue().isEmpty() && !searchBox.isFocused()) {
-            WaypointUiText.draw(g, font, "Search by name or coordinates...", contentX + 31, y + 14, QUIET, false);
+            WaypointUiText.draw(g, font, "Search by name or coordinates...", contentX + 31, y + 11, QUIET, false);
         }
         if (sortByName) actionButton(g, mx, my, contentRight - 190, y, 120, 35, "A-Z", false);
         else actionButton(g, mx, my, contentRight - 190, y, 120, 35, "Recently added", false);
@@ -508,7 +508,7 @@ public final class WaypointScreen extends Screen {
 
     private void drawCoordinate(GuiGraphicsExtractor g, int x, int y, int w, String label, String value) {
         rounded(g, x, y, x + w, y + 28, PANEL_ALT, 5);
-        WaypointUiText.draw(g, font, label, x + 7, y + 4, QUIET, false);
+        WaypointUiText.draw(g, font, label, x + 7, y + 2, QUIET, false);
         WaypointUiText.draw(g, font, fit(value, w - 14), x + 7, y + 15, TEXT, false);
     }
 
@@ -586,14 +586,14 @@ public final class WaypointScreen extends Screen {
         boolean hover = inside(mx, my, x, y, w, h);
         rounded(g, x, y, x + w, y + h, selected ? 0xFF26321F : hover ? PANEL : PANEL_ALT, 6);
         if (selected) border(g, x, y, x + w, y + h, 0xFF789D4C);
-        WaypointUiText.draw(g, font, label, x + (w - WaypointUiText.width(font, label)) / 2, y + (h - 8) / 2, selected ? ACCENT : MUTED, selected);
+        WaypointUiText.draw(g, font, label, x + (w - WaypointUiText.width(font, label)) / 2, y + (h - WaypointUiText.LINE_HEIGHT) / 2, selected ? ACCENT : MUTED, selected);
     }
     private void actionButton(GuiGraphicsExtractor g, int mx, int my, int x, int y, int w, int h, String label, boolean primary) {
         boolean hover = inside(mx, my, x, y, w, h);
         rounded(g, x, y, x + w, y + h, primary ? (hover ? 0xFFBDE39A : ACCENT) : (hover ? 0xFF242B2F : PANEL), 6);
         if (!primary) border(g, x, y, x + w, y + h, EDGE);
         int color = primary ? 0xFF12170C : TEXT;
-        WaypointUiText.draw(g, font, label, x + (w - WaypointUiText.width(font, label)) / 2, y + (h - 8) / 2, color, false);
+        WaypointUiText.draw(g, font, label, x + (w - WaypointUiText.width(font, label)) / 2, y + (h - WaypointUiText.LINE_HEIGHT) / 2, color, false);
     }
     private void primaryButton(GuiGraphicsExtractor g, int mx, int my, int x, int y, int w, int h, String label) {
         actionButton(g, mx, my, x, y, w, h, label, true);
