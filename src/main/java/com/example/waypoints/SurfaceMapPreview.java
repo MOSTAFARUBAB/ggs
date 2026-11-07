@@ -24,12 +24,12 @@ final class SurfaceMapPreview {
         int top = y + 1, bottom = y + height - 1;
         // Quiet topographic contours: layered waves, never a high-contrast grid.
         for (int layer = -4; layer <= 4; layer++) {
-            for (int px = left; px < right; px += 2) {
+            for (int px = left; px < right; px++) {
                 double t = (px - left) / (double)Math.max(1, width - 2);
                 double wave = Math.sin(t * Math.PI * 2.0 + layer * 0.36) * height * 0.095
                         + Math.sin(t * Math.PI * 4.0 - layer * 0.22) * height * 0.025;
                 int py = (int)Math.round(y + height * 0.49 + layer * height * 0.105 + wave);
-                if (py > top + 2 && py < bottom - 2) g.fill(px, py, Math.min(px + 2, right), py + 1, 0x26364036);
+                if (py > top + 2 && py < bottom - 2) g.fill(px, py, Math.min(px + 1, right), py + 1, 0x26364036);
             }
         }
 

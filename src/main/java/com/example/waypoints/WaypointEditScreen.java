@@ -41,8 +41,8 @@ public class WaypointEditScreen extends Screen {
     // GUI-space dimensions stay compact; the backing texture is 2x resolution
     // so the gradient stays smooth on scaled/high-DPI displays.
     private static final int PICKER_MAX_HEIGHT = 126;
-    private static final int PICKER_TEXTURE_WIDTH = 256;
-    private static final int PICKER_TEXTURE_HEIGHT = 128;
+    private static final int PICKER_TEXTURE_WIDTH = 1024;
+    private static final int PICKER_TEXTURE_HEIGHT = 512;
     private static final Identifier PICKER_TEXTURE_ID = Identifier.fromNamespaceAndPath(
             "simplewaypoints", "gui/waypoint_color_picker");
     private static DynamicTexture pickerTexture;
@@ -51,8 +51,8 @@ public class WaypointEditScreen extends Screen {
 
     // The hue strip is static, so generate it once and draw it as one texture.
     private static final int HUE_DISPLAY_HEIGHT = 8;
-    private static final int HUE_TEXTURE_HEIGHT = 8;
-    private static final int HUE_TEXTURE_WIDTH = 256;
+    private static final int HUE_TEXTURE_HEIGHT = 32;
+    private static final int HUE_TEXTURE_WIDTH = 1024;
     private static final Identifier HUE_TEXTURE_ID = Identifier.fromNamespaceAndPath(
             "simplewaypoints", "gui/waypoint_hue_strip");
     private static DynamicTexture hueTexture;
@@ -503,7 +503,7 @@ public class WaypointEditScreen extends Screen {
     }
 
     /**
-     * Builds a 2x-resolution saturation/value square once for the current hue and uploads
+     * Builds a high-density saturation/value square once for the current hue and uploads
      * it only when the hue changes. The old implementation queued 8,192 fill calls every frame,
      * which made the edit screen noticeably laggy.
      */
@@ -934,7 +934,7 @@ public class WaypointEditScreen extends Screen {
             rrect(g, sideInset, 65, railWidth - 14, 115, CARD);
             WaypointUiText.draw(g, font, fitText(worldTitle(), railWidth - 48), labelX, 76, TEXT, false);
             g.fill(labelX, 98, labelX + 4, 102, ACCENT);
-            WaypointUiText.draw(g, font, "Java Edition · 26.3", labelX + 10, 96, MUTED, false);
+            WaypointUiText.draw(g, font, "Java Edition | 26.3", labelX + 10, 96, MUTED, false);
             WaypointUiText.draw(g, font, "WORKSPACE", sideInset, 144, QUIET, false);
             nav(g, mx, my, sideInset, 153, navWidth, "", "Waypoints", true);
             nav(g, mx, my, sideInset, 194, navWidth, "", "Settings", false);

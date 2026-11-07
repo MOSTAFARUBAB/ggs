@@ -60,7 +60,7 @@ public final class WaypointSettingsScreen extends Screen {
         headingY = Math.max(58, Math.round(height * 0.095f));
         cardsY = Math.max(112, Math.round(height * 0.168f));
         leftW = contentWidth < 520 ? contentWidth : Math.min(570, Math.max(330, Math.round(contentWidth * 0.678f)));
-        labelCardHeight = Math.max(210, Math.round(height * 0.275f));
+        labelCardHeight = Math.max(224, Math.round(height * 0.275f));
         beamY = cardsY + labelCardHeight + 15;
         beamCardHeight = Math.max(190, Math.round(height * 0.227f));
         displayY = beamY + beamCardHeight + 15;
@@ -306,9 +306,12 @@ public final class WaypointSettingsScreen extends Screen {
             card(g, rightX, infoY, rightW, 131);
             drawInfoGlyph(g, rightX + 16, infoY + 15);
             WaypointUiText.draw(g, font, "A starting point, not a limit.", rightX + 14, infoY + 38, TEXT, false);
-            WaypointUiText.draw(g, font, fit("These are your world defaults. You can customize", rightW - 28), rightX + 14, infoY + 58, MUTED, false);
-            WaypointUiText.draw(g, font, fit("labels and beams for individual waypoints when", rightW - 28), rightX + 14, infoY + 71, MUTED, false);
-            WaypointUiText.draw(g, font, fit("creating or editing them.", rightW - 28), rightX + 14, infoY + 84, MUTED, false);
+            var infoLines = font.split(WaypointUiText.component(
+                    "These are your world defaults. You can customize labels and beams for individual waypoints when creating or editing them."),
+                    Math.max(1, rightW - 28));
+            for (int i = 0; i < Math.min(4, infoLines.size()); i++) {
+                WaypointUiText.draw(g, font, infoLines.get(i), rightX + 14, infoY + 58 + i * 13, MUTED, false);
+            }
             WaypointUiText.draw(g, font, "Preferences save automatically", rightX + 14, infoY + 112, MUTED, false);
         }
         WaypointUiText.draw(g, font, "Preferences apply to all waypoints in this world.", contentX, height - 37, QUIET, false);
@@ -346,7 +349,7 @@ public final class WaypointSettingsScreen extends Screen {
             rounded(g, sideInset, 65, railWidth - 14, 115, PANEL, 8);
             WaypointUiText.draw(g, font, fit(worldTitle(), railWidth - 48), labelX, 76, TEXT, false);
             g.fill(labelX, 98, labelX + 4, 102, ACCENT);
-            WaypointUiText.draw(g, font, "Java Edition · 26.3", labelX + 10, 96, MUTED, false);
+            WaypointUiText.draw(g, font, "Java Edition | 26.3", labelX + 10, 96, MUTED, false);
             WaypointUiText.draw(g, font, "WORKSPACE", sideInset, 144, QUIET, false);
             nav(g, mx, my, sideInset, 153, navWidth, "", "Waypoints", false);
             nav(g, mx, my, sideInset, 194, navWidth, "", "Settings", true);

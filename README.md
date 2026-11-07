@@ -40,3 +40,14 @@ gradle clean build --no-daemon -PwithBeam=true
 ```
 
 The installable mod JAR is produced in `build/libs/`.
+
+
+## High-density UI rendering (1.3.1)
+
+- Rebuilt the UI type atlas from vector outlines at 4x source density, with separate regular, bold, and compact resources.
+- Uses native logical GUI coordinates so Minecraft's GUI Scale setting controls physical sizing across display resolutions.
+- Raised color-picker backing textures for high-DPI displays and changed the contour preview to continuous pixel sampling.
+
+## Display scaling
+
+The screens are laid out in Minecraft GUI coordinates and follow the selected Minecraft GUI Scale (including Auto). Use the in-game GUI Scale setting to choose the preferred physical size on 1080p, 1440p, and 4K displays; the mod does not force a window resolution.

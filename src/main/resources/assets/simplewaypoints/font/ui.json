@@ -3,8 +3,8 @@
     {
       "type": "bitmap",
       "file": "simplewaypoints:font/ui.png",
-      "height": 12,
-      "ascent": 9,
+      "height": 13,
+      "ascent": 10,
       "chars": [
         " !\"#$%&'()*+,-./",
         "0123456789:;<=>?",
@@ -13,10 +13,6 @@
         "`abcdefghijklmno",
         "pqrstuvwxyz{|}~ "
       ]
-    },
-    {
-      "type": "reference",
-      "id": "minecraft:uniform"
     }
   ]
 }

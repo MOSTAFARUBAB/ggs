@@ -346,7 +346,7 @@ public final class WaypointScreen extends Screen {
             rounded(g, sideInset, 65, railWidth - 14, 115, PANEL, 8);
             WaypointUiText.draw(g, font, fit(worldTitle(), railWidth - 48), labelX, 76, TEXT, false);
             g.fill(labelX, 98, labelX + 4, 102, ACCENT);
-            WaypointUiText.draw(g, font, "Java Edition · 26.3", labelX + 10, 96, MUTED, false);
+            WaypointUiText.draw(g, font, "Java Edition | 26.3", labelX + 10, 96, MUTED, false);
             WaypointUiText.draw(g, font, "WORKSPACE", sideInset, 144, QUIET, false);
             navItem(g, mx, my, sideInset, 153, navWidth, "", "Waypoints", true);
             navItem(g, mx, my, sideInset, 194, navWidth, "", "Settings", false);

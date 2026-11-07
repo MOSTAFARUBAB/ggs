@@ -84,7 +84,7 @@ public class WaypointsMod implements ClientModInitializer {
     public static volatile boolean hideHudWhenMenuOpen = true;
     /** 0 = unlimited; otherwise maximum world blocks from the player. */
     public static volatile int maxDisplayDistance = 0;
-    /** 0–100; applied as beam color intensity on the vanilla beam renderer. */
+    /** 0-100; applied as beam color intensity on the vanilla beam renderer. */
     public static volatile int beamOpacity = 75;
 
 
@@ -1088,10 +1088,10 @@ public class WaypointsMod implements ClientModInitializer {
         String displayName = name == null || name.isBlank() ? "Waypoint" : name.trim();
         final int maxTextWidth = 110;
         if (font.width(displayName) > maxTextWidth) {
-            while (displayName.length() > 1 && font.width(displayName + "…") > maxTextWidth) {
+            while (displayName.length() > 1 && font.width(displayName + "...") > maxTextWidth) {
                 displayName = displayName.substring(0, displayName.length() - 1);
             }
-            displayName += "…";
+            displayName += "...";
         }
         return displayName;
     }

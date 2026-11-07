@@ -12,8 +12,10 @@ import net.minecraft.util.FormattedCharSequence;
 /** Shared smooth sans-serif text renderer for all Waypoint Manager screens. */
 final class WaypointUiText {
     private static final Identifier FONT_ID = Identifier.fromNamespaceAndPath("simplewaypoints", "ui");
+    private static final Identifier BOLD_FONT_ID = Identifier.fromNamespaceAndPath("simplewaypoints", "ui_bold");
+    private static final Identifier SMALL_FONT_ID = Identifier.fromNamespaceAndPath("simplewaypoints", "ui_small");
     private static final int TEXT = 0xFFF2F4F5;
-    static final int LINE_HEIGHT = 12;
+    static final int LINE_HEIGHT = 13;
 
     private WaypointUiText() {}
 
@@ -35,28 +37,32 @@ final class WaypointUiText {
     }
 
     static int compactWidth(Font font, String text) {
-        return Math.round(width(font, text) * 0.82f);
+        return font.width(smallComponent(text));
+    }
+
+    private static MutableComponent smallComponent(String text) {
+        return Component.literal(text == null ? "" : text)
+                .withStyle(style -> style.withFont(new FontDescription.Resource(SMALL_FONT_ID)));
+    }
+
+    private static MutableComponent boldComponent(String text) {
+        return Component.literal(text == null ? "" : text)
+                .withStyle(style -> style.withFont(new FontDescription.Resource(BOLD_FONT_ID)));
     }
 
     static void drawCompact(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
-        Component c = component(text);
-        g.pose().pushMatrix();
-        g.pose().translate(x, y);
-        g.pose().scale(0.82f, 0.82f);
-        g.text(font, c, 0, 0, color, false);
-        g.pose().popMatrix();
+        g.text(font, smallComponent(text), x, y, color, false);
     }
 
     static void drawStrong(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
-        Component c = component(text).withStyle(style -> style.withBold(true));
-        g.text(font, c, x, y, color, false);
+        g.text(font, boldComponent(text), x, y, color, false);
     }
 
     static void drawTitle(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
-        Component c = component(text).withStyle(style -> style.withBold(true));
+        Component c = boldComponent(text);
         g.pose().pushMatrix();
         g.pose().translate(x, y);
-        g.pose().scale(2.05f, 2.05f);
+        g.pose().scale(2.0f, 2.0f);
         g.text(font, c, 0, 0, color, false);
         g.pose().popMatrix();
     }
@@ -78,7 +84,7 @@ final class WaypointUiText {
         draw(g, font, shown, x, y, TEXT, false);
         if (box.isFocused() && ((System.currentTimeMillis() / 500L) & 1L) == 0L) {
             int caretX = x + width(font, shown.substring(0, Math.min(shownCursor, shown.length())));
-            g.fill(caretX, y - 1, caretX + 1, y + 12, TEXT);
+            g.fill(caretX, y - 1, caretX + 1, y + 13, TEXT);
         }
     }
 }
