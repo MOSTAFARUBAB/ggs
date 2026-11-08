@@ -3,7 +3,7 @@
   "providers": [
     {
       "type": "ttf",
-      "file": "simplewaypoints:inter/Inter-Regular.ttf",
+      "file": "simplewaypoints:font/Inter-Regular.ttf",
       "shift": [0, 0],
       "size": 8,
       "oversample": 4
