@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+/** Modern custom dark UI dashboard for Waypoint Manager matching the visual design reference. */
 public final class WaypointScreen extends Screen {
     private static final int BG = 0xFF0B0C0E;
     private static final int RAIL = 0xFF101113;
@@ -53,8 +54,8 @@ public final class WaypointScreen extends Screen {
         this.searchQuery = search == null ? "" : search;
     }
 
-    static void open(int page) { Minecraft.getInstance().gui.setScreen(new WaypointScreen(page)); }
-    static void openMenu() { open(0); }
+    public static void open(int page) { Minecraft.getInstance().gui.setScreen(new WaypointScreen(page)); }
+    public static void openMenu() { open(0); }
 
     @Override
     public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
@@ -92,11 +93,11 @@ public final class WaypointScreen extends Screen {
         refreshFiltered();
         page = Math.max(0, Math.min(requestedPage, Math.max(0, (filtered.size() - 1) / pageSize)));
 
-        // Sidebar navigation buttons
+        // Sidebar navigation targets
         button(20, 153, 150, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointScreen(0)));
         button(20, 194, 150, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointSettingsScreen()));
 
-        // Create waypoint button (+ Create waypoint in top right)
+        // Create waypoint primary button (+ Create waypoint)
         button(contentRight - 150, headingY + 2, 150, 38,
                 () -> Minecraft.getInstance().gui.setScreen(new WaypointEditScreen(null, page)));
 
@@ -115,7 +116,7 @@ public final class WaypointScreen extends Screen {
         });
         addRenderableWidget(searchBox);
 
-        // Sort & Layout buttons
+        // Sort & View Layout controls
         button(contentRight - 210, toolbarY, 120, 38, () -> {
             sortByName = !sortByName;
             rebuildDashboard();
@@ -125,7 +126,7 @@ public final class WaypointScreen extends Screen {
             rebuildDashboard();
         });
 
-        // Dimension filters
+        // Dimension filter tags
         int filterX = contentX;
         int[] modes = {4, 1, 2, 3};
         int[] widths = {120, 95, 95, 80};
@@ -235,7 +236,7 @@ public final class WaypointScreen extends Screen {
         WaypointUiText.draw(g, font, "Keep your world organized. Never lose a place worth returning to.", contentX, headingY + 30, MUTED, false);
         actionButton(g, mx, my, contentRight - 150, headingY + 2, 150, 38, "+ Create waypoint", true);
 
-        // Stats cards
+        // Stats summary cards
         int statW = (contentWidth - 30) / 3;
         statCard(g, contentX, statsY, statW, statsHeight, "Total waypoints", String.valueOf(entries.size()), "Across your entire world");
         statCard(g, contentX + statW + 15, statsY, statW, statsHeight, "Dimensions explored", "3", "Overworld, Nether & End");
@@ -266,7 +267,7 @@ public final class WaypointScreen extends Screen {
             fx += dw[i] + 8;
         }
 
-        // Cards grid
+        // Cards Grid Rendering
         int start = page * pageSize;
         int end = Math.min(filtered.size(), start + pageSize);
         for (int i = start; i < end; i++) {
@@ -346,9 +347,18 @@ public final class WaypointScreen extends Screen {
 
     private void actionButton(GuiGraphicsExtractor g, int mx, int my, int x, int y, int w, int h, String label, boolean primary) {
         boolean hover = inside(mx, my, x, y, w, h);
-        rounded(g, x, y, x + w, y + h, primary ? (hover ? 0xFFBDE39A : ACCENT) : (hover ? 0xFF242B2F : PANEL), 7);
-        if (!primary) border(g, x, y, x + w, y + h, EDGE);
-        WaypointUiText.draw(g, font, label, x + (w - WaypointUiText.width(font, label)) / 2, y + (h - 8) / 2, primary ? 0xFF101410 : TEXT, false);
+        int bg = primary ? (hover ? 0xFFC6F782 : ACCENT) : (hover ? 0xFF1E2226 : PANEL_ALT);
+        g.fill(x, y, x + w, y + h, 0xFF0B0C0E);
+        g.fill(x + 2, y, x + w - 2, y + h, bg);
+        g.fill(x, y + 2, x + w, y + h - 2, bg);
+        if (!primary) {
+            g.fill(x, y, x + w, y + 1, EDGE);
+            g.fill(x, y + h - 1, x + w, y + h, EDGE);
+            g.fill(x, y, x + 1, y + h, EDGE);
+            g.fill(x + w - 1, y, x + w, y + h, EDGE);
+        }
+        int textColor = primary ? 0xFF101410 : TEXT;
+        WaypointUiText.draw(g, font, label, x + (w - WaypointUiText.width(font, label)) / 2, y + (h - 8) / 2, textColor, false);
     }
 
     private String worldTitle() {
