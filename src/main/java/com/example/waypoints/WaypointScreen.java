@@ -297,10 +297,10 @@ public final class WaypointScreen extends Screen {
         int crumbX = contentX + 18 + WaypointUiText.width(font, worldLabel) + 10;
         WaypointUiText.draw(g, font, "/", crumbX, 16, QUIET, false);
         WaypointUiText.draw(g, font, "Waypoints", crumbX + 14, 16, TEXT, false);
-        g.fill(width - 132, 18, width - 127, 23, ACCENT);
-        WaypointUiText.draw(g, font, "Local workspace", width - 120, 16, MUTED, false);
-        border(g, width - 49, 15, width - 37, 27, QUIET);
-        WaypointUiText.draw(g, font, "?", width - 45, 17, MUTED, false);
+        g.fill(width - 152, 18, width - 147, 23, ACCENT);
+        WaypointUiText.draw(g, font, "Local workspace", width - 140, 16, MUTED, false);
+        border(g, width - 69, 15, width - 57, 27, QUIET);
+        WaypointUiText.draw(g, font, "?", width - 65, 17, MUTED, false);
 
         WaypointUiText.draw(g, font, "Every place, a waypoint.", contentX, headingY, TEXT, false);
         WaypointUiText.draw(g, font, "Keep your world organized. Never lose a place worth returning to.", contentX, headingY + 35, MUTED, false);

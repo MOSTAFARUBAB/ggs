@@ -708,19 +708,19 @@ public class WaypointEditScreen extends Screen {
         int crumbX = topWorldX + WaypointUiText.width(font, topWorld) + 10;
         WaypointUiText.draw(g, font, "/", crumbX, 17, QUIET, false);
         WaypointUiText.draw(g, font, "Waypoints", crumbX + 14, 17, TEXT, false);
-        g.fill(width - 132, 18, width - 127, 23, ACCENT);
-        WaypointUiText.draw(g, font, "Local workspace", width - 120, 16, MUTED, false);
-        border(g, width - 49, 15, width - 37, 27, QUIET);
-        WaypointUiText.draw(g, font, "?", width - 45, 17, MUTED, false);
+        g.fill(width - 152, 18, width - 147, 23, ACCENT);
+        WaypointUiText.draw(g, font, "Local workspace", width - 140, 16, MUTED, false);
+        border(g, width - 69, 15, width - 57, 27, QUIET);
+        WaypointUiText.draw(g, font, "?", width - 65, 17, MUTED, false);
         WaypointUiText.draw(g, font, original == null ? "<  All waypoints" : "<  All waypoints  /  " + fitText(original.name(), 140), contentLeft, breadcrumbY, MUTED, false);
         int titleY = height >= 880 ? 127 : 109;
         WaypointUiText.drawTitle(g, font, original == null ? "Mark somewhere new." : "Edit waypoint", contentLeft, titleY, TEXT);
         WaypointUiText.draw(g, font, original == null ? "Save a location now. Find your way back whenever you need it." : "Fine-tune the details. Keep your favorite place within reach.",
                 contentLeft, titleY + 32, MUTED, false);
         if (original != null) {
-            rounded(g, contentRight - 101, titleY + 8, contentRight, titleY + 32, 0xFF151B14, 6);
-            g.fill(contentRight - 94, titleY + 19, contentRight - 90, titleY + 23, ACCENT);
-            WaypointUiText.draw(g, font, "Unsaved changes", contentRight - 85, titleY + 16, ACCENT, false);
+            rounded(g, contentRight - 130, titleY + 8, contentRight, titleY + 32, 0xFF151B14, 6);
+            g.fill(contentRight - 123, titleY + 19, contentRight - 90, titleY + 23, ACCENT);
+            WaypointUiText.draw(g, font, "Unsaved changes", contentRight - 114, titleY + 16, ACCENT, false);
         }
 
         // Scrollable form and color workspace. Footer actions remain fixed and readable.

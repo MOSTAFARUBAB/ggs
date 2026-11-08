@@ -236,10 +236,10 @@ public final class WaypointSettingsScreen extends Screen {
         g.fill(railWidth, topBarHeight - 1, width, topBarHeight, EDGE);
         drawCubeGlyph(g, contentX, 12, MUTED);
         WaypointUiText.draw(g, font, fit(worldTitle(), 120) + "  /  Settings", contentX + 18, 15, MUTED, false);
-        g.fill(width - 132, 17, width - 127, 22, ACCENT);
-        WaypointUiText.draw(g, font, "Local workspace", width - 120, 15, MUTED, false);
-        border(g, width - 49, 14, width - 37, 26, QUIET);
-        WaypointUiText.draw(g, font, "?", width - 45, 16, MUTED, false);
+        g.fill(width - 152, 17, width - 147, 22, ACCENT);
+        WaypointUiText.draw(g, font, "Local workspace", width - 140, 15, MUTED, false);
+        border(g, width - 69, 14, width - 57, 26, QUIET);
+        WaypointUiText.draw(g, font, "?", width - 65, 16, MUTED, false);
         WaypointUiText.drawTitle(g, font, "Your world. Your view.", contentX, headingY, TEXT);
         WaypointUiText.draw(g, font, "Make waypoints work the way you explore.", contentX, headingY + 31, MUTED, false);
         g.fill(contentRight - 90, headingY + 19, contentRight - 84, headingY + 25, ACCENT);
