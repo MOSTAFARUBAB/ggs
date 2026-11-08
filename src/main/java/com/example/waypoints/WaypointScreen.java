@@ -295,8 +295,8 @@ public final class WaypointScreen extends Screen {
                         (int)entries.stream().filter(w -> WaypointsMod.normalizeDimension(w.dimension()).equals("minecraft:the_end")).count()};
         for (int i = 0; i < dims.length; i++) {
             boolean active = WaypointsMod.menuDimensionMode == (i == 0 ? 4 : i);
-            rounded(g, fx, filtersY, fx + dw[i], filtersY + 32, active ? 0xFF22301B : PANEL_ALT, 6);
-            if (active) border(g, fx, filtersY, fx + dw[i], filtersY + 32, 0xFF789D4C);
+            smoothRounded(g, fx, filtersY, fx + dw[i], filtersY + 32, active ? 0xFF22301B : PANEL_ALT, 16);
+            if (active) smoothBorder(g, fx, filtersY, fx + dw[i], filtersY + 32, 0xFF789D4C, 16);
             WaypointUiText.draw(g, font, dims[i] + "  " + counts[i], fx + 12, filtersY + 10, active ? ACCENT : MUTED, false);
             fx += dw[i] + 8;
         }
@@ -314,8 +314,8 @@ public final class WaypointScreen extends Screen {
             rounded(g, cx, cy, cx + cardWidth, cy + cardHeight, PANEL, 10);
             border(g, cx, cy, cx + cardWidth, cy + cardHeight, EDGE);
             
-            // Icon box
-            rounded(g, cx + 16, cy + 16, cx + 46, cy + 46, 0xFF000000 | WaypointsMod.resolveColor(w), 8);
+            // Icon box (smooth circular badge)
+            smoothRounded(g, cx + 16, cy + 16, cx + 46, cy + 46, 0xFF000000 | WaypointsMod.resolveColor(w), 15);
             WaypointUiText.draw(g, font, w.name().substring(0, 1).toUpperCase(), cx + 27, cy + 24, TEXT, false);
             
             // Name & Subtitle
@@ -349,8 +349,8 @@ public final class WaypointScreen extends Screen {
             for (int p = 0; p < totalPages; p++) {
                 boolean activePage = (p == page);
                 int pX = px + 28 + p * 24;
-                rounded(g, pX, footerY - 4, pX + 24, footerY + 20, activePage ? 0xFF26321F : PANEL_ALT, 4);
-                if (activePage) border(g, pX, footerY - 4, pX + 24, footerY + 20, 0xFF789D4C);
+                smoothRounded(g, pX, footerY - 4, pX + 24, footerY + 20, activePage ? 0xFF26321F : PANEL_ALT, 12);
+                if (activePage) smoothBorder(g, pX, footerY - 4, pX + 24, footerY + 20, 0xFF789D4C, 12);
                 WaypointUiText.draw(g, font, String.valueOf(p + 1), pX + 8, footerY + 2, activePage ? ACCENT : MUTED, false);
             }
             secondaryActionButton(g, mx, my, px + 28 + totalPages * 24, footerY - 4, 24, 24, ">");
@@ -371,8 +371,8 @@ public final class WaypointScreen extends Screen {
         g.fill(0, 0, railWidth, height, RAIL);
         g.fill(railWidth - 1, 0, railWidth, height, EDGE);
         
-        // Brand Header
-        rounded(g, 15, 15, 42, 42, ACCENT, 7);
+        // Brand Header (Smooth circular icon, no outer outline box)
+        smoothRounded(g, 15, 15, 42, 42, ACCENT, 14);
         WaypointUiText.draw(g, font, "Waypoint", 52, 17, TEXT, false);
         WaypointUiText.draw(g, font, "M A N A G E R", 52, 29, MUTED, false);
 
@@ -383,27 +383,25 @@ public final class WaypointScreen extends Screen {
         g.fill(25, 95, 29, 99, ACCENT);
         WaypointUiText.draw(g, font, "Java Edition | 1.21.4", 35, 93, MUTED, false);
 
-        // Workspace navigation
+        // Workspace navigation (Smooth pill tab, no outer selection outline box)
         WaypointUiText.draw(g, font, "WORKSPACE", 15, 140, QUIET, false);
         navItem(g, mx, my, 15, 153, railWidth - 30, "Waypoints", true);
         navItem(g, mx, my, 15, 194, railWidth - 30, "Settings", false);
 
-        // Footer Card: "Your world. Your waypoints."
+        // Footer Card: Clean background without harsh border outlines
         int footerBottom = height - 85;
         int footerTop = footerBottom - 85;
-        rounded(g, 15, footerTop, railWidth - 15, footerBottom, PANEL_ALT, 8);
-        border(g, 15, footerTop, railWidth - 15, footerBottom, EDGE);
+        g.fill(15, footerTop, railWidth - 15, footerBottom, PANEL_ALT);
         WaypointUiText.draw(g, font, "Your world. Your waypoints.", 25, footerTop + 12, TEXT, false);
         WaypointUiText.draw(g, font, "Stored locally, ready for your", 25, footerTop + 28, MUTED, false);
         WaypointUiText.draw(g, font, "next adventure.", 25, footerTop + 42, MUTED, false);
         g.fill(25, footerBottom - 20, 29, footerBottom - 16, ACCENT);
         WaypointUiText.draw(g, font, "All changes saved", 35, footerBottom - 22, MUTED, false);
 
-        // Profile Card at bottom
+        // Profile Card at bottom (Clean background without harsh border outlines)
         int profileTop = footerBottom + 12;
-        rounded(g, 15, profileTop, railWidth - 15, profileTop + 42, 0xFF14171A, 8);
-        border(g, 15, profileTop, railWidth - 15, profileTop + 42, EDGE);
-        rounded(g, 22, profileTop + 8, 48, profileTop + 34, 0xFF293238, 6);
+        g.fill(15, profileTop, railWidth - 15, profileTop + 42, 0xFF14171A);
+        smoothRounded(g, 22, profileTop + 8, 48, profileTop + 34, 0xFF293238, 12);
         WaypointUiText.draw(g, font, "AL", 28, profileTop + 16, TEXT, false);
         WaypointUiText.draw(g, font, "Alex", 58, profileTop + 8, TEXT, false);
         WaypointUiText.draw(g, font, "Explorer", 58, profileTop + 23, MUTED, false);
@@ -425,7 +423,9 @@ public final class WaypointScreen extends Screen {
     }
 
     private void navItem(GuiGraphicsExtractor g, int mx, int my, int x, int y, int w, String label, boolean active) {
-        if (active || inside(mx, my, x, y, w, 32)) rounded(g, x, y, x + w, y + 32, active ? 0xFF202629 : PANEL, 7);
+        if (active || inside(mx, my, x, y, w, 32)) {
+            smoothRounded(g, x, y, x + w, y + 32, active ? 0xFF202629 : PANEL, 16);
+        }
         WaypointUiText.draw(g, font, label, x + 30, y + 10, active ? TEXT : MUTED, false);
     }
 
@@ -470,6 +470,16 @@ public final class WaypointScreen extends Screen {
     }
     private static void rounded(GuiGraphicsExtractor g, int x, int y, int x2, int y2, int color, int r) {
         g.fill(x + r, y, x2 - r, y2, color); g.fill(x, y + r, x2, y2 - r, color);
+    }
+    private static void smoothRounded(GuiGraphicsExtractor g, int x, int y, int x2, int y2, int color, int radius) {
+        g.fill(x + radius, y, x2 - radius, y2, color);
+        g.fill(x, y + radius, x2, y2 - radius, color);
+    }
+    private static void smoothBorder(GuiGraphicsExtractor g, int x, int y, int x2, int y2, int color, int radius) {
+        g.fill(x + radius, y, x2 - radius, y + 1, color);
+        g.fill(x + radius, y2 - 1, x2 - radius, y2, color);
+        g.fill(x, y + radius, x + 1, y2 - radius, color);
+        g.fill(x2 - 1, y + radius, x2, y2 - radius, color);
     }
     private static boolean inside(int mx, int my, int x, int y, int w, int h) {
         return mx >= x && mx < x + w && my >= y && my < y + h;
