@@ -70,7 +70,7 @@ public final class WaypointScreen extends Screen {
         cardHitTargets.clear();
         paginationTargets.clear();
         railWidth = width >= 1120 ? 190 : width >= 1000 ? 165 : width >= 800 ? Math.max(150, Math.min(190, Math.round(width * 0.16f))) : 54;
-        int leftInset = width >= 1120 ? 35 : width >= 1000 ? 30 : 12;
+        int leftInset = width >= 1120 ? 32 : width >= 1000 ? 30 : 12;
         int rightInset = width >= 1120 ? 35 : width >= 1000 ? 32 : 12;
         contentX = railWidth + leftInset;
         contentRight = width - rightInset;
