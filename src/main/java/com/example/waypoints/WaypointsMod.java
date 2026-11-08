@@ -142,7 +142,7 @@ public class WaypointsMod implements ClientModInitializer {
         navigationTarget = waypoint;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
-            mc.player.displayClientMessage(Component.literal("Navigation started: " + waypoint.name()), true);
+            mc.gui.setOverlayMessage((Component.literal("Navigation started: " + waypoint.name()), true);
         }
     }
 
@@ -150,7 +150,8 @@ public class WaypointsMod implements ClientModInitializer {
     public static void stopNavigation() {
         navigationTarget = null;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player != null) mc.player.displayClientMessage(Component.literal("Waypoint navigation stopped."), true);
+        if (mc.player != null) 
+        mc.player.displayClientMessage(Component.literal("Waypoint navigation stopped."), true);
     }
 
     public static Waypoint navigationTarget() { return navigationTarget; }
@@ -163,7 +164,7 @@ public class WaypointsMod implements ClientModInitializer {
             return;
         }
         if (!java.util.Objects.equals(target.worldId(), currentWorldId())) {
-            client.player.displayClientMessage(Component.literal("Navigation: " + target.name() + " belongs to another world."), true);
+           client.player.displayClientMessage(Component.literal("Navigation: " + target.name() + " belongs to another world."), true);
             return;
         }
         if (!normalizeDimension(target.dimension()).equals(normalizeDimension(currentDimension()))) {
