@@ -7,9 +7,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.FormattedCharSequence;
 
-/** Standard clean sans-serif text rendering using Minecraft's default font. */
+/** Standard clean text renderer using Minecraft's default font. */
 final class WaypointUiText {
-    static final int LINE_HEIGHT = 9;
+    private static final int TEXT = 0xFFF2F4F5;
+    static final int LINE_HEIGHT = 13;
 
     private WaypointUiText() {}
 
@@ -22,11 +23,11 @@ final class WaypointUiText {
     }
 
     static void draw(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color, boolean shadow) {
-        g.drawString(font, text, x, y, color, shadow);
+        g.text(font, text, x, y, color, shadow);
     }
 
     static void draw(GuiGraphicsExtractor g, Font font, FormattedCharSequence text, int x, int y, int color, boolean shadow) {
-        g.drawString(font, text, x, y, color, shadow);
+        g.text(font, text, x, y, color, shadow);
     }
 
     static int compactWidth(Font font, String text) {
@@ -34,38 +35,39 @@ final class WaypointUiText {
     }
 
     static void drawCompact(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
-        g.drawString(font, text, x, y, color, false);
+        g.text(font, text, x, y, color, false);
     }
 
     static void drawStrong(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
-        g.drawString(font, text, x, y, color, false);
+        g.text(font, text, x, y, color, false);
     }
 
     static void drawTitle(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
         g.pose().pushMatrix();
         g.pose().translate(x, y);
-        g.pose().scale(2.0f, 2.0f, 1.0f);
-        g.drawString(font, text, 0, 0, color, false);
+        g.pose().scale(2.0f, 2.0f);
+        g.text(font, text, 0, 0, color, false);
         g.pose().popMatrix();
     }
 
+    /** The native EditBox remains responsible for keyboard/mouse input; render its text in the standard font. */
     static void drawInput(GuiGraphicsExtractor g, Font font, EditBox box, int x, int y, int maxWidth) {
         if (box == null || maxWidth <= 0) return;
         String value = box.getValue();
         int cursor = Math.max(0, Math.min(value.length(), box.getCursorPosition()));
         int start = 0;
-        while (start < cursor && font.width(value.substring(start)) > maxWidth) start++;
+        while (start < cursor && width(font, value.substring(start)) > maxWidth) start++;
         String shown = value.substring(start);
         int shownCursor = Math.max(0, cursor - start);
-        if (font.width(shown) > maxWidth) {
+        if (width(font, shown) > maxWidth) {
             int end = shown.length();
-            while (end > shownCursor && font.width(shown.substring(0, end)) > maxWidth) end--;
+            while (end > shownCursor && width(font, shown.substring(0, end)) > maxWidth) end--;
             shown = shown.substring(0, Math.max(shownCursor, end));
         }
-        g.drawString(font, shown, x, y, 0xFFF2F4F5, false);
+        draw(g, font, shown, x, y, TEXT, false);
         if (box.isFocused() && ((System.currentTimeMillis() / 500L) & 1L) == 0L) {
-            int caretX = x + font.width(shown.substring(0, Math.min(shownCursor, shown.length())));
-            g.fill(caretX, y - 1, caretX + 1, y + 9, 0xFFF2F4F5);
+            int caretX = x + width(font, shown.substring(0, Math.min(shownCursor, shown.length())));
+            g.fill(caretX, y - 1, caretX + 1, y + 13, TEXT);
         }
     }
 }
