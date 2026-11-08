@@ -3,7 +3,7 @@
   "providers": [
     {
       "type": "ttf",
-      "file": "simplewaypoints:inter/Inter-SemiBold.ttf",
+      "file": "simplewaypoints:font/Inter-SemiBold.ttf",
       "shift": [0, 0],
       "size": 18,
       "oversample": 4
