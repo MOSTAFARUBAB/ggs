@@ -1,0 +1,12 @@
+
+{
+  "providers": [
+    {
+      "type": "ttf",
+      "file": "simplewaypoints:inter/Inter-Regular.ttf",
+      "shift": [0, 0],
+      "size": 13,
+      "oversample": 4
+    }
+  ]
+}
