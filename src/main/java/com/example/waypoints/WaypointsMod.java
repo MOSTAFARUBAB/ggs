@@ -142,7 +142,7 @@ public class WaypointsMod implements ClientModInitializer {
         navigationTarget = waypoint;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
-            mc.gui.setOverlayMessage((Component.literal("Navigation started: " + waypoint.name()), true);
+            mc.gui.setOverlayMessage(Component.literal("Navigation started: " + waypoint.name()), true);
         }
     }
 
