@@ -237,8 +237,8 @@ public final class Beam3D {
                             0,
                             BeaconRenderer.MAX_RENDER_Y,
                             beam.rgb(),
-                            BeaconRenderer.SOLID_BEAM_RADIUS * beam.radiusScale() * 1.10f,
-                            BeaconRenderer.BEAM_GLOW_RADIUS * beam.radiusScale() * 1.65f
+                            BeaconRenderer.SOLID_BEAM_RADIUS * beam.radiusScale() * 1.0f,
+                            BeaconRenderer.BEAM_GLOW_RADIUS * beam.radiusScale() * 1.0f
                     );
                     poseStack.popPose();
                 }

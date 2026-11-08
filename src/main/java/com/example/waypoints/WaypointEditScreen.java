@@ -217,7 +217,7 @@ public class WaypointEditScreen extends Screen {
         visibilityY = cardTop + locationCardHeight + (height < 830 ? 17 : 16);
         visibilityHeight = Math.max(148, Math.round(156 - (height - 784) * 0.04f));
         colorCardHeight = Math.max(330, Math.round(340 + (height - 784) * 0.298f));
-        actionY = original == null ? height - 67 : visibilityY + visibilityHeight + 17;
+        actionY = height - 48;
         scrollTop = cardTop;
         scrollBottom = height - 20;
         int previewYForScroll = cardTop + colorCardHeight + 42 + Math.round((height - 784) * 0.024f);
