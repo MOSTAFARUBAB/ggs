@@ -242,6 +242,8 @@ public class WaypointEditScreen extends Screen {
             click(sideInset, navY, navWidth, 32,
                     () -> Minecraft.getInstance().gui.setScreen(new WaypointScreen(returnPage < 0 ? 0 : returnPage)));
             click(sideInset, navY + 41, navWidth, 32,
+                    () -> Minecraft.getInstance().gui.setScreen(new WaypointMapScreen()));
+            click(sideInset, navY + 82, navWidth, 32,
                     () -> Minecraft.getInstance().gui.setScreen(new WaypointSettingsScreen()));
         }
         // The breadcrumb is the only Back hit area; it never overlaps the page title.
@@ -843,10 +845,17 @@ public class WaypointEditScreen extends Screen {
         drawDropper(g, hexX + hexW - 18, rowY + 11, MUTED);
 
         int chromaRow = chromaY();
-        rounded(g, preview, chromaRow, preview + colorWidth - 20, chromaRow + 46, PANEL_ALT, 7);
-        WaypointUiText.draw(g, font, "Chroma mode", preview + 11, chromaRow + 8, TEXT, false);
+        rounded(g, preview, chromaRow, preview + colorWidth - 20, chromaRow + 46,
+                chroma ? 0xFF1B2815 : PANEL_ALT, 7);
+        if (chroma) border(g, preview, chromaRow, preview + colorWidth - 20, chromaRow + 46, ACCENT);
+        int[] spectrum = {0xFFFF3030, 0xFFFFB52E, 0xFFFFFF38, 0xFF42E85A, 0xFF35C8FF, 0xFF765BFF, 0xFFE84DDB};
+        for (int i = 0; i < spectrum.length; i++) {
+            int sx = preview + 11 + i * 5;
+            g.fill(sx, chromaRow + 9, sx + 4, chromaRow + 23, spectrum[i]);
+        }
+        WaypointUiText.draw(g, font, "CHROMA", preview + 52, chromaRow + 8, chroma ? ACCENT : TEXT, false);
+        WaypointUiText.draw(g, font, "Cycle through the spectrum", preview + 11, chromaRow + 27, QUIET, false);
         toggle(g, preview + colorWidth - 70, chromaRow + 15, chroma);
-        WaypointUiText.draw(g, font, "Cycle through the spectrum", preview + 11, chromaRow + 26, QUIET, false);
 
         int recentY = recentLabelY();
         WaypointUiText.draw(g, font, "Recent colors", preview, recentY, MUTED, false);
@@ -974,7 +983,8 @@ public class WaypointEditScreen extends Screen {
             WaypointUiText.draw(g, font, "Java Edition | 26.3", labelX + 10, 96, MUTED, false);
             WaypointUiText.draw(g, font, "WORKSPACE", sideInset, 144, QUIET, false);
             nav(g, mx, my, sideInset, 153, navWidth, "", "Waypoints", true);
-            nav(g, mx, my, sideInset, 194, navWidth, "", "Settings", false);
+            nav(g, mx, my, sideInset, 194, navWidth, "", "Map", false);
+            nav(g, mx, my, sideInset, 235, navWidth, "", "Settings", false);
             int footerTop = height >= 880 ? height - 186 : height >= 830 ? height - 159 : height - 162;
             int footerBottom = height >= 880 ? height - 75 : height >= 830 ? height - 59 : height - 62;
             rrect(g, sideInset, footerTop, railWidth - 14, footerBottom, PANEL_ALT);
@@ -1035,6 +1045,7 @@ public class WaypointEditScreen extends Screen {
         if (active || inside(mx, my, x, y, w, 32)) rrect(g, x, y, x + w, y + 32, 0xFF202629);
         int tint = active ? ACCENT : MUTED;
         if ("Waypoints".equals(label) || label.isEmpty()) drawPinGlyph(g, x + 11, y + 9, tint);
+        else if ("Map".equals(label)) drawPinGlyph(g, x + 11, y + 9, tint);
         else drawSlidersGlyph(g, x + 10, y + 10, tint);
         if (!label.isEmpty()) WaypointUiText.draw(g, font, label, x + 30, y + 10, active ? TEXT : MUTED, false);
     }

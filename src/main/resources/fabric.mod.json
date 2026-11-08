@@ -3,7 +3,7 @@
   "id": "simplewaypoints",
   "version": "${version}",
   "name": "Simple Waypoints",
-  "description": "Screenshot-matched waypoint dashboard, create/edit workspace, settings, color picker, and loaded-surface map preview with Minecraft 3D waypoint labels and beacon beams.",
+  "description": "Neon waypoint dashboard, waypoint editor with HSV color picker and Chroma mode, waypoint map overview, settings, labels, and beacon beams.",
   "authors": [
     "You"
   ],

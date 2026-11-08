@@ -71,3 +71,11 @@ Build requirements: Java 25 and Gradle (Fabric Loom downloads the required Minec
 - Adds compact topographic waypoint thumbnails to dashboard cards on larger screens.
 - Keeps the redesigned waypoint editor, color/Chroma picker, surface preview, and settings workspace.
 - Uses the Minecraft 26.3 chat listener overlay path for navigation notices instead of removed player message methods.
+
+
+## Version 1.4.0 UI refresh
+
+- Added a dedicated waypoint map overview and sidebar navigation to it.
+- Kept the HSV saturation/value picker, hue strip, HEX field, recent colors, and Chroma mode in the waypoint editor.
+- Minecraft target: 26.3; Java toolchain: 25; Fabric Loom is configured separately using the compatible `1.18-SNAPSHOT` plugin line.
+- The map overview is a schematic preview and waypoint list, not a live terrain tile map.

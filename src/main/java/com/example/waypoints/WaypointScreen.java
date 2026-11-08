@@ -101,10 +101,12 @@ public final class WaypointScreen extends Screen {
             int sideInset = railWidth > 170 ? 20 : 10;
             int navWidth = railWidth - sideInset - 14;
             button(sideInset, navY, navWidth, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointScreen(0)));
-            button(sideInset, navY + 41, navWidth, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointSettingsScreen()));
+            button(sideInset, navY + 41, navWidth, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointMapScreen()));
+            button(sideInset, navY + 82, navWidth, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointSettingsScreen()));
         } else {
             button(8, navY, 38, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointScreen(0)));
-            button(8, navY + 46, 38, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointSettingsScreen()));
+            button(8, navY + 46, 38, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointMapScreen()));
+            button(8, navY + 92, 38, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointSettingsScreen()));
         }
         // Create action and data transfer controls.
         button(contentRight - 132, headingY + 2, 132, 34,
@@ -364,7 +366,8 @@ public final class WaypointScreen extends Screen {
             WaypointUiText.draw(g, font, "Java Edition | 26.3", labelX + 10, 96, MUTED, false);
             WaypointUiText.draw(g, font, "WORKSPACE", sideInset, 144, QUIET, false);
             navItem(g, mx, my, sideInset, 153, navWidth, "", "Waypoints", true);
-            navItem(g, mx, my, sideInset, 194, navWidth, "", "Settings", false);
+            navItem(g, mx, my, sideInset, 194, navWidth, "", "Map", false);
+            navItem(g, mx, my, sideInset, 235, navWidth, "", "Settings", false);
             int footerTop = height >= 880 ? height - 186 : height >= 830 ? height - 159 : height - 162;
             int footerBottom = height >= 880 ? height - 75 : height >= 830 ? height - 59 : height - 62;
             rounded(g, sideInset, footerTop, railWidth - 14, footerBottom, PANEL_ALT, 8);
@@ -382,6 +385,7 @@ public final class WaypointScreen extends Screen {
         } else {
             navItem(g, mx, my, 8, 104, 38, "", "", true);
             navItem(g, mx, my, 8, 150, 38, "", "", false);
+            navItem(g, mx, my, 8, 196, 38, "", "", false);
         }
     }
 

@@ -74,8 +74,10 @@ public final class WaypointSettingsScreen extends Screen {
             int sideInset = railWidth > 170 ? 20 : 10;
             int navWidth = railWidth - sideInset - 14;
             button(sideInset, 153, navWidth, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointScreen(0)));
+            button(sideInset, 194, navWidth, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointMapScreen()));
         } else {
             button(8, 104, 38, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointScreen(0)));
+            button(8, 150, 38, 32, () -> Minecraft.getInstance().gui.setScreen(new WaypointMapScreen()));
         }
 
         // Waypoint label preferences.
@@ -352,7 +354,8 @@ public final class WaypointSettingsScreen extends Screen {
             WaypointUiText.draw(g, font, "Java Edition | 26.3", labelX + 10, 96, MUTED, false);
             WaypointUiText.draw(g, font, "WORKSPACE", sideInset, 144, QUIET, false);
             nav(g, mx, my, sideInset, 153, navWidth, "", "Waypoints", false);
-            nav(g, mx, my, sideInset, 194, navWidth, "", "Settings", true);
+            nav(g, mx, my, sideInset, 194, navWidth, "", "Map", false);
+            nav(g, mx, my, sideInset, 235, navWidth, "", "Settings", true);
             int footerTop = height >= 880 ? height - 186 : height >= 830 ? height - 159 : height - 162;
             int footerBottom = height >= 880 ? height - 75 : height >= 830 ? height - 59 : height - 62;
             rounded(g, sideInset, footerTop, railWidth - 14, footerBottom, PANEL_ALT, 8);
@@ -369,7 +372,8 @@ public final class WaypointSettingsScreen extends Screen {
             for (int dot = 0; dot < 3; dot++) g.fill(railWidth - 27 + dot * 3, profileTop + 13, railWidth - 25 + dot * 3, profileTop + 15, MUTED);
         } else {
             nav(g, mx, my, 8, 104, 38, "", "", false);
-            nav(g, mx, my, 8, 150, 38, "", "", true);
+            nav(g, mx, my, 8, 150, 38, "", "", false);
+            nav(g, mx, my, 8, 196, 38, "", "", true);
         }
     }
 
