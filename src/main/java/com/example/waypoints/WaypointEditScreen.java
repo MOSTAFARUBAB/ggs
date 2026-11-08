@@ -986,8 +986,8 @@ public class WaypointEditScreen extends Screen {
             int profileTop = footerBottom + 25;
             rrect(g, sideInset, profileTop, sideInset + 28, profileTop + 28, CARD_HOVER);
             WaypointUiText.draw(g, font, "AL", sideInset + 7, profileTop + 9, TEXT, false);
-            WaypointUiText.draw(g, font, "Alex", labelX + 27, profileTop + 6, TEXT, false);
-            WaypointUiText.draw(g, font, "Explorer", labelX + 27, profileTop + 18, MUTED, false);
+            WaypointUiText.draw(g, font, Minecraft.getInstance().player == null ? "Player" : Minecraft.getInstance().player.getName().getString(), labelX + 27, profileTop + 6, TEXT, false);
+            WaypointUiText.draw(g, font, "In-game", labelX + 27, profileTop + 18, MUTED, false);
             for (int dot = 0; dot < 3; dot++) g.fill(railWidth - 27 + dot * 3, profileTop + 13, railWidth - 25 + dot * 3, profileTop + 15, MUTED);
         } else {
             nav(g, mx, my, 8, 104, 38, "", "", false);
@@ -1091,7 +1091,7 @@ public class WaypointEditScreen extends Screen {
             if (mc.getCurrentServer() != null) return mc.getCurrentServer().name;
             if (mc.getSingleplayerServer() != null) return mc.getSingleplayerServer().getWorldData().getLevelName();
         } catch (Throwable ignored) { }
-        return "Survival Realm";
+        return "Current World";
     }
 
     private void drawBox(GuiGraphicsExtractor g, EditBox box, int x, int y, int w, int h, String placeholder) {

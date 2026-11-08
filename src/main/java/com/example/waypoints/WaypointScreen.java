@@ -376,8 +376,8 @@ public final class WaypointScreen extends Screen {
             int profileTop = footerBottom + 25;
             rounded(g, sideInset, profileTop, sideInset + 28, profileTop + 28, 0xFF1B1E21, 6);
             WaypointUiText.draw(g, font, "AL", sideInset + 7, profileTop + 9, TEXT, false);
-            WaypointUiText.draw(g, font, "Alex", labelX + 27, profileTop + 6, TEXT, false);
-            WaypointUiText.draw(g, font, "Explorer", labelX + 27, profileTop + 18, MUTED, false);
+            WaypointUiText.draw(g, font, Minecraft.getInstance().player == null ? "Player" : Minecraft.getInstance().player.getName().getString(), labelX + 27, profileTop + 6, TEXT, false);
+            WaypointUiText.draw(g, font, "In-game", labelX + 27, profileTop + 18, MUTED, false);
             for (int dot = 0; dot < 3; dot++) g.fill(railWidth - 27 + dot * 3, profileTop + 13, railWidth - 25 + dot * 3, profileTop + 15, MUTED);
         } else {
             navItem(g, mx, my, 8, 104, 38, "", "", true);
@@ -497,7 +497,11 @@ public final class WaypointScreen extends Screen {
             WaypointUiText.draw(g, font, fit(w.name(), Math.max(45, cardWidth - 100)), x + 44, y + 14, TEXT, false);
             String sub = dimension(w.dimension()) + "  /  " + (w.expiresAt() > 0 ? "Temporary" : "Permanent");
             WaypointUiText.draw(g, font, fit(sub, cardWidth - 60), x + 44, y + 29, MUTED, false);
-            int coordsY = y + 58;
+            // A compact topographic thumbnail gives each waypoint the visual card treatment
+            // from the new reference UI while remaining lightweight and resolution-independent.
+            boolean showMiniMap = cardHeight >= 145;
+            if (showMiniMap) drawMiniMap(g, x + 12, y + 44, cardWidth - 24, 42, color, w);
+            int coordsY = y + (showMiniMap ? 92 : 58);
             int coordW = (cardWidth - 42) / 3;
             drawCoordinate(g, x + 12, coordsY, coordW, "X", Integer.toString(w.x()));
             drawCoordinate(g, x + 18 + coordW, coordsY, coordW, "Y", Integer.toString(w.y()));
@@ -510,6 +514,31 @@ public final class WaypointScreen extends Screen {
             WaypointUiText.draw(g, font, "E", x + cardWidth - 44, metaY, MUTED, false);
             WaypointUiText.draw(g, font, "x", x + cardWidth - 21, metaY, MUTED, false);
         }
+    }
+
+
+    private void drawMiniMap(GuiGraphicsExtractor g, int x, int y, int w, int h, int color, Waypoint waypoint) {
+        rounded(g, x, y, x + w, y + h, 0xFF101A17, 6);
+        // Soft contour strokes create a quiet map-like texture without loading external assets.
+        for (int layer = -3; layer <= 3; layer++) {
+            for (int px = x + 3; px < x + w - 3; px++) {
+                double t = (px - x) / (double)Math.max(1, w);
+                double wave = Math.sin(t * Math.PI * 2.0 + layer * 0.48) * h * 0.13
+                        + Math.sin(t * Math.PI * 4.0 - layer * 0.2) * h * 0.05;
+                int py = (int)Math.round(y + h * 0.5 + layer * h * 0.13 + wave);
+                if (py > y + 2 && py < y + h - 2) g.fill(px, py, px + 1, py + 1, 0x554E755D);
+            }
+        }
+        int cx = x + w / 2;
+        int cy = y + h / 2;
+        int marker = color | 0xFF000000;
+        g.fill(cx - 1, y + 3, cx + 2, cy - 5, marker);
+        rounded(g, cx - 7, cy - 7, cx + 8, cy + 8, 0xFF101410, 5);
+        border(g, cx - 7, cy - 7, cx + 8, cy + 8, marker);
+        g.fill(cx - 1, cy - 3, cx + 2, cy + 1, marker);
+        g.fill(cx - 4, cy - 1, cx + 5, cy + 3, marker);
+        g.fill(cx - 2, cy + 3, cx + 3, cy + 5, marker);
+        g.fill(cx, cy + 5, cx + 1, cy + 7, marker);
     }
 
     private String firstInitial(String name) {
@@ -584,7 +613,7 @@ public final class WaypointScreen extends Screen {
             if (mc.getCurrentServer() != null) return mc.getCurrentServer().name;
             if (mc.getSingleplayerServer() != null) return mc.getSingleplayerServer().getWorldData().getLevelName();
         } catch (Throwable ignored) { }
-        return "Survival Realm";
+        return "Current World";
     }
     private String dimension(String raw) {
         String d = WaypointsMod.normalizeDimension(raw);

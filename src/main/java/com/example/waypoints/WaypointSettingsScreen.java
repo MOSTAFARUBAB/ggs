@@ -364,8 +364,8 @@ public final class WaypointSettingsScreen extends Screen {
             int profileTop = footerBottom + 25;
             rounded(g, sideInset, profileTop, sideInset + 28, profileTop + 28, 0xFF1B1E21, 6);
             WaypointUiText.draw(g, font, "AL", sideInset + 7, profileTop + 9, TEXT, false);
-            WaypointUiText.draw(g, font, "Alex", labelX + 27, profileTop + 6, TEXT, false);
-            WaypointUiText.draw(g, font, "Explorer", labelX + 27, profileTop + 18, MUTED, false);
+            WaypointUiText.draw(g, font, Minecraft.getInstance().player == null ? "Player" : Minecraft.getInstance().player.getName().getString(), labelX + 27, profileTop + 6, TEXT, false);
+            WaypointUiText.draw(g, font, "In-game", labelX + 27, profileTop + 18, MUTED, false);
             for (int dot = 0; dot < 3; dot++) g.fill(railWidth - 27 + dot * 3, profileTop + 13, railWidth - 25 + dot * 3, profileTop + 15, MUTED);
         } else {
             nav(g, mx, my, 8, 104, 38, "", "", false);
@@ -474,7 +474,7 @@ public final class WaypointSettingsScreen extends Screen {
         try { if (mc.getCurrentServer() != null) return mc.getCurrentServer().name;
             if (mc.getSingleplayerServer() != null) return mc.getSingleplayerServer().getWorldData().getLevelName(); }
         catch (Throwable ignored) { }
-        return "Survival Realm";
+        return "Current World";
     }
     private static void border(GuiGraphicsExtractor g, int x, int y, int x2, int y2, int color) {
         g.fill(x, y, x2, y + 1, color); g.fill(x, y2 - 1, x2, y2, color); g.fill(x, y, x + 1, y2, color); g.fill(x2 - 1, y, x2, y2, color);
