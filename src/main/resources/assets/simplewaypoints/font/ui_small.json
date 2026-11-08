@@ -1,12 +1,18 @@
-
 {
   "providers": [
     {
-      "type": "ttf",
-      "file": "simplewaypoints:font/Inter-Regular.ttf",
-      "shift": [0, 0],
-      "size": 8,
-      "oversample": 4
+      "type": "bitmap",
+      "file": "simplewaypoints:font/ui.png",
+      "height": 11,
+      "ascent": 9,
+      "chars": [
+        " !\"#$%&'()*+,-./",
+        "0123456789:;<=>?",
+        "@ABCDEFGHIJKLMNO",
+        "PQRSTUVWXYZ[\\]^_",
+        "`abcdefghijklmno",
+        "pqrstuvwxyz{|}~ "
+      ]
     }
   ]
 }
