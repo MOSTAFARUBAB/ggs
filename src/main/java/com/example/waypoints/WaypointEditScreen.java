@@ -84,7 +84,7 @@ public class WaypointEditScreen extends Screen {
     private final String initX;
     private final String initY;
     private final String initZ;
-    private final String keepDimension;
+    private String keepDimension;
 
     private EditBox nameBox;
     private EditBox xBox;
@@ -252,6 +252,8 @@ public class WaypointEditScreen extends Screen {
         yBox = makeBox(yBox, left + coordinateWidth + coordGap + 10, coordsY + 7, coordinateWidth - 20, 20, initY, 9, "Y");
         zBox = makeBox(zBox, left + (coordinateWidth + coordGap) * 2 + 10, coordsY + 7, coordinateWidth - 20, 20, initZ, 9, "Z");
 
+        clickContent(left, coordsY + locationOffset(39), 142, 24, this::useCurrentPosition);
+        clickContent(left + 150, coordsY + locationOffset(39), Math.max(112, formWidth - 186), 24, this::useLookedAtBlock);
         clickContent(left, dimY, nameWidth, 34, () -> dimensionMenuOpen = !dimensionMenuOpen);
 
         // Color picker interactions use a wide horizontal saturation/value field and hue strip.
@@ -307,6 +309,33 @@ public class WaypointEditScreen extends Screen {
         box.setTextColor(0x00000000);
         this.addRenderableWidget(box);
         return box;
+    }
+
+    private void useCurrentPosition() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+        BlockPos pos = mc.player.blockPosition();
+        xBox.setValue(Integer.toString(pos.getX()));
+        yBox.setValue(Integer.toString(pos.getY()));
+        zBox.setValue(Integer.toString(pos.getZ()));
+        dimMode = -1;
+        keepDimension = WaypointsMod.currentDimension();
+        error = "Current position added.";
+    }
+
+    private void useLookedAtBlock() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.hitResult == null || mc.hitResult.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) {
+            error = "Look at a block first, then choose this button.";
+            return;
+        }
+        BlockPos pos = ((net.minecraft.world.phys.BlockHitResult) mc.hitResult).getBlockPos();
+        xBox.setValue(Integer.toString(pos.getX()));
+        yBox.setValue(Integer.toString(pos.getY()));
+        zBox.setValue(Integer.toString(pos.getZ()));
+        dimMode = -1;
+        keepDimension = WaypointsMod.currentDimension();
+        error = "Block position added.";
     }
 
     private void back() {
@@ -744,7 +773,15 @@ public class WaypointEditScreen extends Screen {
         drawBox(g, xBox, left, coordsY, cw, 34, "X");
         drawBox(g, yBox, left + cw + gap, coordsY, cw, 34, "Y");
         drawBox(g, zBox, left + (cw + gap) * 2, coordsY, cw, 34, "Z");
-        WaypointUiText.draw(g, font, "Use your in-game coordinates. Press F3 to find them.", left, coordsY + locationOffset(46), QUIET, false);
+        int quickY = coordsY + locationOffset(39);
+        rounded(g, left, quickY, left + 142, quickY + 24, 0xFF202820, 5);
+        border(g, left, quickY, left + 142, quickY + 24, 0xFF49613A);
+        WaypointUiText.draw(g, font, "Use current position", left + 9, quickY + 7, ACCENT, false);
+        int lookX = left + 150;
+        int lookW = Math.max(112, formWidth - 186);
+        rounded(g, lookX, quickY, lookX + lookW, quickY + 24, PANEL_ALT, 5);
+        border(g, lookX, quickY, lookX + lookW, quickY + 24, CARD_BORDER);
+        WaypointUiText.draw(g, font, "Use block you're looking at", lookX + 8, quickY + 7, TEXT, false);
 
         WaypointUiText.draw(g, font, "Dimension", left, dimY - locationOffset(15), TEXT, false);
         rounded(g, left, dimY, left + nameWidth, dimY + 34, PANEL_ALT, 6);

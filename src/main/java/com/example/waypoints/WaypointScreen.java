@@ -109,6 +109,9 @@ public final class WaypointScreen extends Screen {
         // Create action and data transfer controls.
         button(contentRight - 132, headingY + 2, 132, 34,
                 () -> Minecraft.getInstance().gui.setScreen(new WaypointEditScreen(null, currentPage())));
+        if (WaypointsMod.navigationTarget() != null) {
+            button(contentRight - 240, headingY + 2, 98, 34, WaypointsMod::stopNavigation);
+        }
         button(contentRight - 190, transferY, 86, 27, () -> showTransferMessage(WaypointsMod.importWaypointsFromFile(), true));
         button(contentRight - 98, transferY, 86, 27, () -> showTransferMessage(WaypointsMod.exportWaypointsToFile(), false));
         int searchWidth = Math.max(70, contentWidth - 220);
@@ -200,6 +203,7 @@ public final class WaypointScreen extends Screen {
             cardHitTargets.add(new HitTarget(x, y, Math.max(1, cardWidth - 54), cardHeight, () -> editSlot(visibleSlot)));
             cardHitTargets.add(new HitTarget(x + cardWidth - 50, y + 8, 20, 20, () -> editSlot(visibleSlot)));
             cardHitTargets.add(new HitTarget(x + cardWidth - 27, y + 8, 20, 20, () -> deleteSlot(visibleSlot)));
+            cardHitTargets.add(new HitTarget(x + cardWidth - 76, y + cardHeight - 28, 30, 22, () -> navigateSlot(visibleSlot)));
         }
     }
 
@@ -211,6 +215,14 @@ public final class WaypointScreen extends Screen {
     private void editSlot(int slot) {
         Waypoint w = visibleSlot(slot);
         if (w != null) Minecraft.getInstance().gui.setScreen(new WaypointEditScreen(w, currentPage()));
+    }
+
+    private void navigateSlot(int slot) {
+        Waypoint w = visibleSlot(slot);
+        if (w != null) {
+            WaypointsMod.navigateTo(w);
+            Minecraft.getInstance().gui.setScreen(null);
+        }
     }
 
     private void deleteSlot(int slot) {
@@ -306,6 +318,9 @@ public final class WaypointScreen extends Screen {
         WaypointUiText.draw(g, font, "Every place, a waypoint.", contentX, headingY, TEXT, false);
         WaypointUiText.draw(g, font, "Keep your world organized. Never lose a place worth returning to.", contentX, headingY + 35, MUTED, false);
         primaryButton(g, mx, my, contentRight - 132, headingY + 2, 132, 34, "+  Create waypoint");
+        if (WaypointsMod.navigationTarget() != null) {
+            pill(g, contentRight - 240, headingY + 2, 98, 34, "Stop guide", false, mx, my);
+        }
 
         int statGap = 12;
         int statW = (contentWidth - 2 * statGap) / 3;
@@ -490,6 +505,8 @@ public final class WaypointScreen extends Screen {
             int metaY = y + cardHeight - 15;
             g.fill(x + 12, metaY + 4, x + 16, metaY + 8, color);
             WaypointUiText.draw(g, font, dimension(w.dimension()), x + 22, metaY + 1, MUTED, false);
+            rounded(g, x + cardWidth - 78, y + cardHeight - 29, x + cardWidth - 46, y + cardHeight - 7, 0xFF25351B, 5);
+            WaypointUiText.draw(g, font, "GO", x + cardWidth - 70, y + cardHeight - 23, ACCENT, true);
             WaypointUiText.draw(g, font, "E", x + cardWidth - 44, metaY, MUTED, false);
             WaypointUiText.draw(g, font, "x", x + cardWidth - 21, metaY, MUTED, false);
         }

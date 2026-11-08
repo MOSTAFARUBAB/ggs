@@ -87,6 +87,9 @@ public class WaypointsMod implements ClientModInitializer {
     /** 0-100; applied as beam color intensity on the vanilla beam renderer. */
     public static volatile int beamOpacity = 75;
 
+    /** The waypoint currently selected for live action-bar navigation. */
+    private static volatile Waypoint navigationTarget;
+
 
 
     @Override
@@ -109,6 +112,7 @@ public class WaypointsMod implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             purgeExpired();
+            updateNavigationHud(client);
             while (addKey.consumeClick()) {
                 if (client.player == null) return;
                 openNewRequested = true; // B opens the "New Waypoint" menu (name, X/Y/Z, dimension, color) instead of adding one instantly
@@ -132,6 +136,54 @@ public class WaypointsMod implements ClientModInitializer {
         // in front of them; there is no screen-space HUD label overlay.
     }
 
+    /** Begin guiding the player toward a saved waypoint. */
+    public static void navigateTo(Waypoint waypoint) {
+        if (waypoint == null) return;
+        navigationTarget = waypoint;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null) {
+            mc.player.displayClientMessage(Component.literal("Navigation started: " + waypoint.name()), true);
+        }
+    }
+
+    /** Stop the live waypoint guide. */
+    public static void stopNavigation() {
+        navigationTarget = null;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null) mc.player.displayClientMessage(Component.literal("Waypoint navigation stopped."), true);
+    }
+
+    public static Waypoint navigationTarget() { return navigationTarget; }
+
+    private static void updateNavigationHud(Minecraft client) {
+        Waypoint target = navigationTarget;
+        if (target == null || client.player == null || client.level == null) return;
+        if (!WAYPOINTS.contains(target)) {
+            navigationTarget = null;
+            return;
+        }
+        if (!java.util.Objects.equals(target.worldId(), currentWorldId())) {
+            client.player.displayClientMessage(Component.literal("Navigation: " + target.name() + " belongs to another world."), true);
+            return;
+        }
+        if (!normalizeDimension(target.dimension()).equals(normalizeDimension(currentDimension()))) {
+            client.player.displayClientMessage(Component.literal("Navigation: " + target.name() + " is in " + dimensionShortName(target.dimension()) + ". Travel there to continue."), true);
+            return;
+        }
+        double dx = target.x() + 0.5 - client.player.getX();
+        double dy = target.y() - client.player.getY();
+        double dz = target.z() + 0.5 - client.player.getZ();
+        double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        double bearing = Math.toDegrees(Math.atan2(dx, dz));
+        double relative = bearing - client.player.getYRot();
+        relative = ((relative + 180.0) % 360.0 + 360.0) % 360.0 - 180.0;
+        String[] arrows = {"↑", "↗", "→", "↘", "↓", "↙", "←", "↖"};
+        int sector = Math.floorMod((int) Math.round(relative / 45.0), 8);
+        String message = arrows[sector] + "  " + target.name() + "  •  " + formatDistance(distance)
+                + "  •  X " + target.x() + "  Y " + target.y() + "  Z " + target.z();
+        client.player.displayClientMessage(Component.literal(message), true);
+    }
+
     // ---------------- commands ----------------
     private static CompletableFuture<Suggestions> suggestNames(CommandContext<FabricClientCommandSource> ctx, SuggestionsBuilder b) {
         for (Waypoint w : WAYPOINTS) b.suggest(w.name());
@@ -149,6 +201,11 @@ public class WaypointsMod implements ClientModInitializer {
                         .then(ClientCommands.literal("menu")
                                 .executes(ctx -> {
                                     openMenuRequested = true;
+                                    return 1;
+                                }))
+                        .then(ClientCommands.literal("stop")
+                                .executes(ctx -> {
+                                    stopNavigation();
                                     return 1;
                                 }))
                         .then(ClientCommands.literal("add")

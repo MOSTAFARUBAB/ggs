@@ -1,4 +1,4 @@
-# Simple Waypoints 1.2.4
+# Simple Waypoints 1.3.2
 
 Updated Waypoint Manager UI: screenshot-matched dark workspace layout, invisible hit targets instead of vanilla placeholder buttons, responsive editor/color-picker spacing, colored initial avatars, and a top-down surface-map preview with a waypoint callout. The preview samples only already-loaded client chunks and uses the world-surface heightmap, so it shows surface terrain and builds without loading chunks or revealing underground rooms.
 
@@ -51,3 +51,15 @@ The installable mod JAR is produced in `build/libs/`.
 ## Display scaling
 
 The screens are laid out in Minecraft GUI coordinates and follow the selected Minecraft GUI Scale (including Auto). Use the in-game GUI Scale setting to choose the preferred physical size on 1080p, 1440p, and 4K displays; the mod does not force a window resolution.
+
+
+## Version 1.3.2 navigation and location improvements
+
+- The waypoint editor includes **Use current position** to fill X, Y, and Z from the player's live position.
+- **Use block you're looking at** copies the targeted block's coordinates into the form.
+- Waypoint cards include a **GO** action. Selecting it starts live navigation in the action bar with a direction arrow, distance, and destination coordinates.
+- Use `/wp stop` or the **Stop guide** button in the dashboard to end navigation.
+- Navigation warns when a waypoint belongs to another world or dimension; it does not teleport the player.
+- The existing RGB/HEX color picker and Chroma option are retained.
+
+Build requirements: Java 25 and Gradle (Fabric Loom downloads the required Minecraft/Fabric dependencies).
