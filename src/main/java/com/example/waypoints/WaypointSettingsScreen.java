@@ -363,8 +363,10 @@ public final class WaypointSettingsScreen extends Screen {
             WaypointUiText.draw(g, font, "All changes saved", labelX + 11, footerBottom - 22, MUTED, false);
             int profileTop = footerBottom + 25;
             rounded(g, sideInset, profileTop, sideInset + 28, profileTop + 28, 0xFF1B1E21, 6);
-            WaypointUiText.draw(g, font, "AL", sideInset + 7, profileTop + 9, TEXT, false);
-            WaypointUiText.draw(g, font, "Alex", labelX + 27, profileTop + 6, TEXT, false);
+            String pName = getPlayerName();
+            String pInit = getPlayerInitials(pName);
+            WaypointUiText.draw(g, font, pInit, sideInset + 7, profileTop + 9, TEXT, false);
+            WaypointUiText.draw(g, font, pName, labelX + 27, profileTop + 6, TEXT, false);
             WaypointUiText.draw(g, font, "Explorer", labelX + 27, profileTop + 18, MUTED, false);
             for (int dot = 0; dot < 3; dot++) g.fill(railWidth - 27 + dot * 3, profileTop + 13, railWidth - 25 + dot * 3, profileTop + 15, MUTED);
         } else {
@@ -486,4 +488,19 @@ public final class WaypointSettingsScreen extends Screen {
             g.fill(x + inset, y + row, x2 - inset, y + row + 1, color); g.fill(x + inset, y2 - row - 1, x2 - inset, y2 - row, color); }
     }
     private static boolean inside(int mx, int my, int x, int y, int w, int h) { return mx >= x && mx < x + w && my >= y && my < y + h; }
+
+    private String getPlayerName() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null) return mc.player.getScoreboardName();
+        if (mc.getUser() != null) return mc.getUser().getName();
+        return "Steve";
+    }
+
+    private String getPlayerInitials(String playerName) {
+        if (playerName == null || playerName.isBlank()) return "ST";
+        String clean = playerName.trim();
+        if (clean.length() == 1) return clean.toUpperCase();
+        return clean.substring(0, 2).toUpperCase();
+    }
+
 }

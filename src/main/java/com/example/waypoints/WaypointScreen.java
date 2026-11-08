@@ -109,8 +109,7 @@ public final class WaypointScreen extends Screen {
         // Create action and data transfer controls.
         button(contentRight - 132, headingY + 2, 132, 34,
                 () -> Minecraft.getInstance().gui.setScreen(new WaypointEditScreen(null, currentPage())));
-        button(contentRight - 190, transferY, 86, 27, () -> showTransferMessage(WaypointsMod.importWaypointsFromFile(), true));
-        button(contentRight - 98, transferY, 86, 27, () -> showTransferMessage(WaypointsMod.exportWaypointsToFile(), false));
+
         int searchWidth = Math.max(70, contentWidth - 220);
         searchBox = new EditBox(font, contentX + 30, toolbarY + 7,
                 Math.max(40, searchWidth - 42), 21, Component.literal("Search waypoints"));
@@ -319,8 +318,7 @@ public final class WaypointScreen extends Screen {
         rounded(g, contentX + WaypointUiText.width(font, "Your waypoints") + 9, sectionY - 1,
                 contentX + WaypointUiText.width(font, "Your waypoints") + 34, sectionY + 15, PANEL_ALT, 5);
         WaypointUiText.draw(g, font, String.valueOf(filtered.size()), contentX + WaypointUiText.width(font, "Your waypoints") + 16, sectionY + 3, MUTED, false);
-        actionButton(g, mx, my, contentRight - 190, transferY, 86, 27, "Import", false);
-        actionButton(g, mx, my, contentRight - 98, transferY, 86, 27, "Export", false);
+
         drawSearch(g, mx, my);
         drawFilters(g, mx, my);
         drawCards(g, mx, my);
@@ -360,8 +358,10 @@ public final class WaypointScreen extends Screen {
             WaypointUiText.draw(g, font, "All changes saved", labelX + 11, footerBottom - 22, MUTED, false);
             int profileTop = footerBottom + 25;
             rounded(g, sideInset, profileTop, sideInset + 28, profileTop + 28, 0xFF1B1E21, 6);
-            WaypointUiText.draw(g, font, "AL", sideInset + 7, profileTop + 9, TEXT, false);
-            WaypointUiText.draw(g, font, "Alex", labelX + 27, profileTop + 6, TEXT, false);
+            String pName = getPlayerName();
+            String pInit = getPlayerInitials(pName);
+            WaypointUiText.draw(g, font, pInit, sideInset + 7, profileTop + 9, TEXT, false);
+            WaypointUiText.draw(g, font, pName, labelX + 27, profileTop + 6, TEXT, false);
             WaypointUiText.draw(g, font, "Explorer", labelX + 27, profileTop + 18, MUTED, false);
             for (int dot = 0; dot < 3; dot++) g.fill(railWidth - 27 + dot * 3, profileTop + 13, railWidth - 25 + dot * 3, profileTop + 15, MUTED);
         } else {
@@ -615,4 +615,19 @@ public final class WaypointScreen extends Screen {
     private static boolean inside(int mx, int my, int x, int y, int w, int h) {
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
+
+    private String getPlayerName() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null) return mc.player.getScoreboardName();
+        if (mc.getUser() != null) return mc.getUser().getName();
+        return "Steve";
+    }
+
+    private String getPlayerInitials(String playerName) {
+        if (playerName == null || playerName.isBlank()) return "ST";
+        String clean = playerName.trim();
+        if (clean.length() == 1) return clean.toUpperCase();
+        return clean.substring(0, 2).toUpperCase();
+    }
+
 }
