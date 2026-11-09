@@ -28,8 +28,11 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 final class WaypointUiText {
     static final int LINE_HEIGHT = 14;
+    // Keep glyphs at 4x source density all the way to the GPU. Do not downsample
+    // them to 1x on the CPU: doing so throws away the high-DPI edge information
+    // before Minecraft scales the GUI to the physical display.
     private static final int OVERSAMPLE = 4;
-    private static final int MAX_CACHE_ENTRIES = 384;
+    private static final int MAX_CACHE_ENTRIES = 256;
     private static final AtomicInteger TEXTURE_SEQUENCE = new AtomicInteger();
     private static final Map<TextKey, TextTexture> TEXTURES = new LinkedHashMap<>(128, 0.75f, true);
     private static final Map<WidthKey, Integer> WIDTHS = new LinkedHashMap<>(256, 0.75f, true);
@@ -137,14 +140,17 @@ final class WaypointUiText {
         Graphics2D pg = probe.createGraphics();
         pg.setFont(awt);
         FontMetrics metrics = pg.getFontMetrics();
-        int width = Math.max(1, (int)Math.ceil(metrics.stringWidth(text) / (double)scale) + 2);
-        int height = Math.max(size + 3, (int)Math.ceil(metrics.getHeight() / (double)scale) + 2);
-        int highWidth = width * scale;
-        int highHeight = height * scale;
+        int logicalWidth = Math.max(1, (int)Math.ceil(metrics.stringWidth(text) / (double)scale) + 2);
+        int logicalHeight = Math.max(size + 3, (int)Math.ceil(metrics.getHeight() / (double)scale) + 2);
+        int textureWidth = logicalWidth * scale;
+        int textureHeight = logicalHeight * scale;
         int baseline = scale + metrics.getAscent();
         pg.dispose();
 
-        BufferedImage high = new BufferedImage(highWidth, highHeight, BufferedImage.TYPE_INT_ARGB);
+        // Rasterize once at 4x logical GUI resolution and keep those pixels in
+        // the GPU texture. GPU linear filtering performs the final display-scale
+        // reduction; CPU downsampling to a 1x image made the old text look soft.
+        BufferedImage high = new BufferedImage(textureWidth, textureHeight, BufferedImage.TYPE_INT_ARGB);
         Graphics2D hg = high.createGraphics();
         hg.setComposite(AlphaComposite.Src);
         hg.setFont(awt);
@@ -157,25 +163,19 @@ final class WaypointUiText {
         hg.drawString(text, scale, baseline);
         hg.dispose();
 
-        BufferedImage finalImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D down = finalImage.createGraphics();
-        down.setComposite(AlphaComposite.Src);
-        down.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-        down.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
-        down.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-        down.drawImage(high, 0, 0, width, height, null);
-        down.dispose();
-
         int sequence = TEXTURE_SEQUENCE.incrementAndGet();
         Identifier id = Identifier.fromNamespaceAndPath("simplewaypoints", "ui_text_run_" + sequence);
-        DynamicTexture dynamic = new DynamicTexture("simple-waypoints-ui-text", width, height, true);
+        DynamicTexture dynamic = new DynamicTexture("simple-waypoints-ui-text", textureWidth, textureHeight, true);
         NativeImage pixels = dynamic.getPixels();
-        for (int py = 0; py < height; py++) {
-            for (int px = 0; px < width; px++) pixels.setPixel(px, py, finalImage.getRGB(px, py));
+        for (int py = 0; py < textureHeight; py++) {
+            for (int px = 0; px < textureWidth; px++) pixels.setPixel(px, py, high.getRGB(px, py));
         }
         dynamic.upload();
+        // The 4x source texture is drawn into logical GUI coordinates. Linear
+        // minification keeps curves smooth without a second CPU-side blur pass.
+        dynamic.setFilter(true, false);
         Minecraft.getInstance().getTextureManager().register(id, dynamic);
-        TextTexture created = new TextTexture(id, width, height);
+        TextTexture created = new TextTexture(id, logicalWidth, logicalHeight);
         synchronized (TEXTURES) {
             TEXTURES.put(key, created);
             while (TEXTURES.size() > MAX_CACHE_ENTRIES) {
