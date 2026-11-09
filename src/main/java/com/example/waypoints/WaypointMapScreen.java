@@ -235,14 +235,14 @@ public final class WaypointMapScreen extends Screen {
             nav(g, mx, my, 10, 247, "About", false);
             g.fill(14, height - 96, 42, height - 77, 0xFF79502E);
             g.fill(14, height - 99, 42, height - 92, 0xFF4F9C35);
-            WaypointUiText.draw(g, font, "v1.4.9", 54, height - 91, WaypointsMod.uiAccentColor, true);
+            WaypointUiText.draw(g, font, "v1.4.10", 54, height - 91, WaypointsMod.uiAccentColor, true);
         } else {
             drawBrandMark(g, 5, 18);
             nav(g, mx, my, 8, 112, "Waypoints", false);
             nav(g, mx, my, 8, 156, "Map", true);
             nav(g, mx, my, 8, 200, "Settings", false);
             nav(g, mx, my, 8, 244, "About", false);
-            WaypointUiText.draw(g, font, "1.4.9", 5, height - 32, WaypointsMod.uiAccentColor, true);
+            WaypointUiText.draw(g, font, "1.4.10", 5, height - 32, WaypointsMod.uiAccentColor, true);
         }
     }
 

@@ -1,6 +1,8 @@
 package com.example.waypoints;
 
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.renderpearl.api.textures.FilterMode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -38,6 +40,14 @@ final class WaypointUiText {
     private static final Map<WidthKey, Integer> WIDTHS = new LinkedHashMap<>(256, 0.75f, true);
 
     private WaypointUiText() {}
+
+    /**
+     * Creates a dynamic texture with a linear, clamp-to-edge sampler. Minecraft 26.3
+     * moved filtering from DynamicTexture#setFilter to the GPU sampler API.
+     */
+    static DynamicTexture createSmoothTexture(String label, int width, int height, boolean zero) {
+        return new SmoothDynamicTexture(label, width, height, zero);
+    }
 
     static MutableComponent component(String text) {
         return Component.literal(text == null ? "" : text);
@@ -165,15 +175,14 @@ final class WaypointUiText {
 
         int sequence = TEXTURE_SEQUENCE.incrementAndGet();
         Identifier id = Identifier.fromNamespaceAndPath("simplewaypoints", "ui_text_run_" + sequence);
-        DynamicTexture dynamic = new DynamicTexture("simple-waypoints-ui-text", textureWidth, textureHeight, true);
+        DynamicTexture dynamic = createSmoothTexture("simple-waypoints-ui-text", textureWidth, textureHeight, true);
         NativeImage pixels = dynamic.getPixels();
         for (int py = 0; py < textureHeight; py++) {
             for (int px = 0; px < textureWidth; px++) pixels.setPixel(px, py, high.getRGB(px, py));
         }
         dynamic.upload();
-        // The 4x source texture is drawn into logical GUI coordinates. Linear
-        // minification keeps curves smooth without a second CPU-side blur pass.
-        dynamic.setFilter(true, false);
+        // The 4x source texture is drawn into logical GUI coordinates. The
+        // texture's GPU sampler uses LINEAR for both minification and magnification.
         Minecraft.getInstance().getTextureManager().register(id, dynamic);
         TextTexture created = new TextTexture(id, logicalWidth, logicalHeight);
         synchronized (TEXTURES) {
@@ -185,6 +194,13 @@ final class WaypointUiText {
             }
         }
         return created;
+    }
+
+    private static final class SmoothDynamicTexture extends DynamicTexture {
+        private SmoothDynamicTexture(String label, int width, int height, boolean zero) {
+            super(label, width, height, zero);
+            this.sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
+        }
     }
 
     private record WidthKey(String text, boolean bold, int size) {}

@@ -602,7 +602,7 @@ public class WaypointEditScreen extends Screen {
      */
     private void refreshPickerTexture() {
         if (pickerTexture == null) {
-            pickerTexture = new DynamicTexture("simple-waypoints-color-picker",
+            pickerTexture = WaypointUiText.createSmoothTexture("simple-waypoints-color-picker",
                     PICKER_TEXTURE_WIDTH, PICKER_TEXTURE_HEIGHT, true);
             Minecraft.getInstance().getTextureManager().register(PICKER_TEXTURE_ID, pickerTexture);
             pickerTextureHue = Float.NaN;
@@ -637,7 +637,7 @@ public class WaypointEditScreen extends Screen {
     private static void ensureHueTexture() {
         if (hueTexture != null) return;
 
-        hueTexture = new DynamicTexture("simple-waypoints-hue-strip",
+        hueTexture = WaypointUiText.createSmoothTexture("simple-waypoints-hue-strip",
                 HUE_TEXTURE_WIDTH, HUE_TEXTURE_HEIGHT, true);
         Minecraft.getInstance().getTextureManager().register(HUE_TEXTURE_ID, hueTexture);
 
@@ -998,7 +998,7 @@ public class WaypointEditScreen extends Screen {
         g.fill(14, base - 25, 42, base - 7, 0xFF79502E);
         g.fill(14, base - 28, 42, base - 22, 0xFF4F9C35);
         g.fill(18, base - 26, 24, base - 24, 0xFF82C94B);
-        WaypointUiText.draw(g, font, "v1.4.9", 54, base - 3, WaypointsMod.uiAccentColor, true);
+        WaypointUiText.draw(g, font, "v1.4.10", 54, base - 3, WaypointsMod.uiAccentColor, true);
     }
 
     private void drawBrandMark(GuiGraphicsExtractor g, int x, int y) {

@@ -1,4 +1,4 @@
-# Simple Waypoints Manager 1.4.9 — High-DPI Text Rendering
+# Simple Waypoints Manager 1.4.10 — High-DPI Text Rendering
 
 A client-side Fabric waypoint manager for Minecraft 26.3 with a redesigned dark interface, neon-green accents, a waypoint-card dashboard, a waypoint editor with color presets and Chroma mode, a surface-map preview, and settings.
 
@@ -143,17 +143,23 @@ Before testing this version, remove every older `simple-waypoints-*.jar` from th
 The project ZIP and bundled PNG/JSON resources were checked for archive and file integrity in this environment. A complete Gradle compile was not run here because this environment has Java 21 and no Gradle installation; the project requires Java 25 and is configured for Gradle 9.8.0 in CI. Use `gradle clean build --no-daemon` with Java 25 to perform the actual Fabric compile.
 
 
-## Version 1.4.9 — high-DPI sharp text and rendering
+## Version 1.4.10 — high-DPI sharp text and rendering
 
 - UI strings are rasterized as complete, kerning-aware SansSerif runs at 4x logical GUI resolution and retained at that native backing resolution in the GPU texture. The previous 4x-to-1x CPU downsample step has been removed.
 - Text textures use GPU linear minification when drawn into logical GUI coordinates, preserving smooth curves on high-DPI displays without repeated per-frame rasterization.
 - Text runs remain cached (bounded LRU cache) so normal menu frames reuse existing textures instead of allocating or uploading them every frame.
 - No artificial 120 FPS cap is imposed. Actual frame rate still depends on the display refresh rate, Minecraft video settings, GPU/CPU, shaders, resource packs, and world load.
 - For a true 4K output, the desktop and Minecraft window must be running at 3840×2160. The mod follows Minecraft's GUI Scale setting; try Auto or 2 so the menu remains spacious.
-- The supplied recording showed the old `v1.4.6` label. This release displays `v1.4.9`; if `v1.4.6` is still visible after installing this JAR, Minecraft is loading an older duplicate JAR. Remove every older Simple Waypoints JAR before testing.
+- The supplied recording showed the old `v1.4.6` label. This release displays `v1.4.10`; if `v1.4.6` is still visible after installing this JAR, Minecraft is loading an older duplicate JAR. Remove every older Simple Waypoints JAR before testing.
 
 Build with Java 25 and Gradle 9.8.0:
 
 ```bash
 gradle clean build --no-daemon -PwithBeam=true
 ```
+
+## Version 1.4.10 — Minecraft 26.3 texture sampler fix
+
+- Replaced the removed `DynamicTexture#setFilter` call with Minecraft 26.3's GPU sampler cache API.
+- Smooth text and color-picker textures now use clamp-to-edge addressing with linear minification and magnification.
+- Kept 4× glyph rasterization and cached text surfaces; texture filtering is configured once when each texture is created, not on every frame.
