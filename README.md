@@ -1,8 +1,6 @@
-# Simple Waypoints 1.3.3
+# Simple Waypoints Manager 1.4.8 — Reference UI Layout
 
-Updated Waypoint Manager UI: screenshot-matched dark workspace layout, invisible hit targets instead of vanilla placeholder buttons, responsive editor/color-picker spacing, colored initial avatars, and a top-down surface-map preview with a waypoint callout. The preview samples only already-loaded client chunks and uses the world-surface heightmap, so it shows surface terrain and builds without loading chunks or revealing underground rooms.
-
-# Simple Waypoints — Waypoint Manager UI
+A client-side Fabric waypoint manager for Minecraft 26.3 with a redesigned dark interface, neon-green accents, a waypoint-card dashboard, a waypoint editor with color presets and Chroma mode, a surface-map preview, and settings.
 
 Client-side Fabric waypoint manager for Minecraft 26.3 (Java 25).
 
@@ -33,7 +31,7 @@ A maximum display distance of `0` means unlimited. This preserves the long-range
 
 ## Build
 
-Use Java 25 and Gradle 9.8 or compatible Loom tooling:
+Use Java 25 and Gradle 9.8.0 with Fabric Loom 1.17.21:
 
 ```bash
 gradle clean build --no-daemon -PwithBeam=true
@@ -73,9 +71,73 @@ Build requirements: Java 25 and Gradle (Fabric Loom downloads the required Minec
 - Uses the Minecraft 26.3 chat listener overlay path for navigation notices instead of removed player message methods.
 
 
-## Version 1.4.0 UI refresh
+## Version 1.4.4 neon interface redesign
 
-- Added a dedicated waypoint map overview and sidebar navigation to it.
-- Kept the HSV saturation/value picker, hue strip, HEX field, recent colors, and Chroma mode in the waypoint editor.
-- Minecraft target: 26.3; Java toolchain: 25; Fabric Loom is configured separately using the compatible `1.18-SNAPSHOT` plugin line.
-- The map overview is a schematic preview and waypoint list, not a live terrain tile map.
+- Replaced the dashboard workspace-summary layout with a waypoint-first card grid, dimension filters, search, waypoint thumbnails, and Import / Export actions.
+- Shared four-item sidebar navigation across Waypoints, Map, Settings, and About.
+- Reworked Settings into four compact panels: General, Map Settings, Appearance, and Data. The switches, label-size controls, beam-opacity slider, import/export, and reset actions are interactive.
+- Added nine preset color swatches to the editor, while retaining the HSV square, hue slider, HEX field, eyedropper, recent colors, and Chroma switch.
+- Added a dedicated map overview with waypoint markers and a legend. It is a schematic preview, not a live tile map of the current world.
+- Minecraft target: 26.3; Java toolchain: 25; Fabric Loader: 0.19.5; Fabric API: 0.163.0+26.3; Fabric Loom: 1.17.21.
+- Build uses Gradle 9.8.0 and Java 25.
+
+
+## Version 1.4.4 build notes
+
+The Minecraft game version is **26.3**. Fabric Loom has its own independent version number (configured here as **1.17.21**); it is not set to 26.3. The GitHub Actions workflow uses Gradle 9.8.0 and Java 25.
+
+
+## Version 1.4.4 build fix
+
+Added the missing `drawPinGlyph` helper to `WaypointSettingsScreen`, fixing the `cannot find symbol: drawPinGlyph` Java compilation error reported when building version 1.4.2. No gameplay behavior or settings logic was changed by this patch.
+
+## Version 1.4.4 UI polish
+
+- Replaced the custom bitmap UI font with Minecraft's native UI font to fix broken glyph spacing and blocky labels.
+- Reduced oversized heading scaling and tightened text metrics for more consistent labels.
+- Dashboard cards now expand to use the available width when only one or two waypoints are visible.
+- Added a persistent **Smooth UI Edges** toggle under Settings → Appearance; enabled mode uses larger rounded corners throughout the custom screens.
+- Standardized rounded button and panel styling across dashboard, editor, map, settings, and about screens.
+
+
+## Version 1.4.7 reference UI layout
+
+- Reworked the dashboard into a compact three-column, two-row waypoint card grid, with landscape-style scene thumbnails, compact coordinates, dimension chips, search, dimension filters, and Import / Export controls.
+- Rebuilt the waypoint editor around the supplied reference: a left-side details panel with coordinate fields, dimension selector, selectable marker symbols, nine preset colors, HSV picker, HEX input, block-color eyedropper, and Chroma button; the right side contains the scene preview and beacon / label / match-color switches.
+- Reorganized Settings into a compact two-by-two set of General, Map Settings, Appearance, and Data panels. The smooth-edge setting remains persistent.
+- Added map zoom controls, a contour-layer toggle, and compass artwork to the schematic surface map. These controls change the map preview; this is not a live satellite/tile map or a 3D world screenshot.
+- Added antialiased sans-serif text atlases generated at runtime from Java logical SansSerif font (no font file is bundled), reduced title sizing, and updated the lime active-navigation pill and sidebar location-pin mark.
+- New waypoint marker choices are stored in the existing backwards-compatible `markerText` field.
+- Minecraft target: 26.3; Java toolchain: 25; Fabric Loader: 0.19.5; Fabric API: 0.163.0+26.3; Fabric Loom: 1.17.21.
+
+
+## Version 1.4.7 UI correction
+
+The dashboard always keeps the compact three-column / two-row waypoint grid (one saved waypoint no longer expands into a full-width row). Waypoint cards and the editor preview now use bundled Minecraft scene image textures instead of the prior flat rectangle illustrations. The Surface Map uses a textured overhead terrain preview with live waypoint markers drawn from saved coordinates. The map background is illustrative and is not a live, chunk-sampled map of the current world. The unused legacy flat-scene and mini-map painters, plus the unused bitmap-font assets, have been removed; visible menu text now uses a larger antialiased sans-serif atlas.
+
+
+## Important install note
+
+Before testing this version, remove every older `simple-waypoints-*.jar` from the Minecraft `mods` folder. Keep only the newly built JAR; otherwise Fabric may load an older copy and the screen will still show the previous version.
+
+## Version 1.4.7 quality fixes
+
+- Replaced per-character glyph atlas rendering with cached, oversampled antialiased sans-serif text surfaces to remove excessive character spacing and jagged UI text.
+- Rebuilt the dimension selector as an opaque top-layer popup. Its options now render above the form, hide the controls behind the popup while open, and cannot pass clicks through to hidden controls.
+- Kept the editor's underlying controls in a fixed layout when the dimension selector opens, avoiding content reflow and scroll jumps. The picker and fields remain clipped to the editor card at smaller GUI sizes.
+- Replaced the per-character text atlas with cached antialiased whole-string textures so letters keep normal kerning instead of appearing widely spaced. Text textures are generated at 4x resolution and downsampled with high-quality filtering.
+- Surface-map labels now try several positions and avoid the compass, zoom tools, legend, map edges, and their own marker. The map is clipped to its panel and keeps the source image aspect ratio.
+- Prepared the bundled map and scene textures at higher sampling resolution and kept all dashboard banners at a consistent 16:9 source ratio, so cards center-crop rather than stretch the artwork.
+
+## Version 1.4.8 — text, thumbnail, and popup fixes
+
+- Replaced the old per-character text drawing path with cached whole-string antialiased sans-serif textures. Text is measured and rasterized as complete strings, preserving normal letter spacing and kerning.
+- The dimension selector now opens as a fully opaque top-layer menu. It covers the form controls beneath it while open, captures clicks on its three options, and prevents clicks from reaching hidden color/icon controls.
+- Dashboard scene banners now fill the full card width, keep their source aspect ratio, and use center-cropping instead of stretching the source artwork. The Home banner uses the higher-resolution editor scene crop; other bundled banners have had their old UI borders trimmed and were sharpened for clearer downscaling.
+- Surface map labels are clipped to the map and avoid the compass, zoom tools, marker pins, and waypoint legend; the overlapping disclaimer line was removed.
+- The map panel adapts its sidebar width at smaller GUI resolutions, preserving room for the map.
+- Minecraft target remains 26.3 with Java 25, Fabric Loader 0.19.5, Fabric API 0.163.0+26.3, and Fabric Loom 1.17.21.
+
+## Build validation status
+
+The project ZIP and bundled PNG/JSON resources were checked for archive and file integrity in this environment. A complete Gradle compile was not run here because this environment has Java 21 and no Gradle installation; the project requires Java 25 and is configured for Gradle 9.8.0 in CI. Use `gradle clean build --no-daemon` with Java 25 to perform the actual Fabric compile.
