@@ -30,23 +30,20 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 final class WaypointUiText {
     static final int LINE_HEIGHT = 14;
-    // Keep glyphs at 4x source density all the way to the GPU. Do not downsample
-    // them to 1x on the CPU: doing so throws away the high-DPI edge information
-    // before Minecraft scales the GUI to the physical display.
+    // Rasterize at 4x, then high-quality downsample ONCE to the exact GUI-pixel
+    // dimensions. The final texture is drawn 1:1, so the GPU never has to blur
+    // an oversized glyph texture to fit the text line.
     private static final int OVERSAMPLE = 4;
-    private static final int MAX_CACHE_ENTRIES = 256;
+    private static final int MAX_CACHE_ENTRIES = 512;
     private static final AtomicInteger TEXTURE_SEQUENCE = new AtomicInteger();
     private static final Map<TextKey, TextTexture> TEXTURES = new LinkedHashMap<>(128, 0.75f, true);
     private static final Map<WidthKey, Integer> WIDTHS = new LinkedHashMap<>(256, 0.75f, true);
 
     private WaypointUiText() {}
 
-    /**
-     * Creates a dynamic texture with a linear, clamp-to-edge sampler. Minecraft 26.3
-     * moved filtering from DynamicTexture#setFilter to the GPU sampler API.
-     */
+    /** Creates a linearly sampled texture for continuous color gradients. */
     static DynamicTexture createSmoothTexture(String label, int width, int height, boolean zero) {
-        return new SmoothDynamicTexture(label, width, height, zero);
+        return new SmoothDynamicTexture(label, width, height, zero, FilterMode.LINEAR);
     }
 
     static MutableComponent component(String text) {
@@ -106,7 +103,8 @@ final class WaypointUiText {
     private static void drawText(GuiGraphicsExtractor g, String text, int x, int y, int color,
                                   boolean shadow, boolean bold, int size) {
         if (text == null || text.isEmpty()) return;
-        if (shadow) drawRun(g, text, x + 1, y + 1, 0x88000000, bold, size);
+        // UI copy sits on opaque dark surfaces; a second offset glyph pass made
+        // the letter edges look doubled/soft. Use one clean antialiased pass.
         drawRun(g, text, x, y, color, bold, size);
     }
 
@@ -137,52 +135,83 @@ final class WaypointUiText {
         return measured;
     }
 
+    private static int guiScale() {
+        try {
+            return Math.max(1, Math.min(8, Minecraft.getInstance().getWindow().getGuiScale()));
+        } catch (Throwable ignored) {
+            return 1;
+        }
+    }
+
     private static TextTexture texture(String text, int color, boolean bold, int size) {
-        TextKey key = new TextKey(text, color, bold, size);
+        TextKey key = new TextKey(text, color, bold, size, guiScale());
         synchronized (TEXTURES) {
             TextTexture cached = TEXTURES.get(key);
             if (cached != null) return cached;
         }
 
-        int scale = OVERSAMPLE;
-        java.awt.Font awt = new java.awt.Font("SansSerif", bold ? java.awt.Font.BOLD : java.awt.Font.PLAIN, size * scale);
-        BufferedImage probe = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D pg = probe.createGraphics();
-        pg.setFont(awt);
-        FontMetrics metrics = pg.getFontMetrics();
-        int logicalWidth = Math.max(1, (int)Math.ceil(metrics.stringWidth(text) / (double)scale) + 2);
-        int logicalHeight = Math.max(size + 3, (int)Math.ceil(metrics.getHeight() / (double)scale) + 2);
-        int textureWidth = logicalWidth * scale;
-        int textureHeight = logicalHeight * scale;
-        int baseline = scale + metrics.getAscent();
-        pg.dispose();
+        int guiScale = guiScale();
+        int scale = OVERSAMPLE * guiScale;
+        int style = bold ? java.awt.Font.BOLD : java.awt.Font.PLAIN;
+        java.awt.Font logicalFont = new java.awt.Font(java.awt.Font.SANS_SERIF, style, size);
+        java.awt.Font highFont = new java.awt.Font(java.awt.Font.SANS_SERIF, style, size * scale);
 
-        // Rasterize once at 4x logical GUI resolution and keep those pixels in
-        // the GPU texture. GPU linear filtering performs the final display-scale
-        // reduction; CPU downsampling to a 1x image made the old text look soft.
+        // Measure in final GUI pixels so the texture's dimensions match its
+        // destination exactly. This prevents fractional GPU scaling at 4K and
+        // at non-integer Windows display scaling factors.
+        BufferedImage probe = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D measure = probe.createGraphics();
+        measure.setFont(logicalFont);
+        FontMetrics logicalMetrics = measure.getFontMetrics();
+        int logicalWidth = Math.max(1, logicalMetrics.stringWidth(text) + 2);
+        int logicalHeight = Math.max(size + 3, logicalMetrics.getHeight() + 2);
+        measure.dispose();
+
+        // Match the framebuffer pixel density used by Minecraft's GUI transform.
+        // Example: at GUI scale 3, a 12px logical label occupies 36 framebuffer
+        // pixels, so its texture must also be 36px wide to avoid resampling.
+        int pixelWidth = logicalWidth * guiScale;
+        int pixelHeight = logicalHeight * guiScale;
+        int textureWidth = pixelWidth * OVERSAMPLE;
+        int textureHeight = pixelHeight * OVERSAMPLE;
         BufferedImage high = new BufferedImage(textureWidth, textureHeight, BufferedImage.TYPE_INT_ARGB);
         Graphics2D hg = high.createGraphics();
         hg.setComposite(AlphaComposite.Src);
-        hg.setFont(awt);
+        hg.setFont(highFont);
         hg.setColor(new Color(color, true));
         hg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         hg.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         hg.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
         hg.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
         hg.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
-        hg.drawString(text, scale, baseline);
+        FontMetrics highMetrics = hg.getFontMetrics();
+        hg.drawString(text, scale, scale + highMetrics.getAscent());
         hg.dispose();
+
+        // Convert the supersampled source to the exact framebuffer-pixel size
+        // once, using bicubic antialiasing. The result is then sampled 1:1 by the
+        // GPU at the current GUI scale: no magnification blur or pixel doubling.
+        BufferedImage finalImage = new BufferedImage(pixelWidth, pixelHeight, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D downsample = finalImage.createGraphics();
+        downsample.setComposite(AlphaComposite.Src);
+        downsample.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        downsample.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        downsample.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
+        downsample.drawImage(high, 0, 0, pixelWidth, pixelHeight, null);
+        downsample.dispose();
+        high.flush();
 
         int sequence = TEXTURE_SEQUENCE.incrementAndGet();
         Identifier id = Identifier.fromNamespaceAndPath("simplewaypoints", "ui_text_run_" + sequence);
-        DynamicTexture dynamic = createSmoothTexture("simple-waypoints-ui-text", textureWidth, textureHeight, true);
+        DynamicTexture dynamic = new SmoothDynamicTexture("simple-waypoints-ui-text", pixelWidth, pixelHeight, true, FilterMode.NEAREST);
         NativeImage pixels = dynamic.getPixels();
-        for (int py = 0; py < textureHeight; py++) {
-            for (int px = 0; px < textureWidth; px++) pixels.setPixel(px, py, high.getRGB(px, py));
+        for (int py = 0; py < pixelHeight; py++) {
+            for (int px = 0; px < pixelWidth; px++) {
+                pixels.setPixel(px, py, finalImage.getRGB(px, py));
+            }
         }
+        finalImage.flush();
         dynamic.upload();
-        // The 4x source texture is drawn into logical GUI coordinates. The
-        // texture's GPU sampler uses LINEAR for both minification and magnification.
         Minecraft.getInstance().getTextureManager().register(id, dynamic);
         TextTexture created = new TextTexture(id, logicalWidth, logicalHeight);
         synchronized (TEXTURES) {
@@ -197,13 +226,13 @@ final class WaypointUiText {
     }
 
     private static final class SmoothDynamicTexture extends DynamicTexture {
-        private SmoothDynamicTexture(String label, int width, int height, boolean zero) {
+        private SmoothDynamicTexture(String label, int width, int height, boolean zero, FilterMode filter) {
             super(label, width, height, zero);
-            this.sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
+            this.sampler = RenderSystem.getSamplerCache().getClampToEdge(filter);
         }
     }
 
     private record WidthKey(String text, boolean bold, int size) {}
-    private record TextKey(String text, int color, boolean bold, int size) {}
+    private record TextKey(String text, int color, boolean bold, int size, int guiScale) {}
     private record TextTexture(Identifier id, int width, int height) {}
 }

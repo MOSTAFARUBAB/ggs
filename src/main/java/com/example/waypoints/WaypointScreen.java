@@ -328,7 +328,7 @@ public final class WaypointScreen extends Screen {
             navItem(g, mx, my, navX, 247, navW, "", "About", false);
             int base = height - 72;
             drawGrassBlock(g, 14, base - 27);
-            WaypointUiText.draw(g, font, "v1.4.10", 54, base - 3, WaypointsMod.uiAccentColor, true);
+            WaypointUiText.draw(g, font, "v1.4.11", 54, base - 3, WaypointsMod.uiAccentColor, true);
         } else {
             navItem(g, mx, my, 8, 112, 38, "", "", true);
             navItem(g, mx, my, 8, 156, 38, "", "", false);

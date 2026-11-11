@@ -310,7 +310,7 @@ public final class WaypointSettingsScreen extends Screen {
             int base = height - 72;
             g.fill(14, base - 25, 42, base - 7, 0xFF79502E);
             g.fill(14, base - 28, 42, base - 22, 0xFF4F9C35);
-            WaypointUiText.draw(g, font, "v1.4.10", 54, base - 3, WaypointsMod.uiAccentColor, true);
+            WaypointUiText.draw(g, font, "v1.4.11", 54, base - 3, WaypointsMod.uiAccentColor, true);
         } else {
             nav(g, mx, my, 8, 112, 38, "", "", false);
             nav(g, mx, my, 8, 156, 38, "", "", false);
