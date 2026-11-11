@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * blitting individual character tiles (which caused visible tracking gaps).
  */
 final class WaypointUiText {
-    static final int LINE_HEIGHT = 14;
+    static final int LINE_HEIGHT = 9;
     // Rasterize at 4x, then high-quality downsample ONCE to the exact GUI-pixel
     // dimensions. The final texture is drawn 1:1, so the GPU never has to blur
     // an oversized glyph texture to fit the text line.
@@ -51,15 +51,19 @@ final class WaypointUiText {
     }
 
     static int width(Font font, String text) {
-        return textWidth(text, false, 12);
+        return textWidth(text, false, 8);
     }
 
     static int compactWidth(Font font, String text) {
-        return textWidth(text, false, 11);
+        return textWidth(text, false, 7);
+    }
+
+    static int headingWidth(Font font, String text) {
+        return textWidth(text, true, 12);
     }
 
     static void draw(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color, boolean shadow) {
-        drawText(g, text, x, y, color, shadow, false, 12);
+        drawText(g, text, x, y, color, shadow, false, 8);
     }
 
     static void draw(GuiGraphicsExtractor g, Font font, FormattedCharSequence text, int x, int y, int color, boolean shadow) {
@@ -68,23 +72,23 @@ final class WaypointUiText {
     }
 
     static void drawCompact(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
-        drawText(g, text, x, y, color, false, false, 11);
+        drawText(g, text, x, y, color, false, false, 7);
     }
 
     static void drawStrong(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
-        drawText(g, text, x, y, color, false, true, 13);
+        drawText(g, text, x, y, color, false, true, 8);
     }
 
     static void drawTitle(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
-        drawText(g, text, x, y, color, false, true, 18);
+        drawText(g, text, x, y, color, false, true, 9);
     }
 
     static void drawHeading(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
-        drawText(g, text, x, y, color, false, true, 22);
+        drawText(g, text, x, y, color, false, true, 12);
     }
 
     static void drawSubheading(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
-        drawText(g, text, x, y, color, false, true, 15);
+        drawText(g, text, x, y, color, false, true, 9);
     }
 
     /** The native EditBox owns keyboard input; its value is painted with the same smooth renderer. */
@@ -93,18 +97,18 @@ final class WaypointUiText {
         String value = box.getValue();
         int cursor = Math.max(0, Math.min(value.length(), box.getCursorPosition()));
         int start = 0;
-        while (start < cursor && textWidth(value.substring(start), false, 12) > maxWidth) start++;
+        while (start < cursor && textWidth(value.substring(start), false, 8) > maxWidth) start++;
         String shown = value.substring(start);
         int shownCursor = Math.max(0, cursor - start);
-        if (textWidth(shown, false, 12) > maxWidth) {
+        if (textWidth(shown, false, 8) > maxWidth) {
             int end = shown.length();
-            while (end > shownCursor && textWidth(shown.substring(0, end), false, 12) > maxWidth) end--;
+            while (end > shownCursor && textWidth(shown.substring(0, end), false, 8) > maxWidth) end--;
             shown = shown.substring(0, Math.max(shownCursor, end));
         }
-        drawText(g, shown, x, y, 0xFFF2F4F5, false, false, 12);
+        drawText(g, shown, x, y, 0xFFF2F4F5, false, false, 8);
         if (box.isFocused() && ((System.currentTimeMillis() / 500L) & 1L) == 0L) {
-            int caretX = x + textWidth(shown.substring(0, Math.min(shownCursor, shown.length())), false, 12);
-            g.fill(caretX, y - 1, caretX + 1, y + 13, 0xFFF2F4F5);
+            int caretX = x + textWidth(shown.substring(0, Math.min(shownCursor, shown.length())), false, 8);
+            g.fill(caretX, y - 1, caretX + 1, y + 9, 0xFFF2F4F5);
         }
     }
 

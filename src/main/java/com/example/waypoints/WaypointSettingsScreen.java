@@ -20,6 +20,7 @@ public final class WaypointSettingsScreen extends Screen {
     private int labelsY, labelsH, beamY, beamH, displayY, displayH;
     private int beamTrackX, beamTrackW, beamTrackY;
     private boolean draggingBeam;
+    private int scrollOffset, maxScroll;
     private boolean compactLayout() { return height < 760; }
     private int labelRow1() { return compactLayout() ? 43 : 53; }
     private int labelRow2() { return compactLayout() ? 77 : 98; }
@@ -41,19 +42,27 @@ public final class WaypointSettingsScreen extends Screen {
         clearWidgets(); hits.clear();
         rail = WaypointUiChrome.railWidth(width, height);
         top = WaypointUiChrome.topHeight(height);
-        left = rail + 30;
+        left = rail + 27;
         right = width - 32;
         contentW = Math.max(420, right - left);
         leftW = Math.round(contentW * 0.676f);
         rightX = left + leftW + 18;
         rightW = right - rightX;
 
-        labelsY = top + 92;
+        labelsY = top + 92 - scrollOffset;
         labelsH = compactLayout() ? 178 : Math.max(190, Math.min(236, Math.round(height * 0.275f)));
         beamY = labelsY + labelsH + 14;
         beamH = compactLayout() ? 150 : Math.max(168, Math.min(194, Math.round(height * 0.226f)));
         displayY = beamY + beamH + 14;
-        displayH = compactLayout() ? 150 : Math.max(162, Math.min(190, height - displayY - 48));
+        displayH = compactLayout() ? 150 : Math.max(162, Math.min(190, height - (top + 92 + labelsH + 14 + beamH + 14) - 48));
+        int unscrolledBottom = displayY + displayH + scrollOffset;
+        maxScroll = Math.max(0, unscrolledBottom - (height - 56));
+        if (scrollOffset > maxScroll) {
+            scrollOffset = maxScroll;
+            labelsY = top + 92 - scrollOffset;
+            beamY = labelsY + labelsH + 14;
+            displayY = beamY + beamH + 14;
+        }
 
         int ny = WaypointUiChrome.navY(height);
         hits.add(new Hit(20, ny, rail - 40, 36, () -> Minecraft.getInstance().gui.setScreen(new WaypointScreen(0))));
@@ -97,7 +106,8 @@ public final class WaypointSettingsScreen extends Screen {
                 save();
             } catch (NumberFormatException ignored) { }
         });
-        addRenderableWidget(distanceBox);
+        int distanceY = displayY + displayH - (compactLayout() ? 46 : 51);
+        if (distanceY >= top + 82 && distanceY + 28 <= height - 48) addRenderableWidget(distanceBox);
         hits.add(new Hit(left + leftW - 89, height - 37, 78, 28, this::resetDefaults));
     }
 
@@ -118,12 +128,32 @@ public final class WaypointSettingsScreen extends Screen {
         Minecraft.getInstance().gui.setScreen(new WaypointSettingsScreen());
     }
 
+    @Override public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        int viewTop = top + 64;
+        // Keep the preview pinned, but allow the wheel anywhere in the workspace
+        // to move the vertically stacked settings column.
+        if (scrollY == 0 || mouseX < rail || mouseX > width - 8 || mouseY < viewTop || mouseY > height - 20) {
+            return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        }
+        if (maxScroll > 0) {
+            int next = Math.max(0, Math.min(maxScroll, scrollOffset - (int)Math.round(scrollY * 64.0)));
+            if (next != scrollOffset) { scrollOffset = next; init(); }
+        }
+        return true;
+    }
+
     @Override public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         if (event.button() == 1 && WaypointUiChrome.inside(event.x(), event.y(), beamTrackX - 8, beamTrackY - 12, beamTrackW + 16, 30)) {
             draggingBeam = true; setDragging(true); updateBeamOpacity(event.x()); return true;
         }
         if (event.button() == 1) {
-            for (int i = hits.size() - 1; i >= 0; i--) if (hits.get(i).contains(event.x(), event.y())) { hits.get(i).action().run(); return true; }
+            for (int i = hits.size() - 1; i >= 0; i--) {
+                Hit hit = hits.get(i);
+                boolean sidebar = hit.x() < rail;
+                boolean pinned = hit.y() >= height - 48;
+                boolean visibleContent = event.y() >= top + 82 && event.y() <= height - 48;
+                if ((sidebar || pinned || visibleContent) && hit.contains(event.x(), event.y())) { hit.action().run(); return true; }
+            }
         }
         return super.mouseClicked(event, doubleClick);
     }
@@ -149,10 +179,12 @@ public final class WaypointSettingsScreen extends Screen {
 
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
         WaypointUiChrome.drawFrame(g, font, width, height, mx, my, true, "Settings");
-        WaypointUiText.drawHeading(g, font, "Your world. Your view.", left, top + 32, WaypointUiChrome.TEXT);
-        WaypointUiText.draw(g, font, "Make waypoints work the way you explore.", left, top + 63, WaypointUiChrome.MUTED, false);
+        WaypointUiText.drawHeading(g, font, "Your world. Your view.", left, top + 28, WaypointUiChrome.TEXT);
+        WaypointUiText.draw(g, font, "Make waypoints work the way you explore.", left, top + 55, WaypointUiChrome.MUTED, false);
         WaypointUiText.drawCompact(g, font, "✓  Changes saved", right - 95, top + 45, WaypointUiChrome.MUTED);
 
+        // Left settings column scrolls independently; preview and reset action stay pinned.
+        g.enableScissor(left, top + 82, left + leftW, height - 48);
         // Left column: waypoint labels.
         WaypointUiChrome.panel(g, left, labelsY, leftW, labelsH);
         WaypointUiText.draw(g, font, "⚑  Waypoint labels", left + 18, labelsY + 20, WaypointUiChrome.TEXT, false);
@@ -199,8 +231,18 @@ public final class WaypointSettingsScreen extends Screen {
         int distanceFieldY = displayY + displayH - (compactLayout() ? 50 : 55);
         WaypointUiChrome.field(g, left + leftW - 130, distanceFieldY, 108, 31, distanceBox != null && distanceBox.isFocused());
 
+        g.disableScissor();
+        if (maxScroll > 0) {
+            int viewTop = top + 82, viewBottom = height - 48, trackX = left + leftW - 4;
+            int viewport = Math.max(1, viewBottom - viewTop), total = viewport + maxScroll;
+            int thumbH = Math.max(22, viewport * viewport / Math.max(viewport, total));
+            int thumbY = viewTop + (viewport - thumbH) * scrollOffset / maxScroll;
+            WaypointUiChrome.round(g, trackX, viewTop, trackX + 3, viewBottom, 0xFF202528, 2);
+            WaypointUiChrome.round(g, trackX, thumbY, trackX + 3, thumbY + thumbH, WaypointUiChrome.MUTED, 2);
+        }
+
         // Right column: live preview and help card.
-        int previewY = top + 118;
+        int previewY = top + 106;
         WaypointUiText.drawCompact(g, font, "IN-GAME PREVIEW", rightX, top + 99, WaypointUiChrome.QUIET);
         drawPreview(g, rightX, previewY, rightW, 170);
         WaypointUiText.drawCompact(g, font, "A clear marker, right where you need it. Your color is used for labels", rightX, previewY + 183, WaypointUiChrome.QUIET);
@@ -219,8 +261,9 @@ public final class WaypointSettingsScreen extends Screen {
         WaypointUiChrome.button(g, font, mx, my, left + leftW - 89, height - 39, 78, 28, "Reset defaults", false, false);
 
         super.extractRenderState(g, mx, my, delta);
-        if (distanceBox != null) WaypointUiText.drawInput(g, font, distanceBox,
-                left + leftW - 119, displayY + displayH - (compactLayout() ? 39 : 44), 82);
+        int distanceInputY = displayY + displayH - (compactLayout() ? 39 : 44);
+        if (distanceBox != null && distanceInputY >= top + 82 && distanceInputY + 18 <= height - 48)
+            WaypointUiText.drawInput(g, font, distanceBox, left + leftW - 119, distanceInputY, 82);
     }
 
     private void settingRowAdaptive(GuiGraphicsExtractor g, int x, int y, int w, String label, String description, boolean enabled) {

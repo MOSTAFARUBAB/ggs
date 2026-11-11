@@ -24,6 +24,7 @@ public final class WaypointScreen extends Screen {
     private int rail, top, left, right, contentW;
     private int titleY, statsY, statsH, sectionY, toolbarY, filtersY, gridY, footerY;
     private int cardW, cardH, cols = 3, pageSize = 6, page;
+    private int scrollOffset, maxScroll, gridBottom;
     private EditBox search;
     private String query;
     private static int dimensionFilter; // 0 all, 1 overworld, 2 nether, 3 end
@@ -33,11 +34,13 @@ public final class WaypointScreen extends Screen {
     private List<Waypoint> filtered = List.of();
     private String lastAddedName = "—";
 
-    public WaypointScreen(int page) { this(page, ""); }
-    private WaypointScreen(int page, String query) {
+    public WaypointScreen(int page) { this(page, "", 0); }
+    private WaypointScreen(int page, String query) { this(page, query, 0); }
+    private WaypointScreen(int page, String query, int scrollOffset) {
         super(Component.literal("Waypoints"));
         this.requestedPage = page;
         this.query = query == null ? "" : query;
+        this.scrollOffset = Math.max(0, scrollOffset);
     }
 
     static void openMenu() { open(0); }
@@ -52,23 +55,26 @@ public final class WaypointScreen extends Screen {
         clearWidgets(); hits.clear();
         rail = WaypointUiChrome.railWidth(width, height);
         top = WaypointUiChrome.topHeight(height);
-        left = rail + 33;
-        right = width - 30;
+        left = rail + 27;
+        right = width - 25;
         contentW = Math.max(360, right - left);
-        titleY = top + 32;
-        statsY = titleY + 72;
-        statsH = Math.max(80, Math.min(100, height / 8));
-        sectionY = statsY + statsH + 28;
-        toolbarY = sectionY + 37;
-        filtersY = toolbarY + 51;
-        gridY = filtersY + 43;
-        footerY = height - 104;
+        boolean compact = height < 820;
+        titleY = top + (compact ? 15 : 28);
+        statsY = titleY + (compact ? 44 : 64);
+        statsH = compact ? 58 : Math.max(72, Math.min(92, height / 9));
+        sectionY = statsY + statsH + (compact ? 14 : 24);
+        toolbarY = sectionY + (compact ? 27 : 34);
+        filtersY = toolbarY + (compact ? 35 : 46);
+        gridY = filtersY + (compact ? 30 : 38);
+        footerY = height - (compact ? 43 : 90);
+        gridBottom = Math.max(gridY + 40, footerY - 34);
         cols = listView ? 1 : (contentW >= 720 ? 3 : contentW >= 490 ? 2 : 1);
         int rows = listView ? 6 : 2;
         cardW = (contentW - (cols - 1) * 12) / cols;
+        int viewportHeight = Math.max(36, gridBottom - gridY);
         cardH = listView
-                ? Math.max(30, (footerY - gridY - 6 * (rows - 1)) / rows)
-                : Math.max(96, Math.min(150, (footerY - gridY - 12 * (rows - 1)) / rows));
+                ? Math.max(38, Math.min(66, (viewportHeight - 6 * (rows - 1)) / rows))
+                : compact ? 82 : Math.max(88, Math.min(138, (viewportHeight - 12 * (rows - 1)) / rows));
         pageSize = listView ? 6 : cols * rows;
 
         all = new ArrayList<>(WaypointsMod.menuWaypointsAllDimensions());
@@ -76,6 +82,15 @@ public final class WaypointScreen extends Screen {
         if (sortName) all.sort(Comparator.comparing(Waypoint::name, String.CASE_INSENSITIVE_ORDER));
         refreshFiltered();
         page = Math.max(0, Math.min(requestedPage, Math.max(0, (filtered.size() - 1) / Math.max(1, pageSize))));
+
+        // Calculate scroll from the actual filtered rows on this page. The old
+        // calculation ran before refreshFiltered(), always saw an empty list,
+        // and consequently disabled the scrollbar for non-empty dashboards.
+        int entriesOnPage = Math.max(0, Math.min(pageSize, filtered.size() - page * pageSize));
+        int visibleRows = entriesOnPage == 0 ? 0 : listView ? entriesOnPage : (entriesOnPage + cols - 1) / cols;
+        int contentHeight = visibleRows * cardH + (listView ? 6 : 12) * Math.max(0, visibleRows - 1);
+        maxScroll = Math.max(0, contentHeight - viewportHeight);
+        scrollOffset = Math.max(0, Math.min(scrollOffset, maxScroll));
 
         int ny = WaypointUiChrome.navY(height);
         hits.add(new Hit(20, ny, rail - 40, 36, () -> open(0)));
@@ -100,7 +115,7 @@ public final class WaypointScreen extends Screen {
         int searchW = Math.max(230, contentW - 206);
         search = new EditBox(font, left + 10, toolbarY + 8, searchW - 20, 20, Component.literal("Search by name or coordinates..."));
         search.setMaxLength(64); search.setValue(query); search.setBordered(false); search.setTextColor(0x00000000);
-        search.setResponder(v -> { query = v; page = 0; refreshFiltered(); });
+        search.setResponder(v -> { query = v; page = 0; scrollOffset = 0; refreshFiltered(); });
         addRenderableWidget(search);
         hits.add(new Hit(left + searchW + 8, toolbarY, 128, 36, () -> {
             sortName = !sortName;
@@ -111,16 +126,23 @@ public final class WaypointScreen extends Screen {
             Minecraft.getInstance().gui.setScreen(new WaypointScreen(0, query));
         }));
 
-        // Fixed slot targets remain valid while the search box changes the filtered list.
+        // Card targets are clipped to the visible card viewport, matching the scissor rectangle.
         for (int slot = 0; slot < pageSize; slot++) {
             int col = listView ? 0 : slot % cols, row = listView ? slot : slot / cols;
-            int x = left + col * (cardW + 12), y = gridY + row * (cardH + (listView ? 6 : 12));
+            int x = left + col * (cardW + 12), y = gridY + row * (cardH + (listView ? 6 : 12)) - scrollOffset;
+            int visibleTop = Math.max(gridY, y);
+            int visibleBottom = Math.min(gridBottom, y + cardH);
+            if (visibleBottom <= visibleTop) continue;
             final int visibleSlot = slot;
-            hits.add(new Hit(x, y, cardW, cardH, () -> editVisibleSlot(visibleSlot)));
+            hits.add(new Hit(x, visibleTop, cardW, visibleBottom - visibleTop, () -> editVisibleSlot(visibleSlot)));
             int actionTop = y + cardH - (cardH < 130 && !listView ? 20 : 28);
             int actionHeight = cardH < 130 && !listView ? 18 : 22;
-            hits.add(new Hit(x + cardW - 61, actionTop, 24, actionHeight, () -> copyVisibleSlot(visibleSlot)));
-            hits.add(new Hit(x + cardW - 34, actionTop, 24, actionHeight, () -> editVisibleSlot(visibleSlot)));
+            int actionVisibleTop = Math.max(gridY, actionTop);
+            int actionVisibleBottom = Math.min(gridBottom, actionTop + actionHeight);
+            if (actionVisibleBottom > actionVisibleTop) {
+                hits.add(new Hit(x + cardW - 61, actionVisibleTop, 24, actionVisibleBottom - actionVisibleTop, () -> copyVisibleSlot(visibleSlot)));
+                hits.add(new Hit(x + cardW - 34, actionVisibleTop, 24, actionVisibleBottom - actionVisibleTop, () -> editVisibleSlot(visibleSlot)));
+            }
         }
         int pagerX = right - 164;
         hits.add(new Hit(pagerX, footerY + 6, 24, 24, () -> { if (pageCount() > 1) changePage(-1); }));
@@ -167,6 +189,28 @@ public final class WaypointScreen extends Screen {
     }
     private void report(String s) { Minecraft.getInstance().gui.chatListener().handleSystemMessage(Component.literal(s), false); }
 
+    @Override public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        // Treat the complete workspace (toolbar, filters and card area) as the
+        // scroll surface. Users should not have to aim at a tiny card viewport.
+        int workspaceTop = top + 8;
+        if (scrollY == 0 || mouseX < rail || mouseX > width || mouseY < workspaceTop || mouseY > height - 18) {
+            return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        }
+        if (maxScroll > 0) {
+            int next = Math.max(0, Math.min(maxScroll, scrollOffset - (int)Math.round(scrollY * 64.0)));
+            if (next != scrollOffset) {
+                scrollOffset = next;
+                init();
+            }
+            return true;
+        }
+        if (pageCount() > 1) {
+            changePage(scrollY < 0 ? 1 : -1);
+            return true;
+        }
+        return true;
+    }
+
     @Override public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         if (event.button() == 1) {
             for (int i = hits.size() - 1; i >= 0; i--) if (hits.get(i).contains(event.x(), event.y())) { hits.get(i).action().run(); return true; }
@@ -184,10 +228,10 @@ public final class WaypointScreen extends Screen {
         drawStat(g, left, statsY, statW, statsH, "Total waypoints", Integer.toString(all.size()), "Across your entire world", "◎");
         long dimensions = all.stream().map(w -> WaypointsMod.normalizeDimension(w.dimension())).distinct().count();
         drawStat(g, left + statW + gap, statsY, statW, statsH, "Dimensions explored", Long.toString(dimensions), "Overworld, Nether & End", "◈");
-        drawStat(g, left + (statW + gap) * 2, statsY, statW, statsH, "Last added", WaypointUiChrome.fit(font, lastAddedName, statW - 30), "Saved in this world", "◷");
+        drawStat(g, left + (statW + gap) * 2, statsY, statW, statsH, "Last added", WaypointUiChrome.fitHeading(font, lastAddedName, statW - 30), "Saved in this world", "◷");
 
         WaypointUiText.drawHeading(g, font, "Your waypoints", left, sectionY + 3, WaypointUiChrome.TEXT);
-        smallBadge(g, left + WaypointUiText.width(font, "Your waypoints") + 12, sectionY + 2, Integer.toString(all.size()));
+        smallBadge(g, left + WaypointUiText.headingWidth(font, "Your waypoints") + 12, sectionY + 2, Integer.toString(all.size()));
         WaypointUiChrome.button(g, font, mx, my, right - 164, sectionY - 3, 72, 30, "↓  Import", false, false);
         WaypointUiChrome.button(g, font, mx, my, right - 82, sectionY - 3, 76, 30, "↑  Export", false, false);
 
@@ -221,14 +265,15 @@ public final class WaypointScreen extends Screen {
 
     private void drawStat(GuiGraphicsExtractor g, int x, int y, int w, int h, String label, String value, String sub, String icon) {
         WaypointUiChrome.panel(g, x, y, w, h);
-        WaypointUiText.drawCompact(g, font, label, x + 16, y + 17, WaypointUiChrome.MUTED);
-        WaypointUiText.drawHeading(g, font, value, x + 16, y + 39, WaypointUiChrome.TEXT);
-        WaypointUiText.drawCompact(g, font, sub, x + 16, y + h - 22, WaypointUiChrome.QUIET);
-        WaypointUiText.draw(g, font, icon, x + w - 27, y + 15, WaypointUiChrome.MUTED, false);
+        boolean compact = h < 76;
+        WaypointUiText.drawCompact(g, font, label, x + 16, y + (compact ? 8 : 13), WaypointUiChrome.MUTED);
+        WaypointUiText.drawHeading(g, font, value, x + 16, y + (compact ? 22 : 31), WaypointUiChrome.TEXT);
+        WaypointUiText.drawCompact(g, font, sub, x + 16, y + h - (compact ? 12 : 16), WaypointUiChrome.QUIET);
+        WaypointUiText.draw(g, font, icon, x + w - 27, y + 12, WaypointUiChrome.MUTED, false);
     }
 
     private void smallBadge(GuiGraphicsExtractor g, int x, int y, String text) {
-        WaypointUiChrome.round(g, x, y, x + WaypointUiText.width(font, text) + 13, y + 18, 0xFF1D2225, 5);
+        WaypointUiChrome.round(g, x, y, x + WaypointUiText.compactWidth(font, text) + 13, y + 18, 0xFF1D2225, 5);
         WaypointUiText.drawCompact(g, font, text, x + 6, y + 4, WaypointUiChrome.MUTED);
     }
 
@@ -262,11 +307,12 @@ public final class WaypointScreen extends Screen {
             WaypointUiText.draw(g, font, "Create a waypoint to save a place in this world.", left + 20, gridY + 49, WaypointUiChrome.MUTED, false);
             return;
         }
+        g.enableScissor(left, gridY, right, gridBottom);
         int start = currentPage() * pageSize, end = Math.min(filtered.size(), start + pageSize);
         for (int i = start; i < end; i++) {
             Waypoint w = filtered.get(i);
             int slot = i - start, col = listView ? 0 : slot % cols, row = listView ? slot : slot / cols;
-            int x = left + col * (cardW + 12), y = gridY + row * (cardH + (listView ? 6 : 12));
+            int x = left + col * (cardW + 12), y = gridY + row * (cardH + (listView ? 6 : 12)) - scrollOffset;
             WaypointUiChrome.panel(g, x, y, cardW, cardH);
             int color = WaypointsMod.resolveColor(w);
             WaypointUiChrome.round(g, x + 13, y + Math.max(7, (cardH - 26) / 2), x + 39, y + Math.max(33, (cardH - 26) / 2 + 26), 0xFF202A22, 7);
@@ -295,6 +341,16 @@ public final class WaypointScreen extends Screen {
                 WaypointUiText.draw(g, font, "▢", x + cardW - 61, bottom + 3, WaypointUiChrome.MUTED, false);
                 WaypointUiText.draw(g, font, "↗", x + cardW - 31, bottom + 3, WaypointUiChrome.MUTED, false);
             }
+        }
+        g.disableScissor();
+        if (maxScroll > 0) {
+            int trackX = right - 4;
+            int viewport = Math.max(1, gridBottom - gridY);
+            int total = viewport + maxScroll;
+            int thumbH = Math.max(18, viewport * viewport / Math.max(viewport, total));
+            int thumbY = gridY + (viewport - thumbH) * scrollOffset / maxScroll;
+            WaypointUiChrome.round(g, trackX, gridY, trackX + 3, gridBottom, 0xFF202528, 2);
+            WaypointUiChrome.round(g, trackX, thumbY, trackX + 3, thumbY + thumbH, WaypointUiChrome.MUTED, 2);
         }
     }
 
@@ -331,7 +387,7 @@ public final class WaypointScreen extends Screen {
             }
             WaypointUiChrome.button(g, font, mx, my, pagerX + 138, footerY + 6, 24, 24, "›", false, false);
         }
-        String signature = WaypointUiChrome.fit(font, "WAYPOINT MANAGER  /  v1.5.0", 150);
+        String signature = WaypointUiChrome.fit(font, "WAYPOINT MANAGER  /  v1.5.2", 150);
         WaypointUiText.drawCompact(g, font, signature, right - 150, height - 39, WaypointUiChrome.QUIET);
     }
 }

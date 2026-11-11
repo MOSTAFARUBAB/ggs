@@ -34,10 +34,10 @@ final class WaypointUiChrome {
     }
 
     static int railWidth(int width, int height) {
-        float proportion = height >= 880 ? 0.1625f : 0.157f;
-        return Math.max(152, Math.round(width * proportion));
+        float proportion = height >= 880 ? 0.151f : 0.145f;
+        return Math.max(138, Math.round(width * proportion));
     }
-    static int topHeight(int height) { return Math.max(42, Math.min(56, Math.round(height * 0.06f))); }
+    static int topHeight(int height) { return Math.max(38, Math.min(50, Math.round(height * 0.055f))); }
     static int navY(int height) { return topHeight(height) + 124; }
     static int navRowY(int height, boolean settings) { return navY(height) + (settings ? 43 : 0); }
 
@@ -94,16 +94,16 @@ final class WaypointUiChrome {
         drawNav(g, font, mx, my, 20, ny + 43, rail - 40, "Settings", settingsActive, true);
 
         // Local storage status card and current player row.
-        int statusH = Math.max(92, Math.min(112, height / 8));
+        int statusH = Math.max(100, Math.min(124, height / 7));
         int statusY = height - statusH - 72;
         round(g, 20, statusY, rail - 16, statusY + statusH, 0xFF0D0F11, 8);
         border(g, 20, statusY, rail - 16, statusY + statusH, EDGE);
         WaypointUiText.draw(g, font, "▱", 30, statusY + 13, MUTED, false);
         WaypointUiText.draw(g, font, fit(font, "Your world. Your waypoints.", rail - 56), 30, statusY + 34, TEXT, false);
-        WaypointUiText.drawCompact(g, font, "Stored locally, ready for your", 30, statusY + 52, MUTED);
-        WaypointUiText.drawCompact(g, font, "next adventure.", 30, statusY + 65, MUTED);
-        g.fill(30, statusY + statusH - 20, 36, statusY + statusH - 14, GREEN);
-        WaypointUiText.drawCompact(g, font, "All changes saved", 42, statusY + statusH - 21, MUTED);
+        WaypointUiText.drawCompact(g, font, "Stored locally and ready", 30, statusY + 52, MUTED);
+        WaypointUiText.drawCompact(g, font, "for your next adventure.", 30, statusY + 64, MUTED);
+        g.fill(30, statusY + statusH - 18, 35, statusY + statusH - 13, GREEN);
+        WaypointUiText.drawCompact(g, font, "All changes saved", 41, statusY + statusH - 19, MUTED);
 
         int profileY = height - 48;
         round(g, 20, profileY, 46, profileY + 26, 0xFF1B1F22, 7);
@@ -219,9 +219,18 @@ final class WaypointUiChrome {
     }
 
     static String fit(Font font, String text, int maxWidth) {
-        String s = text == null ? "" : text;
-        while (!s.isEmpty() && WaypointUiText.width(font, s) > maxWidth) s = s.substring(0, s.length() - 1);
-        return s.equals(text) ? s : s + "…";
+        return fitMeasured(text, maxWidth, s -> WaypointUiText.width(font, s));
+    }
+
+    static String fitHeading(Font font, String text, int maxWidth) {
+        return fitMeasured(text, maxWidth, s -> WaypointUiText.headingWidth(font, s));
+    }
+
+    private static String fitMeasured(String text, int maxWidth, java.util.function.ToIntFunction<String> measure) {
+        String original = text == null ? "" : text;
+        String s = original;
+        while (!s.isEmpty() && measure.applyAsInt(s) > maxWidth) s = s.substring(0, s.length() - 1);
+        return s.equals(original) ? s : s + "…";
     }
 
     private static String initials(String name) {
