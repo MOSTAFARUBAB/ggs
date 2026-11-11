@@ -94,14 +94,16 @@ final class WaypointUiChrome {
         drawNav(g, font, mx, my, 20, ny + 43, rail - 40, "Settings", settingsActive, true);
 
         // Local storage status card and current player row.
-        int statusH = Math.max(100, Math.min(124, height / 7));
+        int statusH = Math.max(118, Math.min(142, height / 6));
         int statusY = height - statusH - 72;
         round(g, 20, statusY, rail - 16, statusY + statusH, 0xFF0D0F11, 8);
         border(g, 20, statusY, rail - 16, statusY + statusH, EDGE);
-        WaypointUiText.draw(g, font, "▱", 30, statusY + 13, MUTED, false);
-        WaypointUiText.draw(g, font, fit(font, "Your world. Your waypoints.", rail - 48), 30, statusY + 34, TEXT, false);
-        WaypointUiText.drawCompact(g, font, "Stored locally and ready", 30, statusY + 52, MUTED);
-        WaypointUiText.drawCompact(g, font, "for your next adventure.", 30, statusY + 64, MUTED);
+        WaypointUiText.draw(g, font, "▱", 30, statusY + 12, MUTED, false);
+        // Two deliberate lines replace fit(...), which truncated the sentence.
+        WaypointUiText.draw(g, font, "Your world.", 30, statusY + 33, TEXT, false);
+        WaypointUiText.draw(g, font, "Your waypoints.", 30, statusY + 45, TEXT, false);
+        WaypointUiText.drawCompact(g, font, "Stored locally and ready", 30, statusY + 68, MUTED);
+        WaypointUiText.drawCompact(g, font, "for your next adventure.", 30, statusY + 80, MUTED);
         g.fill(30, statusY + statusH - 18, 35, statusY + statusH - 13, GREEN);
         WaypointUiText.drawCompact(g, font, "All changes saved", 41, statusY + statusH - 19, MUTED);
 

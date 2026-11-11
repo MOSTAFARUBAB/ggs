@@ -1,4 +1,4 @@
-# Waypoint Manager 1.5.4
+# Waypoint Manager 1.5.5
 
 A client-side Fabric waypoint manager for Minecraft 26.3. The in-game screens use the supplied Waypoint Manager reference: a compact graphite workspace with a slim sidebar, world breadcrumb, quiet lime accents, dense waypoint cards, a two-column create/edit form, and focused settings panels.
 
@@ -60,10 +60,17 @@ The installable mod JAR is produced in `build/libs/`.
 - Removed a duplicate `@Override` annotation on the waypoint editor scroll handler. This fixes the Java compiler error reported by the 1.5.2 build.
 
 
-## Version 1.5.4 layout fixes
+## Version 1.5.5 layout fixes
 - Increased compact dashboard card height so coordinate tiles no longer collide with dimension labels or card actions.
 - Made create/edit form, visibility card, color picker, Chroma row, recent swatches, and preview scale together on short GUI viewports.
 - Hid the editor's always-visible vertical scrollbar while preserving wheel scrolling for edit-only content.
 - Extended the content viewport almost to the bottom edge so the editor no longer leaves a large unused black strip.
 - Added text texture width/height padding to prevent the final glyph from being clipped by font-metric rounding.
 - Kept Minecraft's global GUI Scale setting under player control; the mod only adapts its own layout to the available GUI dimensions.
+
+## Version 1.5.5 dashboard layout fixes
+- Search field, sort control, view toggle, and their click targets now use one shared calculated layout, preventing the search field from painting under the toolbar buttons.
+- Import/Export and search/sort rows have a clearer vertical gap.
+- Dimension filters render as separate outlined pills with bounded label widths.
+- Waypoint cards now show a visible colored pin beside the title, with the coordinate tiles and dimension footer laid out below it.
+- Sidebar storage status copy wraps across two complete title lines instead of truncating the sentence.
