@@ -99,7 +99,7 @@ final class WaypointUiChrome {
         round(g, 20, statusY, rail - 16, statusY + statusH, 0xFF0D0F11, 8);
         border(g, 20, statusY, rail - 16, statusY + statusH, EDGE);
         WaypointUiText.draw(g, font, "▱", 30, statusY + 13, MUTED, false);
-        WaypointUiText.draw(g, font, fit(font, "Your world. Your waypoints.", rail - 56), 30, statusY + 34, TEXT, false);
+        WaypointUiText.draw(g, font, fit(font, "Your world. Your waypoints.", rail - 48), 30, statusY + 34, TEXT, false);
         WaypointUiText.drawCompact(g, font, "Stored locally and ready", 30, statusY + 52, MUTED);
         WaypointUiText.drawCompact(g, font, "for your next adventure.", 30, statusY + 64, MUTED);
         g.fill(30, statusY + statusH - 18, 35, statusY + statusH - 13, GREEN);

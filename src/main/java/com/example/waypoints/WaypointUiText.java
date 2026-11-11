@@ -107,7 +107,7 @@ final class WaypointUiText {
         }
         drawText(g, shown, x, y, 0xFFF2F4F5, false, false, 8);
         if (box.isFocused() && ((System.currentTimeMillis() / 500L) & 1L) == 0L) {
-            int caretX = x + textWidth(shown.substring(0, Math.min(shownCursor, shown.length())), false, 8);
+            int caretX = x + Math.max(0, textWidth(shown.substring(0, Math.min(shownCursor, shown.length())), false, 8) - 7);
             g.fill(caretX, y - 1, caretX + 1, y + 9, 0xFFF2F4F5);
         }
     }
@@ -138,7 +138,7 @@ final class WaypointUiText {
         Graphics2D graphics = probe.createGraphics();
         graphics.setFont(awt);
         FontMetrics metrics = graphics.getFontMetrics();
-        int measured = Math.max(1, metrics.stringWidth(text) + 2);
+        int measured = Math.max(1, metrics.stringWidth(text) + 7);
         graphics.dispose();
         synchronized (WIDTHS) {
             if (WIDTHS.size() >= MAX_CACHE_ENTRIES * 2) WIDTHS.clear();
@@ -175,8 +175,8 @@ final class WaypointUiText {
         Graphics2D measure = probe.createGraphics();
         measure.setFont(logicalFont);
         FontMetrics logicalMetrics = measure.getFontMetrics();
-        int logicalWidth = Math.max(1, logicalMetrics.stringWidth(text) + 2);
-        int logicalHeight = Math.max(size + 3, logicalMetrics.getHeight() + 2);
+        int logicalWidth = Math.max(1, logicalMetrics.stringWidth(text) + 7);
+        int logicalHeight = Math.max(size + 4, logicalMetrics.getHeight() + 3);
         measure.dispose();
 
         // Match the framebuffer pixel density used by Minecraft's GUI transform.

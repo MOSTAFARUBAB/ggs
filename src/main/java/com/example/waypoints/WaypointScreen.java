@@ -74,7 +74,8 @@ public final class WaypointScreen extends Screen {
         int viewportHeight = Math.max(36, gridBottom - gridY);
         cardH = listView
                 ? Math.max(38, Math.min(66, (viewportHeight - 6 * (rows - 1)) / rows))
-                : compact ? 82 : Math.max(88, Math.min(138, (viewportHeight - 12 * (rows - 1)) / rows));
+                : compact ? Math.max(92, Math.min(116, (viewportHeight - 12 * (rows - 1)) / rows))
+                          : Math.max(88, Math.min(138, (viewportHeight - 12 * (rows - 1)) / rows));
         pageSize = listView ? 6 : cols * rows;
 
         all = new ArrayList<>(WaypointsMod.menuWaypointsAllDimensions());
@@ -330,12 +331,12 @@ public final class WaypointScreen extends Screen {
             } else {
                 WaypointUiText.draw(g, font, "···", x + cardW - 29, y + 18, WaypointUiChrome.MUTED, false);
                 int gap = 7, tileW = (cardW - 36 - gap * 2) / 3;
-                int tileY = y + (compactCard ? 43 : 58);
-                int tileH = compactCard ? 32 : 44;
+                int tileY = y + (compactCard ? 40 : 58);
+                int tileH = compactCard ? 29 : 44;
                 drawCoordinate(g, x + 16, tileY, tileW, tileH, "X", format(w.x()));
                 drawCoordinate(g, x + 16 + tileW + gap, tileY, tileW, tileH, "Y", format(w.y()));
                 drawCoordinate(g, x + 16 + (tileW + gap) * 2, tileY, tileW, tileH, "Z", format(w.z()));
-                int bottom = y + cardH - (compactCard ? 20 : 23);
+                int bottom = y + cardH - (compactCard ? 17 : 23);
                 g.fill(x + 18, bottom + 7, x + 22, bottom + 11, color);
                 WaypointUiText.drawCompact(g, font, dimension(w.dimension()), x + 29, bottom + 4, WaypointUiChrome.MUTED);
                 WaypointUiText.draw(g, font, "▢", x + cardW - 61, bottom + 3, WaypointUiChrome.MUTED, false);
@@ -387,7 +388,7 @@ public final class WaypointScreen extends Screen {
             }
             WaypointUiChrome.button(g, font, mx, my, pagerX + 138, footerY + 6, 24, 24, "›", false, false);
         }
-        String signature = WaypointUiChrome.fit(font, "WAYPOINT MANAGER  /  v1.5.3", 150);
+        String signature = WaypointUiChrome.fit(font, "WAYPOINT MANAGER  /  v1.5.4", 150);
         WaypointUiText.drawCompact(g, font, signature, right - 150, height - 39, WaypointUiChrome.QUIET);
     }
 }
