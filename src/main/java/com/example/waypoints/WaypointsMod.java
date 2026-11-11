@@ -86,7 +86,7 @@ public class WaypointsMod implements ClientModInitializer {
     /** User-selectable accent color for the custom waypoint screens (ARGB). */
     public static volatile int uiAccentColor = 0xFFB7F36B;
     /** 0 = unlimited; otherwise maximum world blocks from the player. */
-    public static volatile int maxDisplayDistance = 0;
+    public static volatile int maxDisplayDistance = 2000;
     /** 0-100; applied as beam color intensity on the vanilla beam renderer. */
     public static volatile int beamOpacity = 75;
 
@@ -316,6 +316,18 @@ public class WaypointsMod implements ClientModInitializer {
                 .filter(w -> java.util.Objects.equals(w.worldId(), worldId))
                 .filter(w -> dimensionMatches(w, mode))
                 .toList();
+    }
+
+    /** All dimensions for the reference dashboard's dimension chips. */
+    public static List<Waypoint> menuWaypointsAllDimensions() {
+        return waypointsForActiveWorld();
+    }
+
+    /** Count for the persistent sidebar badge without allocating a menu list every frame. */
+    public static int menuWaypointCountAllDimensions() {
+        String worldId = currentWorldId();
+        migrateLegacyWorldIds(worldId);
+        return (int) WAYPOINTS.stream().filter(w -> java.util.Objects.equals(w.worldId(), worldId)).count();
     }
 
     private static List<Waypoint> waypointsForDimension(String dimension) {
@@ -758,7 +770,7 @@ public class WaypointsMod implements ClientModInitializer {
             uiAccentColor = 0xFF000000 | ((int) Long.parseLong(accent, 16) & 0xFFFFFF);
             markerSizeMode = Math.max(0, Math.min(2, Integer.parseInt(p.getProperty("labelSize", "1"))));
             beamOpacity = Math.max(0, Math.min(100, Integer.parseInt(p.getProperty("beamOpacity", "75"))));
-            maxDisplayDistance = Math.max(0, Integer.parseInt(p.getProperty("maxDisplayDistance", "0")));
+            maxDisplayDistance = Math.max(0, Integer.parseInt(p.getProperty("maxDisplayDistance", "2000")));
         } catch (Exception e) {
             System.err.println("[Simple Waypoints] Could not read settings; using defaults.");
         }

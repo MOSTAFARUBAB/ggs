@@ -16,30 +16,18 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Create / edit one waypoint in the Field Atlas editor: a wide location form above
- * a color workstation, live preview, dimension scope, and expiry controls.
+ * Create / edit form matching the supplied Waypoint Manager reference: location
+ * details and visibility controls on the left, color workstation and preview on the right.
  *
  * Text inputs remain native Minecraft edit boxes; custom controls use separate
  * hit targets so vanilla button backgrounds never cover the designed interface.
  */
 public class WaypointEditScreen extends Screen {
     // ---- theme ----
-    private static final int PANEL = 0xFF131518;
-    private static final int PANEL_ALT = 0xFF0F1113;
-    private static final int CARD = 0xFF131518;
-    private static final int CARD_HOVER = 0xFF1A1D21;
-    private static final int CARD_BORDER = 0xFF292D31;
-    private static final int TEXT = 0xFFF2F4F5;
-    private static final int MUTED = 0xFFA3ABB0;
-    private static final int QUIET = 0xFF727B82;
-    private static final int CYAN = 0xFFE0E0E0;
-    private static final int CYAN_HOVER = 0xFFFFFFFF;
-    private static final int CYAN_DARK = 0xFF303030;
 
     // ---- color picker geometry ----
     // GUI-space dimensions stay compact; the backing texture is 2x resolution
     // so the gradient stays smooth on scaled/high-DPI displays.
-    private static final int PICKER_MAX_HEIGHT = 126;
     private static final int PICKER_TEXTURE_WIDTH = 1024;
     private static final int PICKER_TEXTURE_HEIGHT = 512;
     private static final Identifier PICKER_TEXTURE_ID = Identifier.fromNamespaceAndPath(
@@ -50,11 +38,8 @@ public class WaypointEditScreen extends Screen {
 
     // The hue strip is static, so generate it once and draw it as one texture.
     private static final int HUE_DISPLAY_HEIGHT = 8;
-    private static final int[] PRESET_COLORS = {0xFF70E000, 0xFF1877F2, 0xFF00C8D7, 0xFF8A2BE2,
-            0xFFE72C91, 0xFFFF8A00, 0xFFFFD21C, 0xFFFFFFFF, 0xFFFF3030};
     private static final int HUE_TEXTURE_HEIGHT = 32;
     private static final int HUE_TEXTURE_WIDTH = 1024;
-    private static final Identifier EDITOR_SCENE_TEXTURE = Identifier.fromNamespaceAndPath("simplewaypoints", "textures/gui/waypoint_preview.png");
     private static final Identifier HUE_TEXTURE_ID = Identifier.fromNamespaceAndPath(
             "simplewaypoints", "gui/waypoint_hue_strip");
     private static DynamicTexture hueTexture;
@@ -72,11 +57,6 @@ public class WaypointEditScreen extends Screen {
         }
     }
     private final List<HitTarget> hitTargets = new ArrayList<>();
-    private final List<HitTarget> scrollHitTargets = new ArrayList<>();
-    private int scrollOffset;
-    private int maxScroll;
-    private int scrollTop;
-    private int scrollBottom;
 
     private final Waypoint original; // null = creating a new one
     private final int returnPage;
@@ -118,7 +98,6 @@ public class WaypointEditScreen extends Screen {
     private int locationCardHeight;
     private int visibilityY;
     private int visibilityHeight;
-    private int colorCardHeight;
     private int actionY;
     private int breadcrumbY;
     private int railWidth;
@@ -133,30 +112,36 @@ public class WaypointEditScreen extends Screen {
 
     // Full-page editor geometry: location form on the left, color workstation on the right.
     private int formLeft() { return contentLeft + 18; }
-    private int locationOffset(int base) { return Math.round(base * 0.60f); }
-    private int nameFieldY() { return cardTop + 24; }
-    private int coordinateFieldsY() { return cardTop + 77; }
-    private int dimensionFieldY() { return cardTop + 129; }
-    private int pickerOffsetX() { return formWidth < 330 ? 90 : 112; }
-    private int pickerX() { return contentLeft + pickerOffsetX(); }
-    // The dimension selector is a layered popup; it must not reflow the fields beneath it.
-    private int menuContentShift() { return 0; }
-    private int pickerY() { return cardTop + 227 + menuContentShift(); }
-    private int pickerHeight() { return 64; }
-    private int pickerWidth() { return Math.max(70, Math.min(210, formWidth - pickerOffsetX() - 18)); }
+    private float formFactor() { return Math.max(0f, Math.min(1f, (height - 784) / 126f)); }
+    private int formOffset(int compact, int expanded) { return Math.round(compact + (expanded - compact) * formFactor()); }
+    private int nameFieldY() { return cardTop + formOffset(70, 76); }
+    private int coordinateFieldsY() { return cardTop + formOffset(156, 171); }
+    private int dimensionFieldY() { return cardTop + formOffset(243, 268); }
+    private int pickerX() { return colorX + 18; }
+    private float colorScale() {
+        return Math.max(0.90f, Math.min(1.0f, 0.90f + (height - 784) / 1260.0f));
+    }
+    private int pickerY() { return cardTop + Math.round(48 * colorScale()); }
+    private int pickerHeight() { return Math.round(125 * colorScale()); }
+    private int pickerWidth() { return Math.max(90, colorWidth - 40); }
     private int hueX() { return pickerX(); }
-    private int hueY() { return pickerY() + pickerHeight() + 2; }
-    private int hexRowY() { return cardTop + 315 + menuContentShift(); }
-    private int chromaY() { return hexRowY(); }
-    private int recentLabelY() { return chromaY() + 32; }
-    private int recentColorsY() { return recentLabelY() + 15; }
-    private int previewX() { return contentLeft + 18; }
-    private int presetX(int index) { return contentLeft + 17 + (index % 3) * 24; }
-    private int presetY(int index) { return cardTop + 227 + menuContentShift() + (index / 3) * 22; }
-    private int iconRowY() { return cardTop + 164 + menuContentShift(); }
-    private int iconButtonSize() { return Math.max(18, Math.min(34, (formWidth - 32 - 24) / 7)); }
-    private int iconButtonGap() { return Math.max(4, Math.min(8, (formWidth - 32 - iconButtonSize() * 7) / 6)); }
-    private int iconStartX() { return contentLeft + 16; }
+    private int hueY() { return pickerY() + pickerHeight() + Math.round(12 * colorScale()); }
+    private int hexRowY() { return cardTop + Math.round(207 * colorScale()); }
+    private int chromaY() { return cardTop + Math.round(254 * colorScale()); }
+    private int recentLabelY() { return cardTop + Math.round(315 * colorScale()); }
+    private int recentColorsY() { return cardTop + Math.round(334 * colorScale()); }
+    private int previewX() { return colorX; }
+    private int presetX(int index) { return colorX + 18 + index * 30; }
+    private int presetY(int index) { return recentColorsY(); }
+    private int hexInputX() { return colorX + 58; }
+    private int hexInputWidth() { return Math.max(72, colorWidth - 114); }
+    private int eyeX() { return colorX + colorWidth - 40; }
+    private int colorCardHeight() { return Math.max(340, Math.min(380, Math.round(height * 0.31746f + 91.1f))); }
+    private int previewPanelY() { return cardTop + colorCardHeight() + 42; }
+    private int previewPanelHeight() {
+        int preferred = Math.max(150, Math.min(188, Math.round(height * 0.135f + 64f)));
+        return height < 760 ? Math.min(preferred, Math.max(120, height - previewPanelY() - 50)) : preferred;
+    }
 
     public WaypointEditScreen(Waypoint original, int returnPage) {
         super(Component.literal(original == null ? "New Waypoint" : "Edit Waypoint"));
@@ -221,141 +206,82 @@ public class WaypointEditScreen extends Screen {
     protected void init() {
         clearWidgets();
         hitTargets.clear();
-        scrollHitTargets.clear();
-        railWidth = width >= 760 ? 176 : 0;
-        int leftInset = railWidth > 0 ? 24 : 18;
-        int rightInset = width >= 1120 ? 28 : 18;
-        contentLeft = railWidth > 0 ? railWidth + leftInset : leftInset;
-        contentRight = width - rightInset;
-        int available = Math.max(360, contentRight - contentLeft);
-        colorWidth = Math.max(180, Math.min(270, Math.round(available * 0.38f)));
-        formWidth = Math.max(180, available - colorWidth - 18);
-        // Keep both panels inside the window at high GUI scales and narrow resolutions.
-        if (formWidth + colorWidth + 18 > available) {
-            formWidth = Math.max(160, available - colorWidth - 18);
-        }
+        railWidth = WaypointUiChrome.railWidth(width, height);
+        int top = WaypointUiChrome.topHeight(height);
+        contentLeft = railWidth + (height >= 880 ? 32 : 29);
+        contentRight = width - 32;
+        int available = Math.max(420, contentRight - contentLeft);
+        formWidth = Math.max(300, Math.round(available * 0.64f));
         colorX = contentLeft + formWidth + 18;
-        coordinateWidth = Math.max(54, (formWidth - 52) / 3);
-
-        cardTop = Math.max(60, Math.min(78, Math.round(height * 0.14f)));
-        oy = cardTop - 10;
-        breadcrumbY = 22;
-        locationCardHeight = Math.max(300, height - cardTop - 42);
-        visibilityY = cardTop + 188;
-        visibilityHeight = Math.max(130, height - visibilityY - 55);
-        colorCardHeight = 178;
-        actionY = height - 43;
-        scrollTop = cardTop;
-        scrollBottom = height - 40;
-        maxScroll = 0;
-        scrollOffset = 0;
-
+        colorWidth = Math.max(230, contentRight - colorX);
+        if (colorX + colorWidth > contentRight) colorWidth = contentRight - colorX;
+        coordinateWidth = Math.max(70, (formWidth - 56) / 3);
+        breadcrumbY = top + 30;
+        cardTop = Math.round(height * 0.198f + 15f);
+        locationCardHeight = Math.min(342, Math.max(300, Math.round(height * 0.27f + 96f)));
+        visibilityY = cardTop + locationCardHeight + 16;
+        visibilityHeight = height < 760 ? 130 : height >= 850 ? 151 : 156;
+        actionY = visibilityY + visibilityHeight + (original == null ? (height < 760 ? 40 : 64) : 16);
         int left = formLeft();
-        int nameY = nameFieldY();
-        int coordsY = coordinateFieldsY();
-        int dimY = dimensionFieldY();
         int nameWidth = formWidth - 36;
-        int coordGap = 8;
+        int coordGap = 10;
 
-        if (railWidth > 0) {
-            int navY = 112;
-            int sideInset = 10;
-            int navWidth = railWidth - 20;
-            click(sideInset, navY, navWidth, 36,
-                    () -> Minecraft.getInstance().gui.setScreen(new WaypointScreen(returnPage < 0 ? 0 : returnPage)));
-            click(sideInset, navY + 45, navWidth, 36,
-                    () -> Minecraft.getInstance().gui.setScreen(new WaypointMapScreen()));
-            click(sideInset, navY + 90, navWidth, 36,
-                    () -> Minecraft.getInstance().gui.setScreen(new WaypointSettingsScreen()));
-            click(sideInset, navY + 135, navWidth, 36,
-                    () -> Minecraft.getInstance().gui.setScreen(new WaypointAboutScreen()));
-        }
-        click(contentLeft, breadcrumbY - 5, 38, 36, this::back);
+        int ny = WaypointUiChrome.navY(height);
+        hitTargets.add(new HitTarget(20, ny, railWidth - 40, 36,
+                () -> Minecraft.getInstance().gui.setScreen(new WaypointScreen(returnPage < 0 ? 0 : returnPage))));
+        hitTargets.add(new HitTarget(20, ny + 43, railWidth - 40, 36,
+                () -> Minecraft.getInstance().gui.setScreen(new WaypointSettingsScreen())));
+        hitTargets.add(new HitTarget(contentLeft, breadcrumbY - 4, 120, 24, this::back));
 
-        nameBox = makeBox(nameBox, left + 42, nameY + 7, nameWidth - 52, 20, initName, 32, "Waypoint name");
-        xBox = makeBox(xBox, left + 10, coordsY + 7, coordinateWidth - 20, 20, initX, 9, "X");
-        yBox = makeBox(yBox, left + coordinateWidth + coordGap + 10, coordsY + 7, coordinateWidth - 20, 20, initY, 9, "Y");
-        zBox = makeBox(zBox, left + (coordinateWidth + coordGap) * 2 + 10, coordsY + 7, coordinateWidth - 20, 20, initZ, 9, "Z");
-        clickContent(left, dimY, nameWidth, 34, this::toggleDimensionMenu);
-
-        hexBox = makeBox(hexBox, contentLeft + 22, hexRowY() + 4, 66, 20,
+        nameBox = makeBox(nameBox, left + 4, nameFieldY() + 7, nameWidth - 8, 22, initName, 32, "Waypoint name");
+        xBox = makeBox(xBox, left + 4, coordinateFieldsY() + 7, coordinateWidth - 8, 22, initX, 9, "X");
+        yBox = makeBox(yBox, left + coordinateWidth + coordGap + 4, coordinateFieldsY() + 7, coordinateWidth - 8, 22, initY, 9, "Y");
+        zBox = makeBox(zBox, left + (coordinateWidth + coordGap) * 2 + 4, coordinateFieldsY() + 7, coordinateWidth - 8, 22, initZ, 9, "Z");
+        hexBox = makeBox(hexBox, hexInputX() + 4, hexRowY() + 7, hexInputWidth() - 8, 22,
                 String.format(Locale.ROOT, "#%06X", currentRgb()), 7, "HEX");
         lastHex = hexBox.getValue();
-        updateHexBoxPosition();
 
-        // Content targets scroll with the left form; switches and footer actions stay fixed.
-        rebuildContentHitTargets();
-        int toggleX = colorX + colorWidth - 48;
-        click(toggleX - 1, cardTop + 208, 36, 24, () -> beamEnabled = !beamEnabled);
-        click(toggleX - 1, cardTop + 252, 36, 24, () -> labelEnabled = !labelEnabled);
-        click(toggleX - 1, cardTop + 296, 36, 24, () -> {
-            WaypointsMod.matchWaypointColor = !WaypointsMod.matchWaypointColor;
-            WaypointsMod.savePreferences();
-        });
+        click(left, dimensionFieldY(), nameWidth, 36, this::toggleDimensionMenu);
+        int labelToggleX = contentLeft + formWidth - 56;
+        click(labelToggleX, visibilityY + 60, 36, 22, () -> labelEnabled = !labelEnabled);
+        click(labelToggleX, visibilityY + 107, 36, 22, () -> beamEnabled = !beamEnabled);
+        click(colorX + 18, chromaY(), colorWidth - 36, 43, () -> chroma = !chroma);
+        click(eyeX(), hexRowY(), 34, 36, this::pickBlockColor);
+        for (int i = 0; i < RECENT.size(); i++) {
+            final int index = i;
+            click(presetX(i) - 2, presetY(i) - 2, 25, 25, () -> pickRecent(index));
+        }
+        int formRight = contentLeft + formWidth;
+        if (original == null) {
+            click(formRight - 118, actionY, 118, 36, this::save);
+            click(formRight - 180, actionY, 58, 36, this::back);
+        } else {
+            click(formRight - 116, actionY, 116, 36, this::save);
+            click(formRight - 236, actionY, 122, 36, this::back);
+        }
+        if (original != null) click(contentLeft + formWidth - 96, actionY + (height < 760 ? 53 : 65), 80, 31, this::deleteWaypoint);
 
         refreshPickerTexture();
         ensureHueTexture();
-
-        if (original == null) {
-            click(contentRight - 180, actionY, 62, 31, this::back);
-            click(contentRight - 118, actionY, 118, 31, this::save);
-        } else {
-            click(contentRight - 236, actionY, 112, 31, this::back);
-            click(contentRight - 116, actionY, 116, 31, this::save);
-        }
+        updateHexBoxPosition();
     }
 
     private void toggleDimensionMenu() {
         dimensionMenuOpen = !dimensionMenuOpen;
-        rebuildContentHitTargets();
         updateHexBoxPosition();
     }
 
     private void updateHexBoxPosition() {
-        maxScroll = Math.max(0, hexRowY() + 31 - scrollBottom);
-        scrollOffset = Math.max(0, Math.min(scrollOffset, maxScroll));
-        if (nameBox != null) nameBox.setY(nameFieldY() + 7 - scrollOffset);
-        if (xBox != null) xBox.setY(coordinateFieldsY() + 7 - scrollOffset);
-        if (yBox != null) yBox.setY(coordinateFieldsY() + 7 - scrollOffset);
-        if (zBox != null) zBox.setY(coordinateFieldsY() + 7 - scrollOffset);
-        if (hexBox != null) hexBox.setY(hexRowY() + 4 - scrollOffset);
-    }
-
-    /** Rebuild hit targets for the left form when the dimension popup opens or closes. */
-    private void rebuildContentHitTargets() {
-        scrollHitTargets.clear();
-        int left = formLeft();
-        int nameWidth = formWidth - 36;
-        clickContent(left, dimensionFieldY(), nameWidth, 34, this::toggleDimensionMenu);
-        for (int i = 0; i < PRESET_COLORS.length; i++) {
-            final int preset = PRESET_COLORS[i];
-            int px = presetX(i), py = presetY(i);
-            clickContent(px - 2, py - 2, 21, 21, () -> {
-                chroma = false;
-                setFromRgb(preset);
-                syncHex();
-            });
-        }
-        clickContent(pickerX(), pickerY(), pickerWidth(), pickerHeight(), () -> { });
-        clickContent(hueX(), hueY() - 2, pickerWidth(), HUE_DISPLAY_HEIGHT + 4, () -> { });
-        clickContent(contentLeft + 98, hexRowY(), 27, 27, this::pickBlockColor);
-        clickContent(contentLeft + 130, chromaY(), formWidth - 148, 28, () -> chroma = !chroma);
-        int iconStart = iconStartX();
-        int iconSize = iconButtonSize();
-        int iconStep = iconSize + iconButtonGap();
-        for (int i = 0; i < ICON_GLYPHS.length; i++) {
-            final int selected = i;
-            clickContent(iconStart + i * iconStep, iconRowY() + 17, iconSize, 29, () -> selectedIconIndex = selected);
-        }
+        if (nameBox != null) nameBox.setY(nameFieldY() + 7);
+        if (xBox != null) xBox.setY(coordinateFieldsY() + 7);
+        if (yBox != null) yBox.setY(coordinateFieldsY() + 7);
+        if (zBox != null) zBox.setY(coordinateFieldsY() + 7);
+        if (hexBox != null) hexBox.setY(hexRowY() + 7);
     }
 
     private void click(int x, int y, int w, int h, Runnable action) {
         hitTargets.add(new HitTarget(x, y, w, h, action));
     }
-    private void clickContent(int x, int y, int w, int h, Runnable action) {
-        scrollHitTargets.add(new HitTarget(x, y, w, h, action));
-    }
-
     private EditBox makeBox(EditBox old, int x, int y, int w, int h, String initial, int maxLength, String label) {
         EditBox box = new EditBox(this.font, x, y, w, h, Component.literal(label));
         box.setMaxLength(maxLength);
@@ -408,117 +334,47 @@ public class WaypointEditScreen extends Screen {
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         if (event.button() == 1 && dimensionMenuOpen) {
             int left = formLeft();
-            int optionWidth = formWidth - 36;
-            int menuY = dimensionFieldY() + 35;
-            int optionHeight = 23;
-            int contentMouseY = (int) event.y() + scrollOffset;
-            if (inside(event.x(), contentMouseY, left, menuY, optionWidth,
-                    DIM_LABELS.length * optionHeight)) {
-                int selected = Math.max(0, Math.min(DIM_LABELS.length - 1,
-                        (contentMouseY - menuY) / optionHeight));
+            int optionW = formWidth - 36;
+            int menuY = dimensionFieldY() + 37;
+            int optionH = 28;
+            if (inside(event.x(), event.y(), left, menuY, optionW, optionH * DIM_LABELS.length)) {
+                int selected = Math.max(0, Math.min(DIM_LABELS.length - 1, ((int)event.y() - menuY) / optionH));
                 dimMode = selected;
                 dimensionMenuOpen = false;
-                rebuildContentHitTargets();
-                updateHexBoxPosition();
                 return true;
             }
-            boolean clickedSelector = inside(event.x(), contentMouseY, left, dimensionFieldY(), optionWidth, 34);
             dimensionMenuOpen = false;
-            rebuildContentHitTargets();
-            updateHexBoxPosition();
-            if (clickedSelector) return true;
-            // Never pass the same click through to controls hidden under the popup.
-            // Fixed controls outside the editor pane (back/save and right-side switches) remain usable.
-            if (event.x() >= contentLeft && event.x() <= contentLeft + formWidth
-                    && event.y() >= scrollTop && event.y() <= scrollBottom) return true;
+            // Consume outside clicks while closing the popup. This prevents a click
+            // from passing through to the color controls underneath it.
+            return true;
         }
-
-        if (event.button() == 1 && event.y() >= scrollTop && event.y() <= scrollBottom
-                && event.x() >= contentLeft && event.x() <= width - 12) {
-            double mouseX = event.x();
-            double mouseY = event.y();
-
-            int gx = pickerX();
-            int gy = pickerY();
-            int pickerW = pickerWidth();
-            int pickerH = pickerHeight();
-
-            if (mouseX >= gx && mouseX < gx + pickerW
-                    && mouseY >= gy - scrollOffset && mouseY < gy + pickerH - scrollOffset) {
-                draggingSvPicker = true;
-                draggingHuePicker = false;
-                this.setDragging(true);
-                pickerPointerX = mouseX;
-                pickerPointerY = mouseY;
-                updateSvPicker(pickerPointerX, pickerPointerY + scrollOffset);
-                return true;
-            }
-
-            int hueX = hueX();
-            int hueY = hueY();
-            int hueW = pickerWidth();
-            if (mouseX >= hueX && mouseX < hueX + hueW
-                    && mouseY >= hueY - scrollOffset && mouseY < hueY + HUE_DISPLAY_HEIGHT + 4 - scrollOffset) {
-                draggingHuePicker = true;
-                draggingSvPicker = false;
-                this.setDragging(true);
-                pickerPointerX = mouseX;
-                pickerPointerY = mouseY;
-                updateHuePicker(pickerPointerX);
-                return true;
-            }
-        }
-
         if (event.button() == 1) {
-            if (event.y() >= scrollTop && event.y() <= scrollBottom
-                    && event.x() >= contentLeft && event.x() <= width - 12) {
-            for (int i = scrollHitTargets.size() - 1; i >= 0; i--) {
-                HitTarget target = scrollHitTargets.get(i);
-                if (target.contains(event.x(), event.y() + scrollOffset)) {
-                    target.action().run();
-                    return true;
-                }
+            double mx = event.x(), my = event.y();
+            if (inside(mx, my, pickerX(), pickerY(), pickerWidth(), pickerHeight())) {
+                draggingSvPicker = true; draggingHuePicker = false; setDragging(true);
+                pickerPointerX = mx; pickerPointerY = my; updateSvPicker(mx, my); return true;
             }
+            if (inside(mx, my, hueX(), hueY() - 3, pickerWidth(), HUE_DISPLAY_HEIGHT + 6)) {
+                draggingHuePicker = true; draggingSvPicker = false; setDragging(true);
+                pickerPointerX = mx; pickerPointerY = my; updateHuePicker(mx); return true;
             }
             for (int i = hitTargets.size() - 1; i >= 0; i--) {
-                HitTarget target = hitTargets.get(i);
-                if (target.contains(event.x(), event.y())) {
-                    target.action().run();
-                    return true;
-                }
+                HitTarget t = hitTargets.get(i);
+                if (t.contains(mx, my)) { t.action().run(); return true; }
             }
+            if (inside(mx, my, colorX, cardTop, colorWidth, colorCardHeight())) return true;
         }
-        if (event.button() == 1 && event.x() >= contentLeft && event.x() <= width - 12
-                && (event.y() < scrollTop || event.y() > scrollBottom)) return true;
         return super.mouseClicked(event, doubleClick);
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (mouseY < scrollTop || mouseY > scrollBottom || mouseX < contentLeft || mouseX > contentLeft + formWidth) {
-            return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-        }
-        if (dimensionMenuOpen) {
-            dimensionMenuOpen = false;
-            rebuildContentHitTargets();
-            updateHexBoxPosition();
-        }
-        int next = Math.max(0, Math.min(maxScroll, scrollOffset - (int)Math.round(scrollY * 30.0)));
-        if (next == scrollOffset) return false;
-        scrollOffset = next;
-        updateHexBoxPosition();
-        unfocusIfOutside(nameBox);
-        unfocusIfOutside(xBox);
-        unfocusIfOutside(yBox);
-        unfocusIfOutside(zBox);
-        unfocusIfOutside(hexBox);
-        return true;
+        if (dimensionMenuOpen) { dimensionMenuOpen = false; return true; }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     private void unfocusIfOutside(EditBox box) {
-        if (box != null && (box.getY() + box.getHeight() <= scrollTop || box.getY() >= scrollBottom)) {
-            box.setFocused(false);
-        }
+        // Inputs remain within the fixed reference layout; no independent scroll region is used.
     }
 
     @Override
@@ -553,7 +409,7 @@ public class WaypointEditScreen extends Screen {
         double mouseY = mc.mouseHandler.getScaledYPos(mc.getWindow());
         pickerPointerX = mouseX;
         pickerPointerY = mouseY;
-        if (draggingSvPicker) updateSvPicker(mouseX, mouseY + scrollOffset);
+        if (draggingSvPicker) updateSvPicker(mouseX, mouseY);
         else if (draggingHuePicker) updateHuePicker(mouseX);
     }
 
@@ -562,7 +418,7 @@ public class WaypointEditScreen extends Screen {
         if (draggingSvPicker || draggingHuePicker) {
             // Apply the exact release coordinate before ending the drag. The
             // picker capture itself is initiated only by a left-button press.
-            if (draggingSvPicker) updateSvPicker(event.x(), event.y() + scrollOffset);
+            if (draggingSvPicker) updateSvPicker(event.x(), event.y());
             else updateHuePicker(event.x());
             draggingSvPicker = false;
             draggingHuePicker = false;
@@ -785,176 +641,198 @@ public class WaypointEditScreen extends Screen {
         back();
     }
 
+
+    private void deleteWaypoint() {
+        if (original != null) {
+            WaypointsMod.remove(original);
+            Minecraft.getInstance().gui.setScreen(new WaypointScreen(Math.max(0, returnPage)));
+        }
+    }
+
+    private String colorName(int rgb) {
+        int[][] named = {{0xB7F36B,0},{0x59B7FF,1},{0xA98AFF,2},{0xFFB65C,3},{0x55D6B5,4},{0xF17A91,5},{0xE48BCB,6}};
+        String[] names = {"Lime","Blue","Violet","Orange","Mint","Rose","Pink"};
+        int best = 0, dist = Integer.MAX_VALUE;
+        for (int i=0;i<named.length;i++) { int v=named[i][0]; int d=Math.abs(((rgb>>16)&255)-((v>>16)&255))+Math.abs(((rgb>>8)&255)-((v>>8)&255))+Math.abs((rgb&255)-(v&255)); if(d<dist){dist=d;best=i;} }
+        return names[best];
+    }
+
     // ------------------------------------------------------------------ drawing
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
         if (draggingSvPicker || draggingHuePicker) updatePickerFromLiveMouse();
         String curHex = hexBox.getValue();
-        if (!curHex.equals(lastHex)) {
-            lastHex = curHex;
-            applyHex(curHex);
+        if (!curHex.equals(lastHex)) { lastHex = curHex; applyHex(curHex); }
+
+        WaypointUiChrome.drawFrame(g, font, width, height, mouseX, mouseY, false, "Waypoints");
+        int left = contentLeft;
+        int top = WaypointUiChrome.topHeight(height);
+        WaypointUiText.drawCompact(g, font, "‹   All waypoints   /   " + (original == null ? "New waypoint" : original.name()),
+                contentLeft, top + formOffset(31, 37), WaypointUiChrome.MUTED);
+        String heading = original == null ? "Mark somewhere new." : "Edit waypoint";
+        String subtitle = original == null ? "Save a location now. Find your way back whenever you need it."
+                : "Fine-tune the details. Keep your favorite place within reach.";
+        WaypointUiText.drawHeading(g, font, heading, contentLeft, top + formOffset(62, 72), WaypointUiChrome.TEXT);
+        WaypointUiText.draw(g, font, subtitle, contentLeft, top + formOffset(94, 107), WaypointUiChrome.MUTED, false);
+        if (original != null) {
+            WaypointUiChrome.round(g, contentRight - 104, top + 80, contentRight, top + 104, 0xFF1B2415, 6);
+            WaypointUiText.drawCompact(g, font, "•  Unsaved changes", contentRight - 96, top + 87, WaypointUiChrome.GREEN);
         }
 
-        int left = formLeft();
-        int scroll = scrollOffset;
-        int coordsY = coordinateFieldsY() - scroll;
-        int dimY = dimensionFieldY() - scroll;
-        int nameWidth = formWidth - 36;
-        int formRight = contentLeft + formWidth;
+        int l = formLeft();
+        int nameW = formWidth - 36;
+        int coordGap = 10;
+        int cw = (nameW - coordGap * 2) / 3;
+        // Location details panel.
+        WaypointUiChrome.panel(g, contentLeft, cardTop, formWidth, locationCardHeight);
+        WaypointUiText.draw(g, font, "⌖  Location details", l, cardTop + 22, WaypointUiChrome.TEXT, true);
+        WaypointUiText.drawCompact(g, font, "Waypoint name", l, cardTop + formOffset(55, 61), WaypointUiChrome.TEXT);
+        drawField(g, nameBox, l, nameFieldY(), nameW, 36);
+        WaypointUiText.drawCompact(g, font, "A memorable name for a memorable place.", l, cardTop + formOffset(112, 120), WaypointUiChrome.QUIET);
+        WaypointUiText.drawCompact(g, font, "X", l, cardTop + formOffset(140, 156), WaypointUiChrome.TEXT);
+        WaypointUiText.drawCompact(g, font, "Y", l + cw + coordGap, cardTop + formOffset(140, 156), WaypointUiChrome.TEXT);
+        WaypointUiText.drawCompact(g, font, "Z", l + (cw + coordGap) * 2, cardTop + formOffset(140, 156), WaypointUiChrome.TEXT);
+        drawField(g, xBox, l, coordinateFieldsY(), cw, 36);
+        drawField(g, yBox, l + cw + coordGap, coordinateFieldsY(), cw, 36);
+        drawField(g, zBox, l + (cw + coordGap) * 2, coordinateFieldsY(), cw, 36);
+        WaypointUiText.drawCompact(g, font, "ⓘ  Use your in-game coordinates. Press F3 to find them.", l, cardTop + formOffset(200, 220), WaypointUiChrome.QUIET);
+        WaypointUiText.drawCompact(g, font, "Dimension", l, cardTop + formOffset(230, 251), WaypointUiChrome.TEXT);
+        WaypointUiChrome.field(g, l, dimensionFieldY(), nameW, 36, dimensionMenuOpen);
+        WaypointUiText.draw(g, font, dimensionName(dimMode >= 0 ? DIM_IDS[dimMode] : keepDimension), l + 12, dimensionFieldY() + 12, WaypointUiChrome.TEXT, false);
+        WaypointUiText.draw(g, font, "⌄", l + nameW - 22, dimensionFieldY() + 11, WaypointUiChrome.MUTED, false);
+        WaypointUiText.drawCompact(g, font, "Only visible when you're in this dimension.", l, dimensionFieldY() + formOffset(40, 43), WaypointUiChrome.QUIET);
 
-        drawSidebar(g, mouseX, mouseY);
-        rounded(g, contentLeft, breadcrumbY - 5, contentLeft + 38, breadcrumbY + 31, CARD, 8);
-        border(g, contentLeft, breadcrumbY - 5, contentLeft + 38, breadcrumbY + 31, CARD_BORDER);
-        WaypointUiText.draw(g, font, "←", contentLeft + 12, breadcrumbY + 7, TEXT, true);
-        WaypointUiText.drawTitle(g, font, original == null ? "Create Waypoint" : "Edit Waypoint", contentLeft + 54, breadcrumbY + 2, TEXT);
+        // Visibility card.
+        WaypointUiChrome.panel(g, contentLeft, visibilityY, formWidth, visibilityHeight);
+        WaypointUiText.draw(g, font, "Make it visible", l, visibilityY + 21, WaypointUiChrome.TEXT, true);
+        WaypointUiText.draw(g, font, "Show waypoint label", l, visibilityY + 56, WaypointUiChrome.TEXT, false);
+        WaypointUiText.drawCompact(g, font, "Display the name and distance in your world.", l, visibilityY + 76, WaypointUiChrome.MUTED);
+        WaypointUiChrome.toggle(g, contentLeft + formWidth - 48, visibilityY + 60, labelEnabled);
+        WaypointUiText.draw(g, font, "Show beacon beam", l, visibilityY + 103, WaypointUiChrome.TEXT, false);
+        WaypointUiText.drawCompact(g, font, "A vertical beam to guide you from a distance.", l, visibilityY + 123, WaypointUiChrome.MUTED);
+        WaypointUiChrome.toggle(g, contentLeft + formWidth - 48, visibilityY + 107, beamEnabled);
 
-        // Main left panel: name, coordinates, dimension, icon family and color picker.
-        card(g, contentLeft, cardTop, formWidth, locationCardHeight);
-        g.enableScissor(contentLeft, cardTop, contentLeft + formWidth, height - 40);
-        WaypointUiText.draw(g, font, "Waypoint name", left, cardTop + 20 - scroll, TEXT, false);
-        drawPinGlyph(g, left + 4, nameFieldY() + 10 - scroll, WaypointsMod.uiAccentColor);
-        drawBox(g, nameBox, left + 32, nameFieldY() - scroll, nameWidth - 32, 34, "Waypoint name");
-        WaypointUiText.draw(g, font, "Coordinates", left, coordsY - 16, TEXT, false);
-        int cw = coordinateWidth, gap = 8;
-        WaypointUiText.draw(g, font, "X", left, coordsY - 4, WaypointsMod.uiAccentColor, true);
-        WaypointUiText.draw(g, font, "Y", left + cw + gap, coordsY - 4, WaypointsMod.uiAccentColor, true);
-        WaypointUiText.draw(g, font, "Z", left + (cw + gap) * 2, coordsY - 4, WaypointsMod.uiAccentColor, true);
-        drawBox(g, xBox, left, coordsY, cw, 34, "X");
-        drawBox(g, yBox, left + cw + gap, coordsY, cw, 34, "Y");
-        drawBox(g, zBox, left + (cw + gap) * 2, coordsY, cw, 34, "Z");
-        WaypointUiText.draw(g, font, "Dimension", left, dimY - 16, TEXT, false);
-        rounded(g, left, dimY, left + nameWidth, dimY + 34, PANEL_ALT, 6);
-        border(g, left, dimY, left + nameWidth, dimY + 34, CARD_BORDER);
-        String selectedDimension = dimMode >= 0 ? DIM_LABELS[dimMode] : dimensionName(keepDimension);
-        g.fill(left + 9, dimY + 10, left + 24, dimY + 19, 0xFF765239);
-        g.fill(left + 9, dimY + 7, left + 24, dimY + 12, 0xFF4E9A38);
-        WaypointUiText.draw(g, font, "■", left + 13, dimY + 8, 0xFFB7F36B, true);
-        WaypointUiText.draw(g, font, fitText(selectedDimension, nameWidth - 55), left + 32, dimY + 11, TEXT, false);
-        WaypointUiText.draw(g, font, "v", left + nameWidth - 18, dimY + 10, MUTED, false);
-        WaypointUiText.draw(g, font, "Icon", left, iconRowY() - scroll, TEXT, false);
-        int iconSize = iconButtonSize();
-        int iconStep = iconSize + iconButtonGap();
-        for (int i = 0; i < ICON_GLYPHS.length; i++) {
-            int bx = iconStartX() + i * iconStep;
-            int by = iconRowY() + 16 - scroll;
-            boolean selected = selectedIconIndex == i;
-            rounded(g, bx, by, bx + iconSize, by + 29, selected ? WaypointsMod.uiAccentColor : PANEL_ALT, 6);
-            border(g, bx, by, bx + iconSize, by + 29, selected ? WaypointsMod.uiAccentColor : CARD_BORDER);
-            int glyphSize = Math.max(14, iconSize - 12);
-            WaypointUiGlyphs.draw(g, font, bx + (iconSize - glyphSize) / 2, by + (29 - glyphSize) / 2,
-                    glyphSize, ICON_MARKERS[i], selected ? 0xFF101410 : TEXT);
-        }
-
-        WaypointUiText.draw(g, font, "Color", left, cardTop + 210 + menuContentShift() - scroll, TEXT, false);
-        for (int i = 0; i < PRESET_COLORS.length; i++) {
-            int px = presetX(i), py = presetY(i);
-            rrect(g, px, py, px + 17, py + 17, PRESET_COLORS[i]);
-            if (!chroma && currentRgb() == (PRESET_COLORS[i] & 0xFFFFFF)) border(g, px - 2, py - 2, px + 19, py + 19, WaypointsMod.uiAccentColor);
-        }
+        // Waypoint color workstation.
+        WaypointUiChrome.panel(g, colorX, cardTop, colorWidth, colorCardHeight());
+        WaypointUiText.draw(g, font, "Waypoint color", colorX + 18, cardTop + 22, WaypointUiChrome.TEXT, false);
+        String colorName = chroma ? "Chroma" : colorName(currentRgb());
+        g.fill(colorX + colorWidth - 64, cardTop + 25, colorX + colorWidth - 59, cardTop + 30, currentRgb() | 0xFF000000);
+        WaypointUiText.drawCompact(g, font, colorName, colorX + colorWidth - 54, cardTop + 22, WaypointUiChrome.MUTED);
         refreshPickerTexture();
-        g.blit(PICKER_TEXTURE_ID, pickerX(), pickerY() - scroll, pickerX() + pickerWidth(), pickerY() + pickerHeight() - scroll,
-                0.0f, 1.0f, 0.0f, 1.0f);
-        border(g, pickerX(), pickerY() - scroll, pickerX() + pickerWidth(), pickerY() + pickerHeight() - scroll, CARD_BORDER);
+        g.blit(PICKER_TEXTURE_ID, pickerX(), pickerY(), pickerX() + pickerWidth(), pickerY() + pickerHeight(), 0f, 1f, 0f, 1f);
+        WaypointUiChrome.border(g, pickerX(), pickerY(), pickerX() + pickerWidth(), pickerY() + pickerHeight(), WaypointUiChrome.EDGE);
         int markX = pickerX() + Math.round(sat * (pickerWidth() - 1));
-        int markY = pickerY() - scroll + Math.round((1f - val) * (pickerHeight() - 1));
+        int markY = pickerY() + Math.round((1f - val) * (pickerHeight() - 1));
         ring(g, markX, markY);
         ensureHueTexture();
-        g.blit(HUE_TEXTURE_ID, hueX(), hueY() - scroll, hueX() + pickerWidth(), hueY() + HUE_DISPLAY_HEIGHT - scroll,
-                0.0f, 1.0f, 0.0f, 1.0f);
-        int hueMarkerX = hueX() + Math.round(hue * (pickerWidth() - 1));
-        g.fill(hueMarkerX - 1, hueY() - 2 - scroll, hueMarkerX + 2, hueY() + HUE_DISPLAY_HEIGHT + 2 - scroll, 0xFFFFFFFF);
-        drawBox(g, hexBox, contentLeft + 16, hexRowY() - scroll, 76, 27, "HEX");
-        WaypointUiText.draw(g, font, "HEX", contentLeft + 22, hexRowY() + 9 - scroll, QUIET, false);
-        rounded(g, contentLeft + 98, hexRowY() - scroll, contentLeft + 125, hexRowY() + 27 - scroll, PANEL_ALT, 6);
-        border(g, contentLeft + 98, hexRowY() - scroll, contentLeft + 125, hexRowY() + 27 - scroll, CARD_BORDER);
-        drawDropper(g, contentLeft + 108, hexRowY() + 8 - scroll, TEXT);
-        rounded(g, contentLeft + 130, chromaY() - scroll, contentLeft + formWidth - 16, chromaY() + 28 - scroll,
-                chroma ? 0xFF293E1B : PANEL_ALT, 7);
-        border(g, contentLeft + 130, chromaY() - scroll, contentLeft + formWidth - 16, chromaY() + 28 - scroll, chroma ? WaypointsMod.uiAccentColor : CARD_BORDER);
-        String rainbow = "O";
-        WaypointUiText.draw(g, font, rainbow + "  Chroma", contentLeft + 145, chromaY() + 9 - scroll, chroma ? WaypointsMod.uiAccentColor : TEXT, true);
-        g.disableScissor();
+        g.blit(HUE_TEXTURE_ID, hueX(), hueY(), hueX() + pickerWidth(), hueY() + HUE_DISPLAY_HEIGHT, 0f, 1f, 0f, 1f);
+        int hueMark = hueX() + Math.round(hue * (pickerWidth() - 1));
+        g.fill(hueMark - 1, hueY() - 2, hueMark + 2, hueY() + HUE_DISPLAY_HEIGHT + 2, 0xFFFFFFFF);
 
-        // Right side: scene preview and the three switches in the supplied mockup.
-        card(g, colorX, cardTop, colorWidth, 178);
-        int previewMarker = chroma
-                ? WaypointsMod.resolveColor(new Waypoint("", 0, 0, 0, WaypointsMod.CHROMA, "", 0L, "", "W"))
-                : currentRgb();
-        if (!WaypointsMod.matchWaypointColor) previewMarker = WaypointsMod.uiAccentColor;
-        drawEditorScene(g, colorX + 8, cardTop + 8, colorWidth - 16, 162,
-                previewMarker, beamEnabled, labelEnabled);
-        int toggleTop = cardTop + 190;
-        card(g, colorX, toggleTop, colorWidth, Math.max(150, height - toggleTop - 56));
-        int[] rowY = {toggleTop + 12, toggleTop + 56, toggleTop + 100};
-        String[] rowLabels = {"Show Beacon", "Show Label", "Match Color"};
-        boolean[] rowStates = {beamEnabled, labelEnabled, WaypointsMod.matchWaypointColor};
-        String[] rowIcons = {"◉", "Aa", "●"};
-        for (int i = 0; i < rowY.length; i++) {
-            rounded(g, colorX + 8, rowY[i], colorX + colorWidth - 8, rowY[i] + 38, PANEL_ALT, 7);
-            WaypointUiText.draw(g, font, rowIcons[i], colorX + 18, rowY[i] + 12, WaypointsMod.uiAccentColor, true);
-            WaypointUiText.draw(g, font, rowLabels[i], colorX + 49, rowY[i] + 14, TEXT, false);
-            toggle(g, colorX + colorWidth - 47, rowY[i] + 10, rowStates[i]);
+        // Hex input, eye dropper and chroma mode.
+        WaypointUiChrome.round(g, colorX + 18, hexRowY(),  hexInputX() - 8, hexRowY() + 36, currentRgb() | 0xFF000000, 6);
+        WaypointUiChrome.field(g, hexInputX(), hexRowY(), hexInputWidth(), 36, hexBox.isFocused());
+        WaypointUiText.drawCompact(g, font, "HEX", hexInputX() + 10, hexRowY() + 12, WaypointUiChrome.QUIET);
+        WaypointUiChrome.round(g, eyeX(), hexRowY(), eyeX() + 28, hexRowY() + 36, WaypointUiChrome.FIELD, 6);
+        WaypointUiChrome.border(g, eyeX(), hexRowY(), eyeX() + 28, hexRowY() + 36, WaypointUiChrome.EDGE);
+        drawDropper(g, eyeX() + 8, hexRowY() + 12, WaypointUiChrome.MUTED);
+        WaypointUiChrome.round(g, colorX + 18, chromaY(), colorX + colorWidth - 18, chromaY() + 43,
+                chroma ? 0xFF222D1A : 0xFF191D20, 7);
+        WaypointUiChrome.border(g, colorX + 18, chromaY(), colorX + colorWidth - 18, chromaY() + 43,
+                chroma ? WaypointUiChrome.GREEN : WaypointUiChrome.EDGE);
+        WaypointUiText.draw(g, font, "✧", colorX + 30, chromaY() + 13, WaypointUiChrome.MUTED, false);
+        WaypointUiText.draw(g, font, "Chroma mode", colorX + 52, chromaY() + 7, WaypointUiChrome.TEXT, false);
+        WaypointUiText.drawCompact(g, font, "Cycle through the spectrum", colorX + 52, chromaY() + 23, WaypointUiChrome.MUTED);
+        WaypointUiChrome.toggle(g, colorX + colorWidth - 42, chromaY() + 13, chroma);
+        WaypointUiText.drawCompact(g, font, "Recent colors", colorX + 18, recentLabelY(), WaypointUiChrome.MUTED);
+        for (int i = 0; i < RECENT.size(); i++) {
+            int sx = presetX(i), sy = presetY(i);
+            WaypointUiChrome.round(g, sx, sy, sx + 23, sy + 23, RECENT.get(i) | 0xFF000000, 5);
+            if (!chroma && currentRgb() == (RECENT.get(i) & 0xFFFFFF)) WaypointUiChrome.border(g, sx - 2, sy - 2, sx + 25, sy + 25, 0xFFFFFFFF);
         }
 
-        if (original != null) {
-            actionButton(g, mouseX, mouseY, contentRight - 236, actionY, 112, 31, "Cancel", false, false);
-            actionButton(g, mouseX, mouseY, contentRight - 116, actionY, 116, 31, "Save Changes", true, false);
+        // In-game preview panel with the thin topographic line pattern from the reference.
+        int previewY = previewPanelY();
+        WaypointUiText.drawCompact(g, font, "IN-GAME PREVIEW", colorX, cardTop + colorCardHeight() + 22, WaypointUiChrome.QUIET);
+        drawPreview(g, colorX, previewY, colorWidth, previewPanelHeight(), currentRgb(), beamEnabled, labelEnabled);
+        WaypointUiText.drawCompact(g, font, "A clear marker, right where you need it. Your color is used for labels and", colorX, previewY + previewPanelHeight() + 14, WaypointUiChrome.QUIET);
+        WaypointUiText.drawCompact(g, font, "beacon beams.", colorX, previewY + previewPanelHeight() + 27, WaypointUiChrome.QUIET);
+
+        // Actions and destructive operation.
+        int formRight = contentLeft + formWidth;
+        if (original == null) {
+            WaypointUiChrome.button(g, font, mouseX, mouseY, formRight - 180, actionY, 58, 36, "Cancel", false, false);
+            WaypointUiChrome.button(g, font, mouseX, mouseY, formRight - 118, actionY, 118, 36, "+  Create waypoint", true, false);
         } else {
-            actionButton(g, mouseX, mouseY, contentRight - 180, actionY, 62, 31, "Cancel", false, false);
-            actionButton(g, mouseX, mouseY, contentRight - 118, actionY, 118, 31, "Create Waypoint", true, false);
+            WaypointUiChrome.button(g, font, mouseX, mouseY, formRight - 236, actionY, 122, 36, "Discard changes", false, false);
+            WaypointUiChrome.button(g, font, mouseX, mouseY, formRight - 116, actionY, 116, 36, "✓  Save changes", true, false);
         }
-        if (!error.isEmpty()) WaypointUiText.draw(g, font, error, contentLeft, actionY - 18, 0xFFFF8585, false);
+        if (original == null) {
+            WaypointUiText.drawCompact(g, font, "♧  This waypoint is saved to " + WaypointUiChrome.fit(font, WaypointUiChrome.worldName(), 90)
+                    + " and stored on this device. Your coordinates stay yours.", contentLeft + 2, visibilityY + visibilityHeight + 27, WaypointUiChrome.QUIET);
+        }
+        if (original != null) {
+            boolean compact = height < 760;
+            int dy = actionY + (compact ? 42 : 50);
+            int dh = compact ? 52 : 60;
+            int buttonY = dy + (compact ? 10 : 15);
+            WaypointUiChrome.panel(g, contentLeft, dy, formWidth, dh);
+            WaypointUiText.draw(g, font, "Delete waypoint", contentLeft + 16, dy + 10, WaypointUiChrome.RED, false);
+            WaypointUiText.drawCompact(g, font, "Permanently remove " + WaypointUiChrome.fit(font, original.name(), 150) + ". This can't be undone.",
+                    contentLeft + 16, dy + 32, WaypointUiChrome.MUTED);
+            WaypointUiChrome.button(g, font, mouseX, mouseY, contentLeft + formWidth - 96, buttonY, 80, 31, "▣  Delete", false, true);
+        }
+        if (!error.isEmpty()) WaypointUiText.drawCompact(g, font, error, contentLeft, actionY - 17, WaypointUiChrome.RED);
 
-        g.enableScissor(contentLeft, cardTop, contentLeft + formWidth, height - 40);
         super.extractRenderState(g, mouseX, mouseY, delta);
-        WaypointUiText.drawInput(g, font, nameBox, left + 44, nameFieldY() + 11 - scroll, nameWidth - 56);
-        WaypointUiText.drawInput(g, font, xBox, left + 12, coordinateFieldsY() + 11 - scroll, cw - 28);
-        WaypointUiText.drawInput(g, font, yBox, left + cw + gap + 12, coordinateFieldsY() + 11 - scroll, cw - 28);
-        WaypointUiText.drawInput(g, font, zBox, left + (cw + gap) * 2 + 12, coordinateFieldsY() + 11 - scroll, cw - 28);
-        WaypointUiText.drawInput(g, font, hexBox, contentLeft + 42, hexRowY() + 9 - scroll, 44);
+        WaypointUiText.drawInput(g, font, nameBox, l + 12, nameFieldY() + 12, nameW - 24);
+        WaypointUiText.drawInput(g, font, xBox, l + 12, coordinateFieldsY() + 12, cw - 24);
+        WaypointUiText.drawInput(g, font, yBox, l + cw + coordGap + 12, coordinateFieldsY() + 12, cw - 24);
+        WaypointUiText.drawInput(g, font, zBox, l + (cw + coordGap) * 2 + 12, coordinateFieldsY() + 12, cw - 24);
+        WaypointUiText.drawInput(g, font, hexBox, hexInputX() + 48, hexRowY() + 12, Math.max(24, hexInputWidth() - 60));
+
         if (dimensionMenuOpen) {
-            int menuY = dimensionFieldY() + 35 - scroll;
-            int optionHeight = 23;
-            // Opaque popup layer: lower controls are intentionally hidden until a dimension is selected.
-            rounded(g, left, menuY, left + nameWidth, menuY + DIM_LABELS.length * optionHeight, 0xFF070809, 7);
-            g.fill(left + 2, menuY + 2, left + nameWidth - 2,
-                    menuY + DIM_LABELS.length * optionHeight - 2, 0xFF070809);
-            border(g, left, menuY, left + nameWidth, menuY + DIM_LABELS.length * optionHeight, CARD_BORDER);
-            int hoverOption = -1;
-            int logicalMouseY = mouseY + scroll;
-            if (mouseX >= left && mouseX < left + nameWidth
-                    && logicalMouseY >= dimensionFieldY() + 35
-                    && logicalMouseY < dimensionFieldY() + 35 + DIM_LABELS.length * optionHeight) {
-                hoverOption = (logicalMouseY - (dimensionFieldY() + 35)) / optionHeight;
-            }
-            for (int i = 0; i < DIM_LABELS.length; i++) {
-                int optionY = menuY + i * optionHeight;
-                if (i == hoverOption) rounded(g, left + 3, optionY + 1, left + nameWidth - 3, optionY + optionHeight - 1, 0xFF1B2818, 5);
-                else if (i == dimMode) rounded(g, left + 3, optionY + 1, left + nameWidth - 3, optionY + optionHeight - 1, 0xFF202B1B, 5);
-                WaypointUiText.draw(g, font, DIM_LABELS[i], left + 11, optionY + 7, i == dimMode ? WaypointsMod.uiAccentColor : TEXT, false);
-                if (i == dimMode) WaypointUiText.draw(g, font, "✓", left + nameWidth - 21, optionY + 7, WaypointsMod.uiAccentColor, true);
+            int menuY = dimensionFieldY() + 37;
+            int optH = 28;
+            int optW = formWidth - 36;
+            WaypointUiChrome.round(g, l, menuY, l + optW, menuY + optH * 3, 0xFF0A0C0D, 7);
+            WaypointUiChrome.border(g, l, menuY, l + optW, menuY + optH * 3, WaypointUiChrome.EDGE);
+            for (int i = 0; i < 3; i++) {
+                if (inside(mouseX, mouseY, l, menuY + i * optH, optW, optH))
+                    WaypointUiChrome.round(g, l + 2, menuY + i * optH + 1, l + optW - 2, menuY + (i + 1) * optH - 1, 0xFF202629, 5);
+                WaypointUiText.draw(g, font, DIM_LABELS[i], l + 12, menuY + i * optH + 8,
+                        i == dimMode ? WaypointUiChrome.GREEN : WaypointUiChrome.TEXT, false);
+                if (i == dimMode) WaypointUiText.draw(g, font, "✓", l + optW - 24, menuY + i * optH + 7, WaypointUiChrome.GREEN, false);
             }
         }
-        g.disableScissor();
     }
 
-    private void drawEditorScene(GuiGraphicsExtractor g, int x, int y, int w, int h, int marker,
-                                 boolean showBeacon, boolean showLabel) {
-        g.blit(EDITOR_SCENE_TEXTURE, x, y, x + w, y + h, 0.0f, 1.0f, 0.0f, 1.0f);
-        int cx = x + w / 2;
-        if (showBeacon) {
-            // Keep the preview beacon responsive to the selected or accent color.
-            g.fill(cx - 1, y + 5, cx + 2, y + h - 12, (marker & 0x00FFFFFF) | 0xAA000000);
-        }
+    private void drawField(GuiGraphicsExtractor g, EditBox box, int x, int y, int w, int h) {
+        WaypointUiChrome.field(g, x, y, w, h, box != null && box.isFocused());
+    }
+
+    private void drawPreview(GuiGraphicsExtractor g, int x, int y, int w, int h, int color, boolean showBeacon, boolean showLabel) {
+        WaypointUiChrome.panel(g, x, y, w, h);
+        g.enableScissor(x + 1, y + 1, x + w - 1, y + h - 1);
+        WaypointUiChrome.drawContour(g, x + 1, y + 1, w - 2, h - 2, false);
+        int cx = x + w / 2, markerY = y + h / 2 - 14;
+        if (showBeacon) g.fill(cx, y + 1, cx + 1, markerY, color | 0xFF000000);
+        WaypointUiChrome.round(g, cx - 17, markerY - 15, cx + 17, markerY + 19, 0xFF121716, 9);
+        WaypointUiChrome.border(g, cx - 17, markerY - 15, cx + 17, markerY + 19, color | 0xFF000000);
+        WaypointUiText.draw(g, font, "⌖", cx - 6, markerY - 5, color | 0xFF000000, false);
         if (showLabel) {
-            String waypointName = nameBox == null || nameBox.getValue().isBlank() ? "Home" : nameBox.getValue();
-            String previewLabel = fitText(waypointName, Math.max(44, Math.min(100, w - 70)));
-            int labelWidth = Math.min(w - 12, Math.max(72, WaypointUiText.width(font, previewLabel) + 14));
-            int labelLeft = Math.max(x + 6, Math.min(x + w - labelWidth - 6, cx - labelWidth / 2));
-            rounded(g, labelLeft, y + 18, labelLeft + labelWidth, y + 46, 0xE8090C0A, 7);
-            WaypointUiText.draw(g, font, previewLabel, labelLeft + 7, y + 27, 0xFFFFFFFF, true);
+            WaypointUiChrome.round(g, cx - 61, markerY + 25, cx + 61, markerY + 66, 0xF0080A0B, 6);
+            String label = WaypointUiChrome.fit(font, nameBox.getValue(), 104);
+            WaypointUiText.draw(g, font, label, cx - WaypointUiText.width(font, label) / 2, markerY + 35, color | 0xFF000000, false);
+            int px = parseCoordinate(xBox, 0), py = parseCoordinate(yBox, 0), pz = parseCoordinate(zBox, 0);
+            Minecraft mc = Minecraft.getInstance();
+            long blocks = mc.player == null ? 0L : Math.round(Math.sqrt(
+                    Math.pow(mc.player.getX() - (px + 0.5), 2) + Math.pow(mc.player.getY() - py, 2)
+                            + Math.pow(mc.player.getZ() - (pz + 0.5), 2)));
+            String xyz = px + ", " + py + ", " + pz + " · " + blocks + "m";
+            WaypointUiText.drawCompact(g, font, xyz, cx - WaypointUiText.compactWidth(font, xyz) / 2, markerY + 51, WaypointUiChrome.MUTED);
         }
-        border(g, x, y, x + w, y + h, CARD_BORDER);
+        g.disableScissor();
     }
 
     private void drawDropper(GuiGraphicsExtractor g, int x, int y, int color) {
@@ -966,13 +844,6 @@ public class WaypointEditScreen extends Screen {
         g.fill(x - 1, y + 9, x + 1, y + 11, color);
     }
 
-    private String fitText(String value, int maxWidth) {
-        if (value == null) return "";
-        String result = value;
-        while (!result.isEmpty() && WaypointUiText.width(font, result) > maxWidth) result = result.substring(0, result.length() - 1);
-        return result.equals(value) ? result : result + "...";
-    }
-
     private String dimensionName(String raw) {
         String dimension = WaypointsMod.normalizeDimension(raw);
         if (dimension.endsWith(":the_nether")) return "Nether";
@@ -981,178 +852,9 @@ public class WaypointEditScreen extends Screen {
         return "Current dimension";
     }
 
-    private void drawSidebar(GuiGraphicsExtractor g, int mx, int my) {
-        if (railWidth <= 0) return;
-        g.fill(0, 0, railWidth, height, 0xFF101113);
-        g.fill(railWidth - 1, 0, railWidth, height, CARD_BORDER);
-        int sideInset = 10;
-        drawBrandMark(g, sideInset + 8, 20);
-        WaypointUiText.draw(g, font, "Simple", sideInset + 51, 22, TEXT, true);
-        WaypointUiText.draw(g, font, "Waypoints", sideInset + 51, 36, TEXT, true);
-        int navWidth = railWidth - 20;
-        nav(g, mx, my, sideInset, 112, navWidth, "", "Waypoints", true);
-        nav(g, mx, my, sideInset, 157, navWidth, "", "Map", false);
-        nav(g, mx, my, sideInset, 202, navWidth, "", "Settings", false);
-        nav(g, mx, my, sideInset, 247, navWidth, "", "About", false);
-        int base = height - 72;
-        g.fill(14, base - 25, 42, base - 7, 0xFF79502E);
-        g.fill(14, base - 28, 42, base - 22, 0xFF4F9C35);
-        g.fill(18, base - 26, 24, base - 24, 0xFF82C94B);
-        WaypointUiText.draw(g, font, "v1.4.11", 54, base - 3, WaypointsMod.uiAccentColor, true);
-    }
-
-    private void drawBrandMark(GuiGraphicsExtractor g, int x, int y) {
-        // Smooth, compact lime location pin with a dark circular center.
-        rounded(g, x + 7, y, x + 28, y + 27, WaypointsMod.uiAccentColor, 11);
-        g.fill(x + 9, y + 20, x + 26, y + 30, WaypointsMod.uiAccentColor);
-        g.fill(x + 12, y + 28, x + 23, y + 36, WaypointsMod.uiAccentColor);
-        g.fill(x + 16, y + 34, x + 20, y + 42, WaypointsMod.uiAccentColor);
-        rounded(g, x + 13, y + 6, x + 23, y + 17, 0xFF101113, 6);
-    }
-
-    private void drawPixelLine(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2, int color) {
-        int dx = Math.abs(x2 - x1), sx = x1 < x2 ? 1 : -1;
-        int dy = -Math.abs(y2 - y1), sy = y1 < y2 ? 1 : -1;
-        int err = dx + dy, x = x1, y = y1;
-        while (true) { g.fill(x, y, x + 1, y + 1, color); if (x == x2 && y == y2) break; int e2 = 2 * err; if (e2 >= dy) { err += dy; x += sx; } if (e2 <= dx) { err += dx; y += sy; } }
-    }
-
-    private void drawSlidersGlyph(GuiGraphicsExtractor g, int x, int y, int color) {
-        g.fill(x, y + 2, x + 13, y + 3, color); g.fill(x, y + 7, x + 13, y + 8, color); g.fill(x, y + 12, x + 13, y + 13, color);
-        g.fill(x + 3, y, x + 6, y + 5, color); g.fill(x + 8, y + 5, x + 11, y + 10, color);
-    }
-
-    private void drawCubeGlyph(GuiGraphicsExtractor g, int x, int y, int color) {
-        drawPixelLine(g, x + 5, y, x + 10, y + 3, color); drawPixelLine(g, x + 10, y + 3, x + 5, y + 6, color);
-        drawPixelLine(g, x + 5, y + 6, x, y + 3, color); drawPixelLine(g, x, y + 3, x + 5, y, color);
-        g.fill(x + 5, y + 1, x + 6, y + 6, color); drawPixelLine(g, x, y + 3, x, y + 8, color);
-        drawPixelLine(g, x + 5, y + 6, x + 5, y + 10, color); drawPixelLine(g, x + 10, y + 3, x + 10, y + 8, color);
-        drawPixelLine(g, x, y + 8, x + 5, y + 10, color); drawPixelLine(g, x + 5, y + 10, x + 10, y + 8, color);
-    }
-
-    private void drawPinGlyph(GuiGraphicsExtractor g, int x, int y, int color) {
-        g.fill(x + 4, y, x + 8, y + 2, color);
-        g.fill(x + 2, y + 2, x + 10, y + 6, color);
-        g.fill(x + 3, y + 6, x + 9, y + 9, color);
-        g.fill(x + 5, y + 9, x + 7, y + 12, color);
-        g.fill(x + 4, y + 3, x + 8, y + 6, CARD);
-    }
-
-    private void nav(GuiGraphicsExtractor g, int mx, int my, int x, int y, int w, String icon, String label, boolean active) {
-        if (active || inside(mx, my, x, y, w, 36)) rrect(g, x, y, x + w, y + 36, active ? WaypointsMod.uiAccentColor : CARD);
-        int tint = active ? 0xFF101410 : MUTED;
-        if ("Waypoints".equals(label) || label.isEmpty()) drawPinGlyph(g, x + 11, y + 12, tint);
-        else if ("Map".equals(label)) drawCubeGlyph(g, x + 10, y + 12, tint);
-        else if ("Settings".equals(label)) drawSlidersGlyph(g, x + 10, y + 12, tint);
-        else { rrect(g, x + 10, y + 11, x + 24, y + 25, tint); WaypointUiText.draw(g, font, "i", x + 15, y + 13, 0xFF101113, true); }
-        if (!label.isEmpty()) WaypointUiText.draw(g, font, label, x + 34, y + 12, active ? 0xFF101410 : MUTED, active);
-    }
-
-    private void card(GuiGraphicsExtractor g, int x, int y, int w, int h) {
-        rrect(g, x, y, x + w, y + h, CARD);
-        g.fill(x, y, x + w, y + 1, CARD_BORDER); g.fill(x, y + h - 1, x + w, y + h, CARD_BORDER);
-        g.fill(x, y, x + 1, y + h, CARD_BORDER); g.fill(x + w - 1, y, x + w, y + h, CARD_BORDER);
-    }
-
-    private void settingLine(GuiGraphicsExtractor g, int mx, int x, int y, int w,
-                             String title, String description, boolean enabled) {
-        WaypointUiText.draw(g, font, title, x, y, TEXT, false);
-        WaypointUiText.draw(g, font, description, x, y + 12, MUTED, false);
-        toggle(g, x + w - 26, y + 1, enabled);
-    }
-
-    private void toggle(GuiGraphicsExtractor g, int x, int y, boolean enabled) {
-        rrect(g, x, y, x + 26, y + 15, enabled ? 0xFF45652A : 0xFF3B4247);
-        rrect(g, enabled ? x + 13 : x + 2, y + 2, enabled ? x + 24 : x + 13, y + 13,
-                enabled ? WaypointsMod.uiAccentColor : 0xFF9BA4A8);
-    }
-
-    private void actionButton(GuiGraphicsExtractor g, int mx, int my, int x, int y, int w, int h,
-                              String label, boolean primary, boolean danger) {
-        boolean hover = inside(mx, my, x, y, w, h);
-        int fill = primary ? (hover ? 0xFFBDE39A : WaypointsMod.uiAccentColor)
-                : danger ? (hover ? 0xFF4D2225 : 0xFF281719)
-                : (hover ? 0xFF242B2F : CARD);
-        rrect(g, x, y, x + w, y + h, fill);
-        if (!primary) {
-            g.fill(x, y, x + w, y + 1, danger ? 0xFF85464A : CARD_BORDER);
-            g.fill(x, y + h - 1, x + w, y + h, danger ? 0xFF85464A : CARD_BORDER);
-        }
-        int color = primary ? 0xFF101410 : danger ? 0xFFFF8C92 : TEXT;
-        WaypointUiText.draw(g, font, label, x + (w - WaypointUiText.width(font, label)) / 2, y + (h - WaypointUiText.LINE_HEIGHT) / 2, color, false);
-    }
-
     private int parseCoordinate(EditBox box, int fallback) {
         try { return Integer.parseInt(box.getValue().trim()); }
         catch (NumberFormatException ignored) { return fallback; }
-    }
-
-    private String fitPreview(String value, int max) {
-        if (value == null) return "Waypoint";
-        String s = value;
-        while (!s.isEmpty() && WaypointUiText.width(font, s) > max) s = s.substring(0, s.length() - 1);
-        return s.isEmpty() ? "Waypoint" : s.equals(value) ? s : s + "...";
-    }
-
-    private String worldTitle() {
-        Minecraft mc = Minecraft.getInstance();
-        try {
-            if (mc.getCurrentServer() != null) return mc.getCurrentServer().name;
-            if (mc.getSingleplayerServer() != null) return mc.getSingleplayerServer().getWorldData().getLevelName();
-        } catch (Throwable ignored) { }
-        return "Current World";
-    }
-
-    private void drawBox(GuiGraphicsExtractor g, EditBox box, int x, int y, int w, int h, String placeholder) {
-        boolean focused = box.isFocused();
-        rrect(g, x, y, x + w, y + h, focused ? 0xFF536044 : CARD_BORDER);
-        rrect(g, x + 1, y + 1, x + w - 1, y + h - 1, 0xFF08090A);
-    }
-
-    private static void border(GuiGraphicsExtractor g, int x, int y, int x2, int y2, int color) {
-        g.fill(x, y, x2, y + 1, color);
-        g.fill(x, y2 - 1, x2, y2, color);
-        g.fill(x, y, x + 1, y2, color);
-        g.fill(x2 - 1, y, x2, y2, color);
-    }
-
-    private static void rounded(GuiGraphicsExtractor g, int x, int y, int x2, int y2, int color, int radius) {
-        int w = x2 - x;
-        int h = y2 - y;
-        if (w <= 0 || h <= 0) return;
-        int r = Math.min(WaypointsMod.smoothUiEdges ? Math.max(radius, 8) : Math.min(radius, 3), Math.min(w / 2, h / 2));
-        g.fill(x + r, y, x2 - r, y2, color);
-        g.fill(x, y + r, x2, y2 - r, color);
-        for (int row = 0; row < r; row++) {
-            int inset = (int) Math.ceil(r - Math.sqrt(Math.max(0.0, r * r - Math.pow(r - row - 0.5, 2))));
-            g.fill(x + inset, y + row, x2 - inset, y + row + 1, color);
-            g.fill(x + inset, y2 - row - 1, x2 - inset, y2 - row, color);
-        }
-    }
-
-    /** Efficient rounded rectangle: draw the body once and rasterize only the corner rows. */
-    private static void rrect(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2, int color) {
-        int width = x2 - x1;
-        int height = y2 - y1;
-        if (width <= 0 || height <= 0) return;
-
-        int radius = Math.min(WaypointsMod.smoothUiEdges ? 8 : 3, Math.min(width / 2, height / 2));
-        if (radius <= 0) {
-            g.fill(x1, y1, x2, y2, color);
-            return;
-        }
-
-        // Central body: two rectangles instead of one draw call per vertical pixel.
-        g.fill(x1 + radius, y1, x2 - radius, y2, color);
-        g.fill(x1, y1 + radius, x2, y2 - radius, color);
-
-        // Only the rounded top and bottom corner rows need separate fills.
-        for (int row = 0; row < radius; row++) {
-            double dy = radius - row - 0.5;
-            int inset = (int) Math.ceil(radius - Math.sqrt(Math.max(0.0, radius * radius - dy * dy)));
-            g.fill(x1 + inset, y1 + row, x2 - inset, y1 + row + 1, color);
-            g.fill(x1 + inset, y2 - row - 1, x2 - inset, y2 - row, color);
-        }
     }
 
     /** Small white ring used as the picker marker. */

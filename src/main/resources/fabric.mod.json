@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "id": "simplewaypoints",
   "version": "${version}",
-  "name": "Simple Waypoints",
-  "description": "Neon waypoint dashboard, waypoint editor with HSV color picker and Chroma mode, waypoint map overview, settings, labels, and beacon beams.",
+  "name": "Waypoint Manager",
+  "description": "A waypoint manager with a compact world dashboard, location editor, HSV color picker with Chroma mode, local display preferences, waypoint labels, and beacon beams.",
   "authors": [
     "You"
   ],

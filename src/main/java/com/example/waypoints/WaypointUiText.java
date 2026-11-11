@@ -79,6 +79,14 @@ final class WaypointUiText {
         drawText(g, text, x, y, color, false, true, 18);
     }
 
+    static void drawHeading(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
+        drawText(g, text, x, y, color, false, true, 22);
+    }
+
+    static void drawSubheading(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
+        drawText(g, text, x, y, color, false, true, 15);
+    }
+
     /** The native EditBox owns keyboard input; its value is painted with the same smooth renderer. */
     static void drawInput(GuiGraphicsExtractor g, Font font, EditBox box, int x, int y, int maxWidth) {
         if (box == null || maxWidth <= 0) return;
