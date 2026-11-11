@@ -1,4 +1,4 @@
-# Waypoint Manager 1.5.2
+# Waypoint Manager 1.5.3
 
 A client-side Fabric waypoint manager for Minecraft 26.3. The in-game screens use the supplied Waypoint Manager reference: a compact graphite workspace with a slim sidebar, world breadcrumb, quiet lime accents, dense waypoint cards, a two-column create/edit form, and focused settings panels.
 
@@ -55,3 +55,6 @@ The installable mod JAR is produced in `build/libs/`.
 - Mouse-wheel scrolling now works across the main workspace, not only when the pointer is directly over a waypoint card.
 - Editor and Settings wheel scrolling now work across the workspace while keeping the sidebar and pinned preview controls stable.
 - Adjusted editor card position and panel heights to prevent the title from colliding with the form.
+
+## Version 1.5.3 build fix
+- Removed a duplicate `@Override` annotation on the waypoint editor scroll handler. This fixes the Java compiler error reported by the 1.5.2 build.

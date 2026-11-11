@@ -387,7 +387,7 @@ public final class WaypointScreen extends Screen {
             }
             WaypointUiChrome.button(g, font, mx, my, pagerX + 138, footerY + 6, 24, 24, "›", false, false);
         }
-        String signature = WaypointUiChrome.fit(font, "WAYPOINT MANAGER  /  v1.5.2", 150);
+        String signature = WaypointUiChrome.fit(font, "WAYPOINT MANAGER  /  v1.5.3", 150);
         WaypointUiText.drawCompact(g, font, signature, right - 150, height - 39, WaypointUiChrome.QUIET);
     }
 }

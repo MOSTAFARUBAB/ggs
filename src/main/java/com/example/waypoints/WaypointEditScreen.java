@@ -391,7 +391,7 @@ public class WaypointEditScreen extends Screen {
     }
 
     @Override
-    @Override public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (dimensionMenuOpen) { dimensionMenuOpen = false; return true; }
         int viewTop = WaypointUiChrome.topHeight(height) + 52;
         int viewBottom = height - 24;
