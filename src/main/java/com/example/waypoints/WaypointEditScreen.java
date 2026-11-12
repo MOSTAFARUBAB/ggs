@@ -114,7 +114,7 @@ public class WaypointEditScreen extends Screen {
     // Full-page editor geometry: location form on the left, color workstation on the right.
     private int formLeft() { return contentLeft + 18; }
     /** Scale the form as one unit on short GUI viewports; Minecraft's global GUI scale is left untouched. */
-    private float layoutScale() { return Math.max(0.72f, Math.min(1.0f, height / 720.0f)); }
+    private float layoutScale() { return Math.max(0.70f, Math.min(0.96f, (height / 720.0f) * 0.96f)); }
     private int ui(int value) { return Math.max(1, Math.round(value * layoutScale())); }
     private float formFactor() { return Math.max(0f, Math.min(1f, (height - 784) / 126f)); }
     private int formOffset(int compact, int expanded) { return ui(Math.round(compact + (expanded - compact) * formFactor())); }
@@ -243,9 +243,9 @@ public class WaypointEditScreen extends Screen {
         int coordGap = 10;
 
         int ny = WaypointUiChrome.navY(height);
-        hitTargets.add(new HitTarget(20, ny, railWidth - 40, 36,
+        hitTargets.add(new HitTarget(WaypointUiChrome.ui(18), ny, railWidth - WaypointUiChrome.ui(36), WaypointUiChrome.ui(34),
                 () -> Minecraft.getInstance().gui.setScreen(new WaypointScreen(returnPage < 0 ? 0 : returnPage))));
-        hitTargets.add(new HitTarget(20, ny + 43, railWidth - 40, 36,
+        hitTargets.add(new HitTarget(WaypointUiChrome.ui(18), ny + WaypointUiChrome.ui(41), railWidth - WaypointUiChrome.ui(36), WaypointUiChrome.ui(34),
                 () -> Minecraft.getInstance().gui.setScreen(new WaypointSettingsScreen())));
         hitTargets.add(new HitTarget(contentLeft, breadcrumbY - 4, 120, 24, this::back));
 
@@ -713,16 +713,17 @@ public class WaypointEditScreen extends Screen {
         WaypointUiChrome.drawFrame(g, font, width, height, mouseX, mouseY, false, "Waypoints");
         int left = contentLeft;
         int top = WaypointUiChrome.topHeight(height);
-        WaypointUiText.drawCompact(g, font, "‹   All waypoints   /   " + (original == null ? "New waypoint" : original.name()),
+        String breadcrumb = "‹   All waypoints   /   " + (original == null ? "New waypoint" : original.name());
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, breadcrumb, contentRight - contentLeft),
                 contentLeft, top + formOffset(31, 37), WaypointUiChrome.MUTED);
         String heading = original == null ? "Mark somewhere new." : "Edit waypoint";
         String subtitle = original == null ? "Save a location now. Find your way back whenever you need it."
                 : "Fine-tune the details. Keep your favorite place within reach.";
-        WaypointUiText.drawHeading(g, font, heading, contentLeft, top + formOffset(62, 72), WaypointUiChrome.TEXT);
-        WaypointUiText.draw(g, font, subtitle, contentLeft, top + formOffset(94, 107), WaypointUiChrome.MUTED, false);
+        WaypointUiText.drawHeading(g, font, WaypointUiChrome.fitHeading(font, heading, contentRight - contentLeft - ui(150)), contentLeft, top + formOffset(62, 72), WaypointUiChrome.TEXT);
+        WaypointUiText.draw(g, font, WaypointUiChrome.fit(font, subtitle, contentRight - contentLeft - ui(12)), contentLeft, top + formOffset(94, 107), WaypointUiChrome.MUTED, false);
         if (original != null) {
             WaypointUiChrome.round(g, contentRight - 104, top + 80, contentRight, top + 104, 0xFF1B2415, 6);
-            WaypointUiText.drawCompact(g, font, "•  Unsaved changes", contentRight - 96, top + 87, WaypointUiChrome.GREEN);
+            WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "•  Unsaved changes", ui(94)), contentRight - ui(98), top + ui(87), WaypointUiChrome.GREEN);
         }
 
         int viewTop = contentViewTop();
@@ -737,30 +738,30 @@ public class WaypointEditScreen extends Screen {
         WaypointUiText.draw(g, font, "⌖  Location details", l, cardTop + ui(22), WaypointUiChrome.TEXT, true);
         WaypointUiText.drawCompact(g, font, "Waypoint name", l, cardTop + formOffset(55, 61), WaypointUiChrome.TEXT);
         drawField(g, nameBox, l, nameFieldY(), nameW, ui(36));
-        WaypointUiText.drawCompact(g, font, "A memorable name for a memorable place.", l, cardTop + formOffset(112, 120), WaypointUiChrome.QUIET);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "A memorable name for a memorable place.", nameW), l, cardTop + formOffset(112, 120), WaypointUiChrome.QUIET);
         WaypointUiText.drawCompact(g, font, "X", l, cardTop + formOffset(140, 156), WaypointUiChrome.TEXT);
         WaypointUiText.drawCompact(g, font, "Y", l + cw + coordGap, cardTop + formOffset(140, 156), WaypointUiChrome.TEXT);
         WaypointUiText.drawCompact(g, font, "Z", l + (cw + coordGap) * 2, cardTop + formOffset(140, 156), WaypointUiChrome.TEXT);
         drawField(g, xBox, l, coordinateFieldsY(), cw, ui(36));
         drawField(g, yBox, l + cw + coordGap, coordinateFieldsY(), cw, ui(36));
         drawField(g, zBox, l + (cw + coordGap) * 2, coordinateFieldsY(), cw, ui(36));
-        WaypointUiText.drawCompact(g, font, "ⓘ  Use your in-game coordinates. Press F3 to find them.", l, cardTop + formOffset(200, 220), WaypointUiChrome.QUIET);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "ⓘ  Use your in-game coordinates. Press F3 to find them.", nameW), l, cardTop + formOffset(200, 220), WaypointUiChrome.QUIET);
         WaypointUiText.drawCompact(g, font, "Dimension", l, cardTop + formOffset(230, 251), WaypointUiChrome.TEXT);
         WaypointUiChrome.field(g, l, dimensionFieldY(), nameW, ui(36), dimensionMenuOpen);
         WaypointUiChrome.round(g, l + ui(12), dimensionFieldY() + ui(14), l + ui(19), dimensionFieldY() + ui(21),
                 dimensionIndicatorColor(dimMode), ui(4));
-        WaypointUiText.draw(g, font, dimensionName(dimMode >= 0 ? DIM_IDS[dimMode] : keepDimension), l + ui(27), dimensionFieldY() + ui(12), WaypointUiChrome.TEXT, false);
+        WaypointUiText.draw(g, font, WaypointUiChrome.fit(font, dimensionName(dimMode >= 0 ? DIM_IDS[dimMode] : keepDimension), nameW - ui(70)), l + ui(27), dimensionFieldY() + ui(12), WaypointUiChrome.TEXT, false);
         WaypointUiText.draw(g, font, "⌄", l + nameW - ui(22), dimensionFieldY() + ui(11), WaypointUiChrome.MUTED, false);
-        WaypointUiText.drawCompact(g, font, "Only visible when you're in this dimension.", l, dimensionFieldY() + formOffset(40, 43), WaypointUiChrome.QUIET);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "Only visible when you're in this dimension.", nameW), l, dimensionFieldY() + formOffset(40, 43), WaypointUiChrome.QUIET);
 
         // Visibility card.
         WaypointUiChrome.panel(g, contentLeft, visibilityY, formWidth, visibilityHeight);
         WaypointUiText.draw(g, font, "Make it visible", l, visibilityY + ui(21), WaypointUiChrome.TEXT, true);
-        WaypointUiText.draw(g, font, "Show waypoint label", l, visibilityY + ui(56), WaypointUiChrome.TEXT, false);
-        WaypointUiText.drawCompact(g, font, "Display the name and distance in your world.", l, visibilityY + ui(76), WaypointUiChrome.MUTED);
+        WaypointUiText.draw(g, font, WaypointUiChrome.fit(font, "Show waypoint label", formWidth - ui(100)), l, visibilityY + ui(56), WaypointUiChrome.TEXT, false);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "Display the name and distance in your world.", formWidth - ui(94)), l, visibilityY + ui(76), WaypointUiChrome.MUTED);
         drawScaledToggle(g, contentLeft + formWidth - ui(44), visibilityY + ui(60), labelEnabled);
-        WaypointUiText.draw(g, font, "Show beacon beam", l, visibilityY + ui(103), WaypointUiChrome.TEXT, false);
-        WaypointUiText.drawCompact(g, font, "A vertical beam to guide you from a distance.", l, visibilityY + ui(123), WaypointUiChrome.MUTED);
+        WaypointUiText.draw(g, font, WaypointUiChrome.fit(font, "Show beacon beam", formWidth - ui(100)), l, visibilityY + ui(103), WaypointUiChrome.TEXT, false);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "A vertical beam to guide you from a distance.", formWidth - ui(94)), l, visibilityY + ui(123), WaypointUiChrome.MUTED);
         drawScaledToggle(g, contentLeft + formWidth - ui(44), visibilityY + ui(107), beamEnabled);
 
         // Waypoint color workstation.
@@ -768,7 +769,7 @@ public class WaypointEditScreen extends Screen {
         WaypointUiText.draw(g, font, "Waypoint color", colorX + ui(18), cardTop + ui(22), WaypointUiChrome.TEXT, false);
         String colorName = chroma ? "Chroma" : colorName(currentRgb());
         g.fill(colorX + colorWidth - ui(64), cardTop + ui(25), colorX + colorWidth - ui(59), cardTop + ui(30), currentRgb() | 0xFF000000);
-        WaypointUiText.drawCompact(g, font, colorName, colorX + colorWidth - ui(54), cardTop + ui(22), WaypointUiChrome.MUTED);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, colorName, ui(48)), colorX + colorWidth - ui(54), cardTop + ui(22), WaypointUiChrome.MUTED);
         refreshPickerTexture();
         g.blit(PICKER_TEXTURE_ID, pickerX(), pickerY(), pickerX() + pickerWidth(), pickerY() + pickerHeight(), 0f, 1f, 0f, 1f);
         WaypointUiChrome.border(g, pickerX(), pickerY(), pickerX() + pickerWidth(), pickerY() + pickerHeight(), WaypointUiChrome.EDGE);
@@ -793,7 +794,7 @@ public class WaypointEditScreen extends Screen {
                 chroma ? WaypointUiChrome.GREEN : WaypointUiChrome.EDGE);
         WaypointUiText.draw(g, font, "✧", colorX + ui(30), chromaY() + ui(13), WaypointUiChrome.MUTED, false);
         WaypointUiText.draw(g, font, "Chroma mode", colorX + ui(52), chromaY() + ui(7), WaypointUiChrome.TEXT, false);
-        WaypointUiText.drawCompact(g, font, "Cycle through the spectrum", colorX + ui(52), chromaY() + ui(23), WaypointUiChrome.MUTED);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "Cycle through the spectrum", colorWidth - ui(116)), colorX + ui(52), chromaY() + ui(23), WaypointUiChrome.MUTED);
         drawScaledToggle(g, colorX + colorWidth - ui(42), chromaY() + ui(13), chroma);
         WaypointUiText.drawCompact(g, font, "Recent colors", colorX + ui(18), recentLabelY(), WaypointUiChrome.MUTED);
         for (int i = 0; i < RECENT.size(); i++) {
@@ -807,7 +808,7 @@ public class WaypointEditScreen extends Screen {
         WaypointUiText.drawCompact(g, font, "IN-GAME PREVIEW", colorX, cardTop + colorCardHeight() + ui(12), WaypointUiChrome.QUIET);
         drawPreview(g, colorX, previewY, colorWidth, previewPanelHeight(), currentRgb(), beamEnabled, labelEnabled);
         if (height >= 650) {
-            WaypointUiText.drawCompact(g, font, "A clear marker, right where you need it.", colorX, previewY + previewPanelHeight() + ui(10), WaypointUiChrome.QUIET);
+            WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "A clear marker, right where you need it.", colorWidth), colorX, previewY + previewPanelHeight() + ui(10), WaypointUiChrome.QUIET);
         }
 
         // Actions and destructive operation.
@@ -820,8 +821,10 @@ public class WaypointEditScreen extends Screen {
             WaypointUiChrome.button(g, font, mouseX, mouseY, formRight - 116, actionY, 116, ui(36), "✓  Save changes", true, false);
         }
         if (original == null) {
-            WaypointUiText.drawCompact(g, font, "♧  This waypoint is saved to " + WaypointUiChrome.fit(font, WaypointUiChrome.worldName(), 90)
-                    + " and stored on this device. Your coordinates stay yours.", contentLeft + 2, visibilityY + visibilityHeight + ui(12), WaypointUiChrome.QUIET);
+            String savedNote = "♧  This waypoint is saved to " + WaypointUiChrome.worldName()
+                    + " and stored on this device. Your coordinates stay yours.";
+            WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, savedNote, formWidth - ui(8)),
+                    contentLeft + 2, visibilityY + visibilityHeight + ui(12), WaypointUiChrome.QUIET);
         }
         if (original != null) {
             int dy = actionY + ui(48);
@@ -829,11 +832,12 @@ public class WaypointEditScreen extends Screen {
             int buttonY = dy + ui(10);
             WaypointUiChrome.panel(g, contentLeft, dy, formWidth, dh);
             WaypointUiText.draw(g, font, "Delete waypoint", contentLeft + ui(16), dy + ui(10), WaypointUiChrome.RED, false);
-            WaypointUiText.drawCompact(g, font, "Permanently remove " + WaypointUiChrome.fit(font, original.name(), 150) + ". This can't be undone.",
+            String deleteNote = "Permanently remove " + original.name() + ". This can't be undone.";
+            WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, deleteNote, formWidth - ui(132)),
                     contentLeft + ui(16), dy + ui(32), WaypointUiChrome.MUTED);
             WaypointUiChrome.button(g, font, mouseX, mouseY, contentLeft + formWidth - 96, buttonY, 80, ui(31), "▣  Delete", false, true);
         }
-        if (!error.isEmpty()) WaypointUiText.drawCompact(g, font, error, contentLeft, actionY - 17, WaypointUiChrome.RED);
+        if (!error.isEmpty()) WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, error, formWidth - ui(12)), contentLeft, actionY - ui(17), WaypointUiChrome.RED);
         g.disableScissor();
         super.extractRenderState(g, mouseX, mouseY, delta);
         if (contentVisible(nameFieldY() + ui(12), ui(16))) WaypointUiText.drawInput(g, font, nameBox, l + ui(12), nameFieldY() + ui(12), nameW - ui(24));

@@ -57,21 +57,21 @@ public final class WaypointScreen extends Screen {
         clearWidgets(); hits.clear();
         rail = WaypointUiChrome.railWidth(width, height);
         top = WaypointUiChrome.topHeight(height);
-        left = rail + 27;
-        right = width - 25;
+        left = rail + WaypointUiChrome.ui(26);
+        right = width - WaypointUiChrome.ui(24);
         contentW = Math.max(360, right - left);
         boolean compact = height < 820;
-        titleY = top + (compact ? 15 : 28);
-        statsY = titleY + (compact ? 44 : 64);
-        statsH = compact ? 58 : Math.max(72, Math.min(92, height / 9));
-        sectionY = statsY + statsH + (compact ? 14 : 24);
+        titleY = top + WaypointUiChrome.ui(compact ? 14 : 27);
+        statsY = titleY + WaypointUiChrome.ui(compact ? 42 : 61);
+        statsH = WaypointUiChrome.ui(compact ? 56 : Math.max(70, Math.min(90, height / 9)));
+        sectionY = statsY + statsH + WaypointUiChrome.ui(compact ? 13 : 23);
         // Keep a visible gap between the Import/Export row and the search/sort row.
         // The previous compact layout placed these rows edge-to-edge, making the
         // controls look like one overlapping toolbar on common GUI scales.
-        toolbarY = sectionY + (compact ? 41 : 46);
-        filtersY = toolbarY + (compact ? 42 : 44);
-        gridY = filtersY + (compact ? 36 : 38);
-        footerY = height - (compact ? 43 : 90);
+        toolbarY = sectionY + WaypointUiChrome.ui(compact ? 40 : 44);
+        filtersY = toolbarY + WaypointUiChrome.ui(compact ? 40 : 42);
+        gridY = filtersY + WaypointUiChrome.ui(compact ? 34 : 36);
+        footerY = height - WaypointUiChrome.ui(compact ? 42 : 88);
         gridBottom = Math.max(gridY + 40, footerY - 34);
         cols = listView ? 1 : (contentW >= 720 ? 3 : contentW >= 490 ? 2 : 1);
         int rows = listView ? 6 : 2;
@@ -99,8 +99,8 @@ public final class WaypointScreen extends Screen {
         scrollOffset = Math.max(0, Math.min(scrollOffset, maxScroll));
 
         int ny = WaypointUiChrome.navY(height);
-        hits.add(new Hit(20, ny, rail - 40, 36, () -> open(0)));
-        hits.add(new Hit(20, ny + 43, rail - 40, 36, () -> Minecraft.getInstance().gui.setScreen(new WaypointSettingsScreen())));
+        hits.add(new Hit(WaypointUiChrome.ui(18), ny, rail - WaypointUiChrome.ui(36), WaypointUiChrome.ui(34), () -> open(0)));
+        hits.add(new Hit(WaypointUiChrome.ui(18), ny + WaypointUiChrome.ui(41), rail - WaypointUiChrome.ui(36), WaypointUiChrome.ui(34), () -> Minecraft.getInstance().gui.setScreen(new WaypointSettingsScreen())));
         hits.add(new Hit(right - 130, titleY - 2, 130, 36, () -> Minecraft.getInstance().gui.setScreen(new WaypointEditScreen(null, currentPage()))));
 
         int[] filterWidths = filterWidths(contentW);
@@ -233,24 +233,26 @@ public final class WaypointScreen extends Screen {
 
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
         WaypointUiChrome.drawFrame(g, font, width, height, mx, my, false, "Waypoints");
-        WaypointUiText.drawHeading(g, font, "Every place, a waypoint.", left, titleY, WaypointUiChrome.TEXT);
-        WaypointUiText.draw(g, font, "Keep your world organized. Never lose a place worth returning to.", left, titleY + 30, WaypointUiChrome.MUTED, false);
+        WaypointUiText.drawHeading(g, font, WaypointUiChrome.fitHeading(font, "Every place, a waypoint.", contentW - 155), left, titleY, WaypointUiChrome.TEXT);
+        WaypointUiText.draw(g, font, WaypointUiChrome.fit(font, "Keep your world organized. Never lose a place worth returning to.", contentW - 150), left, titleY + 30, WaypointUiChrome.MUTED, false);
         WaypointUiChrome.button(g, font, mx, my, right - 130, titleY - 2, 130, 36, "+  Create waypoint", true, false);
 
-        int gap = 12, statW = (contentW - gap * 2) / 3;
+        int gap = WaypointUiChrome.ui(11), statW = (contentW - gap * 2) / 3;
         drawStat(g, left, statsY, statW, statsH, "Total waypoints", Integer.toString(all.size()), "Across your entire world", "◎");
         long dimensions = all.stream().map(w -> WaypointsMod.normalizeDimension(w.dimension())).distinct().count();
         drawStat(g, left + statW + gap, statsY, statW, statsH, "Dimensions explored", Long.toString(dimensions), "Overworld, Nether & End", "◈");
         drawStat(g, left + (statW + gap) * 2, statsY, statW, statsH, "Last added", WaypointUiChrome.fitHeading(font, lastAddedName, statW - 30), "Saved in this world", "◷");
 
-        WaypointUiText.drawHeading(g, font, "Your waypoints", left, sectionY + 3, WaypointUiChrome.TEXT);
+        WaypointUiText.drawHeading(g, font, WaypointUiChrome.fitHeading(font, "Your waypoints", Math.max(90, contentW - 230)), left, sectionY + 3, WaypointUiChrome.TEXT);
         smallBadge(g, left + WaypointUiText.headingWidth(font, "Your waypoints") + 12, sectionY + 2, Integer.toString(all.size()));
         WaypointUiChrome.button(g, font, mx, my, right - 164, sectionY - 3, 72, 30, "↓  Import", false, false);
         WaypointUiChrome.button(g, font, mx, my, right - 82, sectionY - 3, 76, 30, "↑  Export", false, false);
 
         // Search, sort and grid/list controls share the geometry computed in init().
         drawSearch(g, left, toolbarY, searchW, mx, my);
-        if (query.isBlank()) WaypointUiText.drawCompact(g, font, "Search by name or coordinates...", left + 40, toolbarY + 13, WaypointUiChrome.QUIET);
+        if (query.isBlank()) WaypointUiText.drawCompact(g, font,
+                WaypointUiChrome.fit(font, "Search by name or coordinates...", searchW - 58),
+                left + 40, toolbarY + 13, WaypointUiChrome.QUIET);
         WaypointUiChrome.button(g, font, mx, my, sortX, toolbarY, sortW, 36,
                 sortName ? "↕  Name" : "↕  Recently added", false, false);
         WaypointUiChrome.button(g, font, mx, my, right - viewW, toolbarY, viewW, 36, listView ? "☷" : "▦", false, false);
@@ -288,9 +290,9 @@ public final class WaypointScreen extends Screen {
     private void drawStat(GuiGraphicsExtractor g, int x, int y, int w, int h, String label, String value, String sub, String icon) {
         WaypointUiChrome.panel(g, x, y, w, h);
         boolean compact = h < 76;
-        WaypointUiText.drawCompact(g, font, label, x + 16, y + (compact ? 8 : 13), WaypointUiChrome.MUTED);
-        WaypointUiText.drawHeading(g, font, value, x + 16, y + (compact ? 22 : 31), WaypointUiChrome.TEXT);
-        WaypointUiText.drawCompact(g, font, sub, x + 16, y + h - (compact ? 12 : 16), WaypointUiChrome.QUIET);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, label, w - 48), x + 16, y + (compact ? 8 : 13), WaypointUiChrome.MUTED);
+        WaypointUiText.drawHeading(g, font, WaypointUiChrome.fitHeading(font, value, w - 46), x + 16, y + (compact ? 22 : 31), WaypointUiChrome.TEXT);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, sub, w - 30), x + 16, y + h - (compact ? 12 : 16), WaypointUiChrome.QUIET);
         WaypointUiText.draw(g, font, icon, x + w - 27, y + 12, WaypointUiChrome.MUTED, false);
     }
 
@@ -327,8 +329,10 @@ public final class WaypointScreen extends Screen {
     private void drawCards(GuiGraphicsExtractor g, int mx, int my) {
         if (filtered.isEmpty()) {
             WaypointUiChrome.panel(g, left, gridY, contentW, 120);
-            WaypointUiText.draw(g, font, query.isEmpty() ? "No waypoints yet" : "No matching waypoints", left + 20, gridY + 24, WaypointUiChrome.TEXT, false);
-            WaypointUiText.draw(g, font, "Create a waypoint to save a place in this world.", left + 20, gridY + 49, WaypointUiChrome.MUTED, false);
+            WaypointUiText.draw(g, font, WaypointUiChrome.fit(font,
+                    query.isEmpty() ? "No waypoints yet" : "No matching waypoints", contentW - 40),
+                    left + 20, gridY + 24, WaypointUiChrome.TEXT, false);
+            WaypointUiText.draw(g, font, WaypointUiChrome.fit(font, "Create a waypoint to save a place in this world.", contentW - 40), left + 20, gridY + 49, WaypointUiChrome.MUTED, false);
             return;
         }
         g.enableScissor(left, gridY, right, gridBottom);
@@ -348,7 +352,8 @@ public final class WaypointScreen extends Screen {
                         y + (listView ? 26 : 32), WaypointUiChrome.MUTED);
             if (listView) {
                 String coords = "X  " + format(w.x()) + "     Y  " + format(w.y()) + "     Z  " + format(w.z());
-                WaypointUiText.drawCompact(g, font, coords, x + Math.max(235, cardW - 250), y + 17, WaypointUiChrome.TEXT);
+                int coordsX = x + Math.max(235, cardW - 250);
+                WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, coords, x + cardW - 42 - coordsX), coordsX, y + 17, WaypointUiChrome.TEXT);
                 WaypointUiText.draw(g, font, "↗", x + cardW - 30, y + 14, WaypointUiChrome.MUTED, false);
             } else {
                 WaypointUiText.draw(g, font, "···", x + cardW - 29, y + 18, WaypointUiChrome.MUTED, false);
@@ -360,7 +365,7 @@ public final class WaypointScreen extends Screen {
                 drawCoordinate(g, x + 16 + (tileW + gap) * 2, tileY, tileW, tileH, "Z", format(w.z()));
                 int bottom = y + cardH - 22;
                 WaypointUiChrome.round(g, x + 17, bottom + 6, x + 23, bottom + 12, color, 3);
-                WaypointUiText.drawCompact(g, font, dimension(w.dimension()), x + 29, bottom + 4, WaypointUiChrome.MUTED);
+                WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, dimension(w.dimension()), cardW - 120), x + 29, bottom + 4, WaypointUiChrome.MUTED);
                 WaypointUiText.draw(g, font, "▢", x + cardW - 61, bottom + 3, WaypointUiChrome.MUTED, false);
                 WaypointUiText.draw(g, font, "↗", x + cardW - 31, bottom + 3, WaypointUiChrome.MUTED, false);
             }
@@ -390,7 +395,7 @@ public final class WaypointScreen extends Screen {
     private void drawCoordinate(GuiGraphicsExtractor g, int x, int y, int w, int h, String axis, String value) {
         WaypointUiChrome.round(g, x, y, x + w, y + h, WaypointUiChrome.FIELD, 5);
         WaypointUiText.drawCompact(g, font, axis, x + 9, y + (h <= 32 ? 4 : 7), WaypointUiChrome.QUIET);
-        WaypointUiText.draw(g, font, value, x + 9, y + (h <= 32 ? 17 : 23), WaypointUiChrome.TEXT, false);
+        WaypointUiText.draw(g, font, WaypointUiChrome.fit(font, value, Math.max(12, w - 18)), x + 9, y + (h <= 32 ? 17 : 23), WaypointUiChrome.TEXT, false);
     }
 
     private String format(int value) { return String.format(Locale.ROOT, "%,d", value); }
@@ -404,9 +409,9 @@ public final class WaypointScreen extends Screen {
 
     private void drawFooter(GuiGraphicsExtractor g, int mx, int my) {
         int start = currentPage() * pageSize;
-        WaypointUiText.drawCompact(g, font, "Showing " + (filtered.isEmpty() ? 0 : start + 1) + "–" + Math.min(filtered.size(), start + pageSize)
-                + " of " + filtered.size() + " waypoints", left, footerY + 12, WaypointUiChrome.QUIET);
-        WaypointUiText.drawCompact(g, font, "⌨  A little less wandering. A lot more exploring.", left, height - 39, WaypointUiChrome.QUIET);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "Showing " + (filtered.isEmpty() ? 0 : start + 1) + "–" + Math.min(filtered.size(), start + pageSize)
+                + " of " + filtered.size() + " waypoints", Math.max(70, contentW - 180)), left, footerY + 12, WaypointUiChrome.QUIET);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "⌨  A little less wandering. A lot more exploring.", Math.max(90, contentW - 180)), left, height - WaypointUiChrome.ui(38), WaypointUiChrome.QUIET);
         if (pageCount() > 1) {
             int pagerX = right - 164;
             WaypointUiChrome.button(g, font, mx, my, pagerX, footerY + 6, 24, 24, "‹", false, false);
@@ -420,7 +425,7 @@ public final class WaypointScreen extends Screen {
             }
             WaypointUiChrome.button(g, font, mx, my, pagerX + 138, footerY + 6, 24, 24, "›", false, false);
         }
-        String signature = WaypointUiChrome.fit(font, "WAYPOINT MANAGER  /  v1.5.5", 150);
+        String signature = WaypointUiChrome.fit(font, "WAYPOINT MANAGER  /  v1.5.8", 150);
         WaypointUiText.drawCompact(g, font, signature, right - 150, height - 39, WaypointUiChrome.QUIET);
     }
 }

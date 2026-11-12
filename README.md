@@ -1,4 +1,4 @@
-# Waypoint Manager 1.5.6
+# Waypoint Manager 1.5.8
 
 A client-side Fabric waypoint manager for Minecraft 26.3. The in-game screens use the supplied Waypoint Manager reference: a compact graphite workspace with a slim sidebar, world breadcrumb, quiet lime accents, dense waypoint cards, a two-column create/edit form, and focused settings panels.
 
@@ -82,3 +82,21 @@ The installable mod JAR is produced in `build/libs/`.
 - Increased base UI text sizes slightly while preserving the compact graphite workspace layout.
 - Dimension/type indicators now use round, color-coded Overworld, Nether, and End markers in filters and the editor selector.
 - Small / Medium / Large label size now changes the actual live in-world label text scale, the label plate, and both editor/settings previews; the previous version changed mostly padding only.
+
+
+## Version 1.5.7 beam and UI refinement
+- Beacon beams now keep a constant slim width instead of widening with distance; both inner and outer radii have been reduced.
+- Beam opacity now passes through the ARGB alpha channel, keeping the beam shell translucent instead of forcing it fully opaque.
+- Reduced the custom workspace modifier by about 4% without changing Minecraft's global GUI Scale.
+- Repositioned the sidebar emblem and wordmark to match the supplied Waypoint Manager reference lockup.
+- Rebuilt the waypoint emblem as a clean 512px antialiased asset and increased the rounded-control supersampling level.
+- Rounded button labels and dashboard/settings/edit descriptions are clipped to their available panel widths to prevent text collisions.
+
+
+## 1.5.8 — Beam and brand refinement
+
+- Narrowed the beacon beam outer shell further and preserved its native translucent glow pass.
+- Reduced the custom workspace UI modifier slightly to 94%.
+- Resized the Waypoint emblem to match the supplied compact lime-square logo lockup.
+- Standardized buttons with antialiased 6px corners and a subtle border on primary actions.
+- Fitted remaining long dashboard, editor, and settings labels to their panel widths to prevent text collisions.

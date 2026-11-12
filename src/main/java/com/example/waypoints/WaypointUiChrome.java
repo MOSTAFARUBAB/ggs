@@ -26,7 +26,12 @@ final class WaypointUiChrome {
     private static final Identifier BRAND_MARK = Identifier.fromNamespaceAndPath(
             "simplewaypoints", "textures/gui/brand_mark.png");
 
+    private static final float UI_MODIFIER = 0.94f;
+
     private WaypointUiChrome() {}
+
+    /** A small global reduction keeps the workspace airy without changing Minecraft's GUI scale. */
+    static int ui(int value) { return Math.max(1, Math.round(value * UI_MODIFIER)); }
 
     /** High-density static contour artwork; avoids hundreds of tiny draw calls each frame. */
     static void drawContour(GuiGraphicsExtractor g, int x, int y, int w, int h, boolean settingsAspect) {
@@ -36,12 +41,12 @@ final class WaypointUiChrome {
     }
 
     static int railWidth(int width, int height) {
-        float proportion = height >= 880 ? 0.151f : 0.145f;
-        return Math.max(138, Math.round(width * proportion));
+        float proportion = height >= 880 ? 0.145f : 0.139f;
+        return Math.max(ui(134), Math.round(width * proportion));
     }
-    static int topHeight(int height) { return Math.max(38, Math.min(50, Math.round(height * 0.055f))); }
-    static int navY(int height) { return topHeight(height) + 124; }
-    static int navRowY(int height, boolean settings) { return navY(height) + (settings ? 43 : 0); }
+    static int topHeight(int height) { return Math.max(ui(36), Math.min(ui(48), Math.round(height * 0.052f))); }
+    static int navY(int height) { return topHeight(height) + ui(118); }
+    static int navRowY(int height, boolean settings) { return navY(height) + (settings ? ui(41) : 0); }
 
     static String worldName() {
         Minecraft mc = Minecraft.getInstance();
@@ -70,59 +75,62 @@ final class WaypointUiChrome {
         g.fill(rail, 0, width, top, TOP);
         g.fill(rail, top - 1, width, top, EDGE);
 
-        // Brand symbol is a 4x antialiased asset matching the supplied reference:
-        // soft lime tile with a dark, folded paper-plane mark.
-        g.blit(BRAND_MARK, 20, 20, 48, 48, 0.0f, 1.0f, 0.0f, 1.0f);
-        WaypointUiText.draw(g, font, "Waypoint", 56, 23, TEXT, false);
-        WaypointUiText.drawCompact(g, font, "M A N A G E R", 56, 38, MUTED);
+        // Reference brand lockup: small lime rounded waypoint emblem at the rail edge,
+        // with a two-line wordmark to its right (not a large text-only header).
+        g.blit(BRAND_MARK, ui(10), ui(15), ui(28), ui(28), 0.0f, 1.0f, 0.0f, 1.0f);
+        WaypointUiText.draw(g, font, fit(font, "Waypoint", Math.max(52, rail - ui(58))), ui(48), ui(15), TEXT, false);
+        WaypointUiText.drawCompact(g, font, fit(font, "M A N A G E R", Math.max(48, rail - ui(58))), ui(48), ui(31), MUTED);
 
         // World selector.
-        int worldY = top + 23;
-        round(g, 20, worldY, rail - 16, worldY + 55, PANEL, 8);
-        border(g, 20, worldY, rail - 16, worldY + 55, EDGE);
-        WaypointUiText.draw(g, font, fit(font, worldName(), rail - 70), 30, worldY + 11, TEXT, false);
-        WaypointUiText.drawCompact(g, font, "•  Java Edition · 26.3", 30, worldY + 33, MUTED);
-        WaypointUiText.draw(g, font, "⌄", rail - 34, worldY + 16, MUTED, false);
+        int worldY = top + ui(22);
+        round(g, ui(18), worldY, rail - ui(14), worldY + ui(53), PANEL, ui(8));
+        border(g, ui(18), worldY, rail - ui(14), worldY + ui(53), EDGE);
+        WaypointUiText.draw(g, font, fit(font, worldName(), rail - ui(68)), ui(28), worldY + ui(10), TEXT, false);
+        WaypointUiText.drawCompact(g, font, "•  Java Edition · 26.3", ui(28), worldY + ui(31), MUTED);
+        WaypointUiText.draw(g, font, "⌄", rail - ui(31), worldY + ui(15), MUTED, false);
 
-        WaypointUiText.drawCompact(g, font, "W O R K S P A C E", 20, top + 111, QUIET);
+        WaypointUiText.drawCompact(g, font, "W O R K S P A C E", ui(18), top + ui(106), QUIET);
         int ny = navY(height);
-        drawNav(g, font, mx, my, 20, ny, rail - 40, "Waypoints", !settingsActive, false);
-        drawNav(g, font, mx, my, 20, ny + 43, rail - 40, "Settings", settingsActive, true);
+        drawNav(g, font, mx, my, ui(18), ny, rail - ui(36), "Waypoints", !settingsActive, false);
+        drawNav(g, font, mx, my, ui(18), ny + ui(41), rail - ui(36), "Settings", settingsActive, true);
 
         // Local storage status card and current player row.
-        int statusH = Math.max(118, Math.min(142, height / 6));
-        int statusY = height - statusH - 72;
-        round(g, 20, statusY, rail - 16, statusY + statusH, 0xFF0D0F11, 8);
-        border(g, 20, statusY, rail - 16, statusY + statusH, EDGE);
-        WaypointUiText.draw(g, font, "▱", 30, statusY + 12, MUTED, false);
+        int statusH = Math.max(ui(114), Math.min(ui(136), height / 6));
+        int statusY = height - statusH - ui(68);
+        round(g, ui(18), statusY, rail - ui(14), statusY + statusH, 0xFF0D0F11, ui(8));
+        border(g, ui(18), statusY, rail - ui(14), statusY + statusH, EDGE);
+        WaypointUiText.draw(g, font, "▱", ui(28), statusY + ui(11), MUTED, false);
         // Two deliberate lines replace fit(...), which truncated the sentence.
-        WaypointUiText.draw(g, font, "Your world.", 30, statusY + 33, TEXT, false);
-        WaypointUiText.draw(g, font, "Your waypoints.", 30, statusY + 45, TEXT, false);
-        WaypointUiText.drawCompact(g, font, "Stored locally and ready", 30, statusY + 68, MUTED);
-        WaypointUiText.drawCompact(g, font, "for your next adventure.", 30, statusY + 80, MUTED);
-        g.fill(30, statusY + statusH - 18, 35, statusY + statusH - 13, GREEN);
-        WaypointUiText.drawCompact(g, font, "All changes saved", 41, statusY + statusH - 19, MUTED);
+        WaypointUiText.draw(g, font, fit(font, "Your world.", rail - ui(54)), ui(28), statusY + ui(31), TEXT, false);
+        WaypointUiText.draw(g, font, fit(font, "Your waypoints.", rail - ui(54)), ui(28), statusY + ui(43), TEXT, false);
+        WaypointUiText.drawCompact(g, font, fit(font, "Stored locally and ready", rail - ui(52)), ui(28), statusY + ui(65), MUTED);
+        WaypointUiText.drawCompact(g, font, fit(font, "for your next adventure.", rail - ui(52)), ui(28), statusY + ui(77), MUTED);
+        g.fill(ui(28), statusY + statusH - ui(17), ui(33), statusY + statusH - ui(12), GREEN);
+        WaypointUiText.drawCompact(g, font, fit(font, "All changes saved", rail - ui(58)), ui(39), statusY + statusH - ui(18), MUTED);
 
-        int profileY = height - 48;
-        round(g, 20, profileY, 46, profileY + 26, 0xFF1B1F22, 7);
+        int profileY = height - ui(46);
+        round(g, ui(18), profileY, ui(62), profileY + ui(25), 0xFF1B1F22, ui(7));
         String initials = initials(playerName());
-        WaypointUiText.drawCompact(g, font, initials, 25, profileY + 7, TEXT);
-        WaypointUiText.draw(g, font, fit(font, playerName(), rail - 88), 55, profileY + 2, TEXT, false);
-        WaypointUiText.drawCompact(g, font, "Explorer", 55, profileY + 15, MUTED);
-        WaypointUiText.draw(g, font, "···", rail - 31, profileY + 8, MUTED, false);
+        WaypointUiText.drawCompact(g, font, initials, ui(23), profileY + ui(6), TEXT);
+        WaypointUiText.draw(g, font, fit(font, playerName(), rail - ui(82)), ui(52), profileY + ui(1), TEXT, false);
+        WaypointUiText.drawCompact(g, font, "Explorer", ui(52), profileY + ui(14), MUTED);
+        WaypointUiText.draw(g, font, "···", rail - ui(29), profileY + ui(7), MUTED, false);
 
         // Top breadcrumb / local workspace status.
-        drawWorldGlyph(g, rail + 31, Math.max(15, top / 2 - 6), MUTED);
-        WaypointUiText.drawCompact(g, font, fit(font, worldName(), 128), rail + 52, top / 2 - 4, MUTED);
-        WaypointUiText.drawCompact(g, font, "/", rail + 52 + Math.min(128, WaypointUiText.compactWidth(font, worldName())) + 10, top / 2 - 4, QUIET);
-        int crumbX = rail + 52 + Math.min(128, WaypointUiText.compactWidth(font, worldName())) + 23;
-        WaypointUiText.drawCompact(g, font, breadcrumb, crumbX, top / 2 - 4, TEXT);
-        int dotX = width - 137;
+        drawWorldGlyph(g, rail + ui(29), Math.max(ui(14), top / 2 - ui(6)), MUTED);
+        int crumbWorldX = rail + ui(48);
+        String crumbWorld = fit(font, worldName(), ui(118));
+        WaypointUiText.drawCompact(g, font, crumbWorld, crumbWorldX, top / 2 - ui(4), MUTED);
+        int slashX = crumbWorldX + Math.min(ui(118), WaypointUiText.compactWidth(font, crumbWorld)) + ui(9);
+        WaypointUiText.drawCompact(g, font, "/", slashX, top / 2 - ui(4), QUIET);
+        int crumbX = slashX + ui(13);
+        int dotX = width - ui(132);
+        WaypointUiText.drawCompact(g, font, fit(font, breadcrumb, Math.max(ui(40), dotX - crumbX - ui(82))), crumbX, top / 2 - ui(4), TEXT);
         g.fill(dotX, top / 2 - 2, dotX + 5, top / 2 + 3, GREEN);
         WaypointUiText.drawCompact(g, font, "Local workspace", dotX + 11, top / 2 - 4, MUTED);
-        round(g, width - 33, top / 2 - 7, width - 19, top / 2 + 7, TOP, 7);
-        border(g, width - 33, top / 2 - 7, width - 19, top / 2 + 7, EDGE);
-        WaypointUiText.drawCompact(g, font, "?", width - 29, top / 2 - 4, MUTED);
+        round(g, width - ui(32), top / 2 - ui(7), width - ui(18), top / 2 + ui(7), TOP, ui(7));
+        border(g, width - ui(32), top / 2 - ui(7), width - ui(18), top / 2 + ui(7), EDGE);
+        WaypointUiText.drawCompact(g, font, "?", width - ui(28), top / 2 - ui(4), MUTED);
     }
 
     private static void drawLine(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2, int color) {
@@ -146,21 +154,22 @@ final class WaypointUiChrome {
 
     private static void drawNav(GuiGraphicsExtractor g, Font font, int mx, int my, int x, int y, int w,
                                 String label, boolean active, boolean settings) {
-        if (active || inside(mx, my, x, y, w, 36)) round(g, x, y, x + w, y + 36, active ? 0xFF1C2023 : 0xFF171A1D, 7);
+        int rowH = ui(34);
+        if (active || inside(mx, my, x, y, w, rowH)) round(g, x, y, x + w, y + rowH, active ? 0xFF1C2023 : 0xFF171A1D, ui(7));
         int iconColor = active ? GREEN : MUTED;
         if (settings) {
-            g.fill(x + 11, y + 11, x + 23, y + 12, iconColor);
-            g.fill(x + 11, y + 17, x + 23, y + 18, iconColor);
-            g.fill(x + 11, y + 23, x + 23, y + 24, iconColor);
-            g.fill(x + 15, y + 9, x + 18, y + 14, iconColor);
-            g.fill(x + 19, y + 15, x + 22, y + 20, iconColor);
+            g.fill(x + ui(10), y + ui(10), x + ui(22), y + ui(11), iconColor);
+            g.fill(x + ui(10), y + ui(16), x + ui(22), y + ui(17), iconColor);
+            g.fill(x + ui(10), y + ui(22), x + ui(22), y + ui(23), iconColor);
+            g.fill(x + ui(14), y + ui(8), x + ui(17), y + ui(13), iconColor);
+            g.fill(x + ui(18), y + ui(14), x + ui(21), y + ui(19), iconColor);
         } else {
-            round(g, x + 11, y + 10, x + 23, y + 25, iconColor, 6);
-            g.fill(x + 15, y + 22, x + 19, y + 28, iconColor);
-            round(g, x + 15, y + 13, x + 19, y + 18, RAIL, 3);
+            round(g, x + ui(10), y + ui(9), x + ui(22), y + ui(24), iconColor, ui(6));
+            g.fill(x + ui(14), y + ui(21), x + ui(18), y + ui(27), iconColor);
+            round(g, x + ui(14), y + ui(12), x + ui(18), y + ui(17), RAIL, ui(3));
         }
-        WaypointUiText.draw(g, font, label, x + 34, y + 11, active ? TEXT : MUTED, false);
-        if (active && !settings) WaypointUiText.drawCompact(g, font, Integer.toString(WaypointsMod.menuWaypointCountAllDimensions()), x + w - 20, y + 12, MUTED);
+        WaypointUiText.draw(g, font, label, x + ui(32), y + ui(10), active ? TEXT : MUTED, false);
+        if (active && !settings) WaypointUiText.drawCompact(g, font, Integer.toString(WaypointsMod.menuWaypointCountAllDimensions()), x + w - ui(19), y + ui(11), MUTED);
     }
 
     static void round(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2, int color, int radius) {
@@ -193,11 +202,14 @@ final class WaypointUiChrome {
                        String label, boolean primary, boolean danger) {
         boolean hover = inside(mx, my, x, y, w, h);
         int fill = primary ? (hover ? 0xFFC6F88C : GREEN) : hover ? 0xFF1C2023 : 0xFF15181B;
-        int outline = primary ? 0x00000000 : danger ? 0xFF67383D : EDGE;
-        WaypointUiShapes.draw(g, x, y, w, h, fill, 7, outline, primary ? 0 : 1);
+        int outline = primary ? 0xFFA3DE58 : danger ? 0xFF67383D : EDGE;
+        // Consistent compact radius and a fine one-pixel edge make controls read
+        // like the reference instead of oversized, flat Minecraft buttons.
+        WaypointUiShapes.draw(g, x, y, w, h, fill, ui(6), outline, 1);
         int c = primary ? 0xFF18200F : danger ? RED : TEXT;
-        WaypointUiText.draw(g, font, label,
-                x + (w - WaypointUiText.width(font, label)) / 2,
+        String shown = fit(font, label, Math.max(12, w - ui(16)));
+        WaypointUiText.draw(g, font, shown,
+                x + (w - WaypointUiText.width(font, shown)) / 2,
                 y + (h - WaypointUiText.LINE_HEIGHT) / 2, c, false);
     }
 

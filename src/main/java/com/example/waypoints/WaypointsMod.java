@@ -87,8 +87,8 @@ public class WaypointsMod implements ClientModInitializer {
     public static volatile int uiAccentColor = 0xFFB7F36B;
     /** 0 = unlimited; otherwise maximum world blocks from the player. */
     public static volatile int maxDisplayDistance = 2000;
-    /** 0-100; applied as beam color intensity on the vanilla beam renderer. */
-    public static volatile int beamOpacity = 75;
+    /** 0-100; maps to alpha in the vanilla translucent beacon-beam renderer. */
+    public static volatile int beamOpacity = 60;
 
     /** The waypoint currently selected for live action-bar navigation. */
     private static volatile Waypoint navigationTarget;
@@ -771,7 +771,7 @@ public class WaypointsMod implements ClientModInitializer {
             String accent = p.getProperty("uiAccentColor", "B7F36B").replace("#", "").trim();
             uiAccentColor = 0xFF000000 | ((int) Long.parseLong(accent, 16) & 0xFFFFFF);
             markerSizeMode = Math.max(0, Math.min(2, Integer.parseInt(p.getProperty("labelSize", "1"))));
-            beamOpacity = Math.max(0, Math.min(100, Integer.parseInt(p.getProperty("beamOpacity", "75"))));
+            beamOpacity = Math.max(0, Math.min(100, Integer.parseInt(p.getProperty("beamOpacity", "60"))));
             maxDisplayDistance = Math.max(0, Integer.parseInt(p.getProperty("maxDisplayDistance", "2000")));
         } catch (Exception e) {
             System.err.println("[Simple Waypoints] Could not read settings; using defaults.");

@@ -42,18 +42,18 @@ public final class WaypointSettingsScreen extends Screen {
         clearWidgets(); hits.clear();
         rail = WaypointUiChrome.railWidth(width, height);
         top = WaypointUiChrome.topHeight(height);
-        left = rail + 27;
-        right = width - 32;
+        left = rail + WaypointUiChrome.ui(26);
+        right = width - WaypointUiChrome.ui(30);
         contentW = Math.max(420, right - left);
         leftW = Math.round(contentW * 0.676f);
-        rightX = left + leftW + 18;
+        rightX = left + leftW + WaypointUiChrome.ui(17);
         rightW = right - rightX;
 
-        labelsY = top + 92 - scrollOffset;
-        labelsH = compactLayout() ? 178 : Math.max(190, Math.min(236, Math.round(height * 0.275f)));
-        beamY = labelsY + labelsH + 14;
-        beamH = compactLayout() ? 150 : Math.max(168, Math.min(194, Math.round(height * 0.226f)));
-        displayY = beamY + beamH + 14;
+        labelsY = top + WaypointUiChrome.ui(88) - scrollOffset;
+        labelsH = WaypointUiChrome.ui(compactLayout() ? 172 : Math.max(184, Math.min(228, Math.round(height * 0.27f))));
+        beamY = labelsY + labelsH + WaypointUiChrome.ui(13);
+        beamH = WaypointUiChrome.ui(compactLayout() ? 144 : Math.max(162, Math.min(188, Math.round(height * 0.22f))));
+        displayY = beamY + beamH + WaypointUiChrome.ui(13);
         displayH = compactLayout() ? 150 : Math.max(162, Math.min(190, height - (top + 92 + labelsH + 14 + beamH + 14) - 48));
         int unscrolledBottom = displayY + displayH + scrollOffset;
         maxScroll = Math.max(0, unscrolledBottom - (height - 56));
@@ -65,8 +65,8 @@ public final class WaypointSettingsScreen extends Screen {
         }
 
         int ny = WaypointUiChrome.navY(height);
-        hits.add(new Hit(20, ny, rail - 40, 36, () -> Minecraft.getInstance().gui.setScreen(new WaypointScreen(0))));
-        hits.add(new Hit(20, ny + 43, rail - 40, 36, () -> Minecraft.getInstance().gui.setScreen(new WaypointSettingsScreen())));
+        hits.add(new Hit(WaypointUiChrome.ui(18), ny, rail - WaypointUiChrome.ui(36), WaypointUiChrome.ui(34), () -> Minecraft.getInstance().gui.setScreen(new WaypointScreen(0))));
+        hits.add(new Hit(WaypointUiChrome.ui(18), ny + WaypointUiChrome.ui(41), rail - WaypointUiChrome.ui(36), WaypointUiChrome.ui(34), () -> Minecraft.getInstance().gui.setScreen(new WaypointSettingsScreen())));
 
         int tx = left + leftW - 46;
         hits.add(new Hit(tx, labelsY + labelRow1() + 2, 34, 22, () -> update(() -> WaypointsMod.showWaypointLabels = !WaypointsMod.showWaypointLabels)));
@@ -120,7 +120,7 @@ public final class WaypointSettingsScreen extends Screen {
         WaypointsMod.markerSizeMode = 1;
         WaypointsMod.showWaypointBeams = true;
         WaypointsMod.matchWaypointColor = true;
-        WaypointsMod.beamOpacity = 75;
+        WaypointsMod.beamOpacity = 60;
         WaypointsMod.currentDimensionOnly = true;
         WaypointsMod.hideHudWhenMenuOpen = true;
         WaypointsMod.maxDisplayDistance = 2000;
@@ -179,9 +179,9 @@ public final class WaypointSettingsScreen extends Screen {
 
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
         WaypointUiChrome.drawFrame(g, font, width, height, mx, my, true, "Settings");
-        WaypointUiText.drawHeading(g, font, "Your world. Your view.", left, top + 28, WaypointUiChrome.TEXT);
-        WaypointUiText.draw(g, font, "Make waypoints work the way you explore.", left, top + 55, WaypointUiChrome.MUTED, false);
-        WaypointUiText.drawCompact(g, font, "✓  Changes saved", right - 95, top + 45, WaypointUiChrome.MUTED);
+        WaypointUiText.drawHeading(g, font, WaypointUiChrome.fitHeading(font, "Your world. Your view.", leftW - 12), left, top + 28, WaypointUiChrome.TEXT);
+        WaypointUiText.draw(g, font, WaypointUiChrome.fit(font, "Make waypoints work the way you explore.", leftW - 12), left, top + 55, WaypointUiChrome.MUTED, false);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "✓  Changes saved", Math.max(50, rightW)), rightX, top + 45, WaypointUiChrome.MUTED);
 
         // Left settings column scrolls independently; preview and reset action stay pinned.
         g.enableScissor(left, top + 82, left + leftW, height - 48);
@@ -211,8 +211,9 @@ public final class WaypointSettingsScreen extends Screen {
         settingRowAdaptive(g, left + 18, beamY + beamRow1(), leftW - 36, "Show beacon beams", "Guide your way with a vertical beam at each waypoint.", WaypointsMod.showWaypointBeams);
         settingRowAdaptive(g, left + 18, beamY + beamRow2(), leftW - 36, "Match waypoint color", "Use each waypoint’s color for its beacon beam.", WaypointsMod.matchWaypointColor);
         int beamLabelY = beamY + beamH - (compactLayout() ? 38 : 44);
-        WaypointUiText.drawCompact(g, font, "Beam opacity", left + 18, beamLabelY, WaypointUiChrome.TEXT);
-        WaypointUiText.drawCompact(g, font, WaypointsMod.beamOpacity + "%", left + leftW - 42, beamLabelY, WaypointUiChrome.MUTED);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "Beam opacity", Math.max(48, leftW - 92)),
+                left + 18, beamLabelY, WaypointUiChrome.TEXT);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, WaypointsMod.beamOpacity + "%", 34), left + leftW - 42, beamLabelY, WaypointUiChrome.MUTED);
         WaypointUiChrome.round(g, beamTrackX, beamTrackY, beamTrackX + beamTrackW, beamTrackY + 4, 0xFF33393D, 3);
         int fillW = beamTrackW * WaypointsMod.beamOpacity / 100;
         WaypointUiChrome.round(g, beamTrackX, beamTrackY, beamTrackX + fillW, beamTrackY + 4, WaypointUiChrome.GREEN, 3);
@@ -224,7 +225,8 @@ public final class WaypointSettingsScreen extends Screen {
         settingRowAdaptive(g, left + 18, displayY + displayRow1(), leftW - 36, "Current dimension only", "Hide waypoints from dimensions you’re not in.", WaypointsMod.currentDimensionOnly);
         settingRowAdaptive(g, left + 18, displayY + displayRow2(), leftW - 36, "Hide HUD when menu is open", "Keep your view clean while browsing menus.", WaypointsMod.hideHudWhenMenuOpen);
         int distanceRowY = displayY + displayH - (compactLayout() ? 38 : 48);
-        WaypointUiText.draw(g, font, "Maximum display distance", left + 18, distanceRowY, WaypointUiChrome.TEXT, false);
+        WaypointUiText.draw(g, font, WaypointUiChrome.fit(font, "Maximum display distance", Math.max(44, leftW - 154)),
+                left + 18, distanceRowY, WaypointUiChrome.TEXT, false);
         String unit = distanceBox != null && "0".equals(distanceBox.getValue().trim()) ? "unlimited" : "blocks";
         int unitX = left + leftW - 138 - WaypointUiText.compactWidth(font, unit);
         WaypointUiText.drawCompact(g, font, unit, unitX, distanceRowY + 8, WaypointUiChrome.QUIET);
@@ -245,18 +247,19 @@ public final class WaypointSettingsScreen extends Screen {
         int previewY = top + 106;
         WaypointUiText.drawCompact(g, font, "IN-GAME PREVIEW", rightX, top + 99, WaypointUiChrome.QUIET);
         drawPreview(g, rightX, previewY, rightW, 170);
-        WaypointUiText.drawCompact(g, font, "A clear marker, right where you need it. Your color is used for labels", rightX, previewY + 183, WaypointUiChrome.QUIET);
-        WaypointUiText.drawCompact(g, font, "and beacon beams.", rightX, previewY + 196, WaypointUiChrome.QUIET);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "A clear marker, right where you need it. Your color is used for labels", rightW), rightX, previewY + 183, WaypointUiChrome.QUIET);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "and beacon beams.", rightW), rightX, previewY + 196, WaypointUiChrome.QUIET);
         int noteY = previewY + 221;
         int noteH = Math.min(133, height - noteY - 30);
         if (noteH > 90) {
             WaypointUiChrome.panel(g, rightX, noteY, rightW, noteH);
             WaypointUiText.draw(g, font, "ⓘ", rightX + 16, noteY + 14, WaypointUiChrome.MUTED, false);
-            WaypointUiText.draw(g, font, "A starting point, not a limit.", rightX + 16, noteY + 39, WaypointUiChrome.TEXT, false);
-            WaypointUiText.drawCompact(g, font, "These are your world defaults. You can", rightX + 16, noteY + 63, WaypointUiChrome.MUTED);
-            WaypointUiText.drawCompact(g, font, "customize labels and beams for individual", rightX + 16, noteY + 77, WaypointUiChrome.MUTED);
-            WaypointUiText.drawCompact(g, font, "waypoints when creating or editing them.", rightX + 16, noteY + 91, WaypointUiChrome.MUTED);
-            WaypointUiText.drawCompact(g, font, "✓  Preferences save automatically", rightX + 16, noteY + noteH - 18, WaypointUiChrome.QUIET);
+            WaypointUiText.draw(g, font, WaypointUiChrome.fit(font, "A starting point, not a limit.", Math.max(40, rightW - 32)),
+                rightX + 16, noteY + 39, WaypointUiChrome.TEXT, false);
+            WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "These are your world defaults. You can", rightW - 32), rightX + 16, noteY + 63, WaypointUiChrome.MUTED);
+            WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "customize labels and beams for individual", rightW - 32), rightX + 16, noteY + 77, WaypointUiChrome.MUTED);
+            WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "waypoints when creating or editing them.", rightW - 32), rightX + 16, noteY + 91, WaypointUiChrome.MUTED);
+            WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "✓  Preferences save automatically", rightW - 32), rightX + 16, noteY + noteH - 18, WaypointUiChrome.QUIET);
         }
         WaypointUiChrome.button(g, font, mx, my, left + leftW - 89, height - 39, 78, 28, "Reset defaults", false, false);
 
@@ -267,9 +270,10 @@ public final class WaypointSettingsScreen extends Screen {
     }
 
     private void settingRowAdaptive(GuiGraphicsExtractor g, int x, int y, int w, String label, String description, boolean enabled) {
-        WaypointUiText.draw(g, font, label, x, y, WaypointUiChrome.TEXT, false);
-        WaypointUiText.drawCompact(g, font, description, x, y + (compactLayout() ? 15 : 18), WaypointUiChrome.MUTED);
-        WaypointUiChrome.toggle(g, x + w - 28, y + 5, enabled);
+        int textWidth = Math.max(48, w - WaypointUiChrome.ui(48));
+        WaypointUiText.draw(g, font, WaypointUiChrome.fit(font, label, textWidth), x, y, WaypointUiChrome.TEXT, false);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, description, textWidth), x, y + (compactLayout() ? 15 : 18), WaypointUiChrome.MUTED);
+        WaypointUiChrome.toggle(g, x + w - WaypointUiChrome.ui(28), y + WaypointUiChrome.ui(5), enabled);
     }
 
     private String nameForPreview(String raw, int maxWidth, int size) {

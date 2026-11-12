@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /** Supersampled rounded UI primitives. Every shape is rasterized once and cached. */
 final class WaypointUiShapes {
-    private static final int AA = 4;
+    private static final int AA = 6;
     private static final int MAX_ENTRIES = 384;
     private static final long MAX_BYTES = 48L * 1024L * 1024L;
     private static long cachedBytes;
@@ -138,7 +138,7 @@ final class WaypointUiShapes {
     private static final class SmoothShapeTexture extends DynamicTexture {
         private SmoothShapeTexture(String label, int width, int height) {
             super(label, width, height, true);
-            this.sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
+            this.sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST);
         }
     }
 

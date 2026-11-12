@@ -132,18 +132,14 @@ public final class Beam3D {
                 // have their own camera-relative path and are not discarded by this limit.
                 if (renderBeams && waypoint.isBeamEnabled() && distanceSquared <= maxRenderDistanceSquared
                         && horizontalDistanceSquared <= maxRenderDistanceSquared) {
-                    double horizontalDistance = Math.sqrt(horizontalDistanceSquared);
-                    // Match BeaconRenderer.extract(): scoped players use normal width;
-                    // otherwise the beam widens past 96 horizontal blocks.
-                    float radiusScale = mc.player.isScoping()
-                            ? 1.0f
-                            : (float) Math.max(1.0, horizontalDistance / 96.0);
+                    // Keep waypoint beams at a stable, slim width. Vanilla's distance-based
+                    // widening made distant outer shells balloon across the screen.
+                    float radiusScale = 1.0f;
                     int rawColor = WaypointsMod.matchWaypointColor ? WaypointsMod.resolveColor(waypoint) : 0xFFFFFF;
-                    int intensity = Math.min(100, Math.round(WaypointsMod.beamOpacity * 1.25f));
-                    int red = ((rawColor >> 16) & 255) * intensity / 100;
-                    int green = ((rawColor >> 8) & 255) * intensity / 100;
-                    int blue = (rawColor & 255) * intensity / 100;
-                    int color = 0xFF000000 | (red << 16) | (green << 8) | blue;
+                    // BeaconRenderer accepts ARGB for the solid core; its native outer glow
+                    // pass applies its own low alpha. This keeps the shell see-through.
+                    int alpha = Math.max(0, Math.min(255, Math.round(WaypointsMod.beamOpacity * 2.55f)));
+                    int color = (alpha << 24) | (rawColor & 0x00FFFFFF);
                     beamCandidates.add(new BeamState(
                             waypoint.x(),
                             waypoint.z(),
@@ -237,8 +233,8 @@ public final class Beam3D {
                             0,
                             BeaconRenderer.MAX_RENDER_Y,
                             beam.rgb(),
-                            BeaconRenderer.SOLID_BEAM_RADIUS * beam.radiusScale() * 1.10f,
-                            BeaconRenderer.BEAM_GLOW_RADIUS * beam.radiusScale() * 1.65f
+                            BeaconRenderer.SOLID_BEAM_RADIUS * beam.radiusScale() * 0.74f,
+                            BeaconRenderer.BEAM_GLOW_RADIUS * beam.radiusScale() * 0.52f
                     );
                     poseStack.popPose();
                 }
