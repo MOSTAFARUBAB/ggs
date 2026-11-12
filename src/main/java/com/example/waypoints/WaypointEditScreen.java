@@ -114,13 +114,13 @@ public class WaypointEditScreen extends Screen {
     // Full-page editor geometry: location form on the left, color workstation on the right.
     private int formLeft() { return contentLeft + 18; }
     /** Scale the form as one unit on short GUI viewports; Minecraft's global GUI scale is left untouched. */
-    private float layoutScale() { return Math.max(0.70f, Math.min(0.96f, (height / 720.0f) * 0.96f)); }
+    private float layoutScale() { return Math.max(0.70f, Math.min(0.96f, (height / 720.0f) * 0.90f)); }
     private int ui(int value) { return Math.max(1, Math.round(value * layoutScale())); }
     private float formFactor() { return Math.max(0f, Math.min(1f, (height - 784) / 126f)); }
     private int formOffset(int compact, int expanded) { return ui(Math.round(compact + (expanded - compact) * formFactor())); }
-    private int nameFieldY() { return cardTop + formOffset(66, 72); }
-    private int coordinateFieldsY() { return cardTop + formOffset(148, 162); }
-    private int dimensionFieldY() { return cardTop + formOffset(229, 250); }
+    private int nameFieldY() { return cardTop + formOffset(76, 84); }
+    private int coordinateFieldsY() { return cardTop + formOffset(158, 174); }
+    private int dimensionFieldY() { return cardTop + formOffset(247, 266); }
     private int pickerX() { return colorX + ui(18); }
     private float colorScale() { return layoutScale(); }
     private int pickerY() { return cardTop + ui(48); }
@@ -140,7 +140,7 @@ public class WaypointEditScreen extends Screen {
     private int hexInputWidth() { return Math.max(72, colorWidth - ui(114)); }
     private int eyeX() { return colorX + colorWidth - ui(40); }
     private int colorCardHeight() { return ui(365); }
-    private int previewPanelY() { return cardTop + colorCardHeight() + ui(20); }
+    private int previewPanelY() { return cardTop + colorCardHeight() + ui(35); }
     private int previewPanelHeight() { return ui(150); }
     private int contentViewTop() { return WaypointUiChrome.topHeight(height) + ui(78); }
     private int contentViewBottom() { return height - ui(8); }
@@ -221,14 +221,14 @@ public class WaypointEditScreen extends Screen {
         breadcrumbY = top + 30;
         int baseCardTop = Math.round(height * 0.185f + 26f);
         cardTop = baseCardTop; // previewPanelHeight() uses cardTop for short viewports.
-        locationCardHeight = ui(284);
+        locationCardHeight = ui(326);
         visibilityHeight = ui(140);
         int baseVisibilityY = baseCardTop + locationCardHeight + ui(12);
-        int actionGap = original == null ? ui(26) : ui(12);
+        int actionGap = original == null ? ui(34) : ui(12);
         int baseActionY = baseVisibilityY + visibilityHeight + actionGap;
         // The create flow is laid out to fit the available height. Only the optional
         // delete section on an edit screen may require a small wheel scroll.
-        int basePreviewBottom = baseCardTop + colorCardHeight() + ui(20) + previewPanelHeight();
+        int basePreviewBottom = baseCardTop + colorCardHeight() + ui(35) + previewPanelHeight();
         if (height >= 650) basePreviewBottom += ui(18);
         int baseDeleteBottom = original == null ? baseActionY + ui(36)
                 : baseActionY + ui(36) + ui(12) + ui(52);
@@ -720,10 +720,12 @@ public class WaypointEditScreen extends Screen {
         String subtitle = original == null ? "Save a location now. Find your way back whenever you need it."
                 : "Fine-tune the details. Keep your favorite place within reach.";
         WaypointUiText.drawHeading(g, font, WaypointUiChrome.fitHeading(font, heading, contentRight - contentLeft - ui(150)), contentLeft, top + formOffset(62, 72), WaypointUiChrome.TEXT);
-        WaypointUiText.draw(g, font, WaypointUiChrome.fit(font, subtitle, contentRight - contentLeft - ui(12)), contentLeft, top + formOffset(94, 107), WaypointUiChrome.MUTED, false);
+        int subtitleWidth = contentRight - contentLeft - (original != null ? ui(160) : ui(12));
+        WaypointUiText.draw(g, font, WaypointUiChrome.fit(font, subtitle, subtitleWidth),
+                contentLeft, top + formOffset(94, 107), WaypointUiChrome.MUTED, false);
         if (original != null) {
-            WaypointUiChrome.round(g, contentRight - 104, top + 80, contentRight, top + 104, 0xFF1B2415, 6);
-            WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "•  Unsaved changes", ui(94)), contentRight - ui(98), top + ui(87), WaypointUiChrome.GREEN);
+            WaypointUiChrome.round(g, contentRight - ui(134), top + ui(80), contentRight, top + ui(105), 0xFF1B2415, 6);
+            WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "•  Unsaved changes", ui(124)), contentRight - ui(128), top + ui(87), WaypointUiChrome.GREEN);
         }
 
         int viewTop = contentViewTop();
@@ -736,23 +738,23 @@ public class WaypointEditScreen extends Screen {
         // Location details panel.
         WaypointUiChrome.panel(g, contentLeft, cardTop, formWidth, locationCardHeight);
         WaypointUiText.draw(g, font, "⌖  Location details", l, cardTop + ui(22), WaypointUiChrome.TEXT, true);
-        WaypointUiText.drawCompact(g, font, "Waypoint name", l, cardTop + formOffset(55, 61), WaypointUiChrome.TEXT);
+        WaypointUiText.drawCompact(g, font, "Waypoint name", l, cardTop + formOffset(47, 52), WaypointUiChrome.TEXT);
         drawField(g, nameBox, l, nameFieldY(), nameW, ui(36));
-        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "A memorable name for a memorable place.", nameW), l, cardTop + formOffset(112, 120), WaypointUiChrome.QUIET);
-        WaypointUiText.drawCompact(g, font, "X", l, cardTop + formOffset(140, 156), WaypointUiChrome.TEXT);
-        WaypointUiText.drawCompact(g, font, "Y", l + cw + coordGap, cardTop + formOffset(140, 156), WaypointUiChrome.TEXT);
-        WaypointUiText.drawCompact(g, font, "Z", l + (cw + coordGap) * 2, cardTop + formOffset(140, 156), WaypointUiChrome.TEXT);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "A memorable name for a memorable place.", nameW), l, cardTop + formOffset(121, 129), WaypointUiChrome.QUIET);
+        WaypointUiText.drawCompact(g, font, "X", l, cardTop + formOffset(139, 154), WaypointUiChrome.TEXT);
+        WaypointUiText.drawCompact(g, font, "Y", l + cw + coordGap, cardTop + formOffset(139, 154), WaypointUiChrome.TEXT);
+        WaypointUiText.drawCompact(g, font, "Z", l + (cw + coordGap) * 2, cardTop + formOffset(139, 154), WaypointUiChrome.TEXT);
         drawField(g, xBox, l, coordinateFieldsY(), cw, ui(36));
         drawField(g, yBox, l + cw + coordGap, coordinateFieldsY(), cw, ui(36));
         drawField(g, zBox, l + (cw + coordGap) * 2, coordinateFieldsY(), cw, ui(36));
-        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "ⓘ  Use your in-game coordinates. Press F3 to find them.", nameW), l, cardTop + formOffset(200, 220), WaypointUiChrome.QUIET);
-        WaypointUiText.drawCompact(g, font, "Dimension", l, cardTop + formOffset(230, 251), WaypointUiChrome.TEXT);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "ⓘ  Use your in-game coordinates. Press F3 to find them.", nameW), l, cardTop + formOffset(207, 226), WaypointUiChrome.QUIET);
+        WaypointUiText.drawCompact(g, font, "Dimension", l, dimensionFieldY() - ui(21), WaypointUiChrome.TEXT);
         WaypointUiChrome.field(g, l, dimensionFieldY(), nameW, ui(36), dimensionMenuOpen);
         WaypointUiChrome.round(g, l + ui(12), dimensionFieldY() + ui(14), l + ui(19), dimensionFieldY() + ui(21),
                 dimensionIndicatorColor(dimMode), ui(4));
         WaypointUiText.draw(g, font, WaypointUiChrome.fit(font, dimensionName(dimMode >= 0 ? DIM_IDS[dimMode] : keepDimension), nameW - ui(70)), l + ui(27), dimensionFieldY() + ui(12), WaypointUiChrome.TEXT, false);
         WaypointUiText.draw(g, font, "⌄", l + nameW - ui(22), dimensionFieldY() + ui(11), WaypointUiChrome.MUTED, false);
-        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "Only visible when you're in this dimension.", nameW), l, dimensionFieldY() + formOffset(40, 43), WaypointUiChrome.QUIET);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "Only visible when you're in this dimension.", nameW), l, dimensionFieldY() + ui(43), WaypointUiChrome.QUIET);
 
         // Visibility card.
         WaypointUiChrome.panel(g, contentLeft, visibilityY, formWidth, visibilityHeight);
@@ -768,8 +770,11 @@ public class WaypointEditScreen extends Screen {
         WaypointUiChrome.panel(g, colorX, cardTop, colorWidth, colorCardHeight());
         WaypointUiText.draw(g, font, "Waypoint color", colorX + ui(18), cardTop + ui(22), WaypointUiChrome.TEXT, false);
         String colorName = chroma ? "Chroma" : colorName(currentRgb());
-        g.fill(colorX + colorWidth - ui(64), cardTop + ui(25), colorX + colorWidth - ui(59), cardTop + ui(30), currentRgb() | 0xFF000000);
-        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, colorName, ui(48)), colorX + colorWidth - ui(54), cardTop + ui(22), WaypointUiChrome.MUTED);
+        int colorNameWidth = Math.min(ui(70), Math.max(ui(42), colorWidth - ui(118)));
+        int colorNameX = colorX + colorWidth - colorNameWidth - ui(16);
+        g.fill(colorNameX - ui(10), cardTop + ui(25), colorNameX - ui(5), cardTop + ui(30), currentRgb() | 0xFF000000);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, colorName, colorNameWidth),
+                colorNameX, cardTop + ui(22), WaypointUiChrome.MUTED);
         refreshPickerTexture();
         g.blit(PICKER_TEXTURE_ID, pickerX(), pickerY(), pickerX() + pickerWidth(), pickerY() + pickerHeight(), 0f, 1f, 0f, 1f);
         WaypointUiChrome.border(g, pickerX(), pickerY(), pickerX() + pickerWidth(), pickerY() + pickerHeight(), WaypointUiChrome.EDGE);
@@ -821,8 +826,8 @@ public class WaypointEditScreen extends Screen {
             WaypointUiChrome.button(g, font, mouseX, mouseY, formRight - 116, actionY, 116, ui(36), "✓  Save changes", true, false);
         }
         if (original == null) {
-            String savedNote = "♧  This waypoint is saved to " + WaypointUiChrome.worldName()
-                    + " and stored on this device. Your coordinates stay yours.";
+            String savedNote = "Stored locally in " + WaypointUiChrome.worldName()
+                    + ". Your coordinates stay yours.";
             WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, savedNote, formWidth - ui(8)),
                     contentLeft + 2, visibilityY + visibilityHeight + ui(12), WaypointUiChrome.QUIET);
         }

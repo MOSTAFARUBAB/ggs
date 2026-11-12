@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "simplewaypoints",
-  "version": "${version}",
+  "version": "1.5.9",
   "name": "Waypoint Manager",
   "description": "A waypoint manager with a compact world dashboard, location editor, HSV color picker with Chroma mode, local display preferences, waypoint labels, and beacon beams.",
   "authors": [

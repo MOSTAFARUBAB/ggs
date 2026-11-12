@@ -62,16 +62,18 @@ public final class WaypointScreen extends Screen {
         contentW = Math.max(360, right - left);
         boolean compact = height < 820;
         titleY = top + WaypointUiChrome.ui(compact ? 14 : 27);
-        statsY = titleY + WaypointUiChrome.ui(compact ? 42 : 61);
-        statsH = WaypointUiChrome.ui(compact ? 56 : Math.max(70, Math.min(90, height / 9)));
+        // Keep the hero subtitle entirely above the statistics cards. The older
+        // compact offset let the subtitle descend into the first card row.
+        statsY = titleY + WaypointUiChrome.ui(compact ? 64 : 74);
+        statsH = WaypointUiChrome.ui(compact ? 66 : Math.max(76, Math.min(94, height / 8)));
         sectionY = statsY + statsH + WaypointUiChrome.ui(compact ? 13 : 23);
         // Keep a visible gap between the Import/Export row and the search/sort row.
         // The previous compact layout placed these rows edge-to-edge, making the
         // controls look like one overlapping toolbar on common GUI scales.
         toolbarY = sectionY + WaypointUiChrome.ui(compact ? 40 : 44);
-        filtersY = toolbarY + WaypointUiChrome.ui(compact ? 40 : 42);
+        filtersY = toolbarY + WaypointUiChrome.ui(compact ? 46 : 42);
         gridY = filtersY + WaypointUiChrome.ui(compact ? 34 : 36);
-        footerY = height - WaypointUiChrome.ui(compact ? 42 : 88);
+        footerY = height - WaypointUiChrome.ui(compact ? 70 : 88);
         gridBottom = Math.max(gridY + 40, footerY - 34);
         cols = listView ? 1 : (contentW >= 720 ? 3 : contentW >= 490 ? 2 : 1);
         int rows = listView ? 6 : 2;
@@ -158,11 +160,12 @@ public final class WaypointScreen extends Screen {
             }
         }
         int pagerX = right - 164;
-        hits.add(new Hit(pagerX, footerY + 6, 24, 24, () -> { if (pageCount() > 1) changePage(-1); }));
-        hits.add(new Hit(pagerX + 138, footerY + 6, 24, 24, () -> { if (pageCount() > 1) changePage(1); }));
+        int pagerY = footerY + (height < 760 ? 2 : 6);
+        hits.add(new Hit(pagerX, pagerY, 24, 24, () -> { if (pageCount() > 1) changePage(-1); }));
+        hits.add(new Hit(pagerX + 138, pagerY, 24, 24, () -> { if (pageCount() > 1) changePage(1); }));
         for (int i = 0; i < 4; i++) {
             final int slot = i;
-            hits.add(new Hit(pagerX + 34 + i * 25, footerY + 6, 24, 24, () -> {
+            hits.add(new Hit(pagerX + 34 + i * 25, pagerY, 24, 24, () -> {
                 int targetPage = pagerStart() + slot;
                 if (targetPage < pageCount())
                     Minecraft.getInstance().gui.setScreen(new WaypointScreen(targetPage, query));
@@ -292,7 +295,8 @@ public final class WaypointScreen extends Screen {
         boolean compact = h < 76;
         WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, label, w - 48), x + 16, y + (compact ? 8 : 13), WaypointUiChrome.MUTED);
         WaypointUiText.drawHeading(g, font, WaypointUiChrome.fitHeading(font, value, w - 46), x + 16, y + (compact ? 22 : 31), WaypointUiChrome.TEXT);
-        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, sub, w - 30), x + 16, y + h - (compact ? 12 : 16), WaypointUiChrome.QUIET);
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, sub, w - 30),
+                x + 16, y + h - (compact ? 14 : 17), WaypointUiChrome.QUIET);
         WaypointUiText.draw(g, font, icon, x + w - 27, y + 12, WaypointUiChrome.MUTED, false);
     }
 
@@ -321,7 +325,7 @@ public final class WaypointScreen extends Screen {
         }
         String countText = Integer.toString(count);
         int countWidth = WaypointUiText.compactWidth(font, countText);
-        String shown = WaypointUiChrome.fit(font, label, Math.max(42, w - (textX - x) - countWidth - 22));
+        String shown = WaypointUiChrome.fit(font, label, Math.max(0, w - (textX - x) - countWidth - 18));
         WaypointUiText.drawCompact(g, font, shown, textX, y + 8, active ? WaypointUiChrome.TEXT : WaypointUiChrome.MUTED);
         WaypointUiText.drawCompact(g, font, countText, x + w - countWidth - 9, y + 8, WaypointUiChrome.QUIET);
     }
@@ -343,7 +347,7 @@ public final class WaypointScreen extends Screen {
             int x = left + col * (cardW + 12), y = gridY + row * (cardH + (listView ? 8 : 12)) - scrollOffset;
             WaypointUiChrome.panel(g, x, y, cardW, cardH);
             int color = WaypointsMod.resolveColor(w);
-            drawWaypointPin(g, x + 14, y + 13, color);
+            WaypointPinIcon.draw(g, x + 14, y + 13, 28, color);
             WaypointUiText.draw(g, font, WaypointUiChrome.fit(font, w.name(), listView ? 180 : cardW - 104), x + 52,
                     y + (listView ? 8 : 13), WaypointUiChrome.TEXT, false);
             String desc = dimension(w.dimension()) + " · Saved in this world";
@@ -382,15 +386,6 @@ public final class WaypointScreen extends Screen {
         }
     }
 
-    private void drawWaypointPin(GuiGraphicsExtractor g, int x, int y, int color) {
-        // Compact, clearly visible marker icon aligned with the card title. The
-        // old vertically-centred pin sat behind the coordinate tiles.
-        WaypointUiChrome.round(g, x, y, x + 29, y + 29, 0xFF202A22, 7);
-        WaypointUiChrome.round(g, x + 7, y + 4, x + 22, y + 19, color, 8);
-        g.fill(x + 10, y + 15, x + 19, y + 21, color);
-        g.fill(x + 12, y + 20, x + 17, y + 24, color);
-        WaypointUiChrome.round(g, x + 11, y + 8, x + 18, y + 15, WaypointUiChrome.FIELD, 4);
-    }
 
     private void drawCoordinate(GuiGraphicsExtractor g, int x, int y, int w, int h, String axis, String value) {
         WaypointUiChrome.round(g, x, y, x + w, y + h, WaypointUiChrome.FIELD, 5);
@@ -409,23 +404,31 @@ public final class WaypointScreen extends Screen {
 
     private void drawFooter(GuiGraphicsExtractor g, int mx, int my) {
         int start = currentPage() * pageSize;
-        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "Showing " + (filtered.isEmpty() ? 0 : start + 1) + "–" + Math.min(filtered.size(), start + pageSize)
-                + " of " + filtered.size() + " waypoints", Math.max(70, contentW - 180)), left, footerY + 12, WaypointUiChrome.QUIET);
-        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, "⌨  A little less wandering. A lot more exploring.", Math.max(90, contentW - 180)), left, height - WaypointUiChrome.ui(38), WaypointUiChrome.QUIET);
+        String countLine = "Showing " + (filtered.isEmpty() ? 0 : start + 1) + "–"
+                + Math.min(filtered.size(), start + pageSize) + " of " + filtered.size() + " waypoints";
+        WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font, countLine,
+                Math.max(70, contentW - 180)), left, footerY + 9, WaypointUiChrome.QUIET);
+        if (height >= 760) {
+            WaypointUiText.drawCompact(g, font, WaypointUiChrome.fit(font,
+                    "⌨  A little less wandering. A lot more exploring.", Math.max(90, contentW - 180)),
+                    left, height - WaypointUiChrome.ui(38), WaypointUiChrome.QUIET);
+        }
         if (pageCount() > 1) {
             int pagerX = right - 164;
-            WaypointUiChrome.button(g, font, mx, my, pagerX, footerY + 6, 24, 24, "‹", false, false);
+            int pagerY = footerY + (height < 760 ? 2 : 6);
+            WaypointUiChrome.button(g, font, mx, my, pagerX, pagerY, 24, 24, "‹", false, false);
             int startPage = pagerStart();
             for (int slot = 0; slot < Math.min(4, pageCount()); slot++) {
                 int p = startPage + slot;
                 int px = pagerX + 34 + slot * 25;
                 boolean active = p == currentPage();
-                if (active) WaypointUiChrome.round(g, px, footerY + 6, px + 24, footerY + 30, 0xFF1D2225, 5);
-                WaypointUiText.drawCompact(g, font, Integer.toString(p + 1), px + 9, footerY + 14, active ? WaypointUiChrome.TEXT : WaypointUiChrome.MUTED);
+                if (active) WaypointUiChrome.round(g, px, pagerY, px + 24, pagerY + 24, 0xFF1D2225, 5);
+                WaypointUiText.drawCompact(g, font, Integer.toString(p + 1), px + 9, pagerY + 8, active ? WaypointUiChrome.TEXT : WaypointUiChrome.MUTED);
             }
-            WaypointUiChrome.button(g, font, mx, my, pagerX + 138, footerY + 6, 24, 24, "›", false, false);
+            WaypointUiChrome.button(g, font, mx, my, pagerX + 138, pagerY, 24, 24, "›", false, false);
         }
-        String signature = WaypointUiChrome.fit(font, "WAYPOINT MANAGER  /  v1.5.8", 150);
-        WaypointUiText.drawCompact(g, font, signature, right - 150, height - 39, WaypointUiChrome.QUIET);
+        String signature = WaypointUiChrome.fit(font, "WAYPOINT MANAGER  /  v1.5.9", 150);
+        WaypointUiText.drawCompact(g, font, signature, right - 150,
+                height - WaypointUiChrome.ui(height < 760 ? 23 : 39), WaypointUiChrome.QUIET);
     }
 }

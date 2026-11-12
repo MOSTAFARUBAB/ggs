@@ -26,7 +26,7 @@ final class WaypointUiChrome {
     private static final Identifier BRAND_MARK = Identifier.fromNamespaceAndPath(
             "simplewaypoints", "textures/gui/brand_mark.png");
 
-    private static final float UI_MODIFIER = 0.94f;
+    private static final float UI_MODIFIER = 0.90f;
 
     private WaypointUiChrome() {}
 
@@ -95,25 +95,27 @@ final class WaypointUiChrome {
         drawNav(g, font, mx, my, ui(18), ny + ui(41), rail - ui(36), "Settings", settingsActive, true);
 
         // Local storage status card and current player row.
-        int statusH = Math.max(ui(114), Math.min(ui(136), height / 6));
+        int statusH = Math.max(ui(124), Math.min(ui(144), height / 6));
         int statusY = height - statusH - ui(68);
         round(g, ui(18), statusY, rail - ui(14), statusY + statusH, 0xFF0D0F11, ui(8));
         border(g, ui(18), statusY, rail - ui(14), statusY + statusH, EDGE);
         WaypointUiText.draw(g, font, "▱", ui(28), statusY + ui(11), MUTED, false);
         // Two deliberate lines replace fit(...), which truncated the sentence.
         WaypointUiText.draw(g, font, fit(font, "Your world.", rail - ui(54)), ui(28), statusY + ui(31), TEXT, false);
-        WaypointUiText.draw(g, font, fit(font, "Your waypoints.", rail - ui(54)), ui(28), statusY + ui(43), TEXT, false);
-        WaypointUiText.drawCompact(g, font, fit(font, "Stored locally and ready", rail - ui(52)), ui(28), statusY + ui(65), MUTED);
-        WaypointUiText.drawCompact(g, font, fit(font, "for your next adventure.", rail - ui(52)), ui(28), statusY + ui(77), MUTED);
+        WaypointUiText.draw(g, font, fit(font, "Your waypoints.", rail - ui(54)), ui(28), statusY + ui(46), TEXT, false);
+        WaypointUiText.drawCompact(g, font, fit(font, "Saved on device.", rail - ui(52)), ui(28), statusY + ui(66), MUTED);
+        WaypointUiText.drawCompact(g, font, fit(font, "Ready when you are.", rail - ui(52)), ui(28), statusY + ui(81), MUTED);
         g.fill(ui(28), statusY + statusH - ui(17), ui(33), statusY + statusH - ui(12), GREEN);
-        WaypointUiText.drawCompact(g, font, fit(font, "All changes saved", rail - ui(58)), ui(39), statusY + statusH - ui(18), MUTED);
+        WaypointUiText.drawCompact(g, font, fit(font, "All changes saved", rail - ui(64)), ui(39), statusY + statusH - ui(18), MUTED);
 
         int profileY = height - ui(46);
-        round(g, ui(18), profileY, ui(62), profileY + ui(25), 0xFF1B1F22, ui(7));
+        round(g, ui(18), profileY, ui(50), profileY + ui(25), 0xFF1B1F22, ui(7));
         String initials = initials(playerName());
         WaypointUiText.drawCompact(g, font, initials, ui(23), profileY + ui(6), TEXT);
-        WaypointUiText.draw(g, font, fit(font, playerName(), rail - ui(82)), ui(52), profileY + ui(1), TEXT, false);
-        WaypointUiText.drawCompact(g, font, "Explorer", ui(52), profileY + ui(14), MUTED);
+        int profileTextX = ui(57);
+        int profileTextWidth = Math.max(24, rail - ui(93));
+        WaypointUiText.draw(g, font, fit(font, playerName(), profileTextWidth), profileTextX, profileY + ui(1), TEXT, false);
+        WaypointUiText.drawCompact(g, font, "Explorer", profileTextX, profileY + ui(14), MUTED);
         WaypointUiText.draw(g, font, "···", rail - ui(29), profileY + ui(7), MUTED, false);
 
         // Top breadcrumb / local workspace status.
@@ -227,9 +229,19 @@ final class WaypointUiChrome {
 
     private static String fitMeasured(String text, int maxWidth, java.util.function.ToIntFunction<String> measure) {
         String original = text == null ? "" : text;
-        String s = original;
-        while (!s.isEmpty() && measure.applyAsInt(s) > maxWidth) s = s.substring(0, s.length() - 1);
-        return s.equals(original) ? s : s + "…";
+        if (original.isEmpty() || maxWidth <= 0) return "";
+        if (measure.applyAsInt(original) <= maxWidth) return original;
+        String candidate = original;
+        // Measure the final ellipsis as well as the retained text. The older
+        // helper stopped when the plain prefix fit and then appended an ellipsis
+        // without reserving its width, so strings could still spill into icons,
+        // toggles, counts and neighbouring controls.
+        while (!candidate.isEmpty() && measure.applyAsInt(candidate + "…") > maxWidth) {
+            int end = candidate.offsetByCodePoints(candidate.length(), -1);
+            candidate = candidate.substring(0, end);
+        }
+        String result = candidate + "…";
+        return measure.applyAsInt(result) <= maxWidth ? result : "";
     }
 
     private static String initials(String name) {

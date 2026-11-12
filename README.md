@@ -1,4 +1,4 @@
-# Waypoint Manager 1.5.8
+# Waypoint Manager 1.5.9
 
 A client-side Fabric waypoint manager for Minecraft 26.3. The in-game screens use the supplied Waypoint Manager reference: a compact graphite workspace with a slim sidebar, world breadcrumb, quiet lime accents, dense waypoint cards, a two-column create/edit form, and focused settings panels.
 
@@ -93,10 +93,15 @@ The installable mod JAR is produced in `build/libs/`.
 - Rounded button labels and dashboard/settings/edit descriptions are clipped to their available panel widths to prevent text collisions.
 
 
-## 1.5.8 — Beam and brand refinement
+## 1.5.9 — Beam and brand refinement
 
 - Narrowed the beacon beam outer shell further and preserved its native translucent glow pass.
 - Reduced the custom workspace UI modifier slightly to 94%.
 - Resized the Waypoint emblem to match the supplied compact lime-square logo lockup.
 - Standardized buttons with antialiased 6px corners and a subtle border on primary actions.
 - Fitted remaining long dashboard, editor, and settings labels to their panel widths to prevent text collisions.
+
+
+## Final text spacing pass
+
+The 1.5.9 source also increases dashboard title spacing, separates the settings preview copy into short fitted lines, shortens the create-form status note, and centres the 28px waypoint pin icon to match the supplied reference.
