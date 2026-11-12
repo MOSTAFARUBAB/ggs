@@ -75,7 +75,7 @@ public class WaypointsMod implements ClientModInitializer {
     public static volatile int beamThickness = 1;
     /** Menu-only dimension browser: CURRENT, OVERWORLD, NETHER, END, or ALL. */
     public static volatile int menuDimensionMode = 4;
-    /** Optional label plate padding preset; text size itself stays constant. */
+    /** In-world waypoint label size preset: small, medium or large text and plate. */
     public static volatile int markerSizeMode = 1; // 0 small, 1 medium, 2 large
     public static volatile boolean showWaypointDistances = true;
     public static volatile boolean showWaypointCoordinates = false;
@@ -408,6 +408,8 @@ public class WaypointsMod implements ClientModInitializer {
     }
 
     public static String markerSizeLabel() { return switch (markerSizeMode) { case 0 -> "Small"; case 2 -> "Large"; default -> "Medium"; }; }
+    /** Actual live label text size in GUI pixels; settings change both text and plate geometry. */
+    public static int markerFontSize() { return markerSizeMode == 0 ? 8 : markerSizeMode == 2 ? 12 : 10; }
 
 
     /** Canonical dimension ID. Older saved files may contain ResourceKey[...] wrappers. */
@@ -899,7 +901,7 @@ public class WaypointsMod implements ClientModInitializer {
             double dist = Math.sqrt(pdx * pdx + pdy * pdy + pdz * pdz);
             if (dist < 1.0) continue;
 
-            // Name + distance label. Constant size, floats above the waypoint, never grows.
+            // Name + distance label. Uses the selected size preset and floats above the waypoint.
             double dx = bx;
             double dy = by + 2.5;
             double dz = bz;
@@ -1121,18 +1123,21 @@ public class WaypointsMod implements ClientModInitializer {
         final int height;
         final int nameY;
         final int metaY;
+        final int fontSize;
 
-        LabelLook(int padX, int height, int nameY, int metaY) {
+        LabelLook(int padX, int height, int nameY, int metaY, int fontSize) {
             this.padX = padX;
             this.height = height;
             this.nameY = nameY;
             this.metaY = metaY;
+            this.fontSize = fontSize;
         }
     }
 
-    private static final LabelLook LOOK_SMALL = new LabelLook(5, 22, 3, 12);
-    private static final LabelLook LOOK_MEDIUM = new LabelLook(7, 25, 4, 13);
-    private static final LabelLook LOOK_LARGE = new LabelLook(9, 29, 5, 15);
+    // Three visibly different text scales, not merely three padding values.
+    private static final LabelLook LOOK_SMALL = new LabelLook(7, 27, 4, 15, 8);
+    private static final LabelLook LOOK_MEDIUM = new LabelLook(9, 33, 5, 19, 10);
+    private static final LabelLook LOOK_LARGE = new LabelLook(11, 40, 7, 24, 12);
 
     private static LabelLook currentLook() {
         return markerSizeMode == 0 ? LOOK_SMALL : markerSizeMode == 2 ? LOOK_LARGE : LOOK_MEDIUM;
@@ -1161,22 +1166,22 @@ public class WaypointsMod implements ClientModInitializer {
         LABEL_ANIMS.values().removeIf(a -> nowMs - a.lastSeen > 1500);
     }
 
-    private static String fitPillName(Font font, String name) {
+    private static String fitPillName(Font font, String name, LabelLook look) {
         String displayName = name == null || name.isBlank() ? "Waypoint" : name.trim();
-        final int maxTextWidth = 110;
-        if (font.width(displayName) > maxTextWidth) {
-            while (displayName.length() > 1 && font.width(displayName + "...") > maxTextWidth) {
+        final int maxTextWidth = 150;
+        if (WaypointUiText.widthAtSize(font, displayName, look.fontSize) > maxTextWidth) {
+            while (displayName.length() > 1 && WaypointUiText.widthAtSize(font, displayName + "…", look.fontSize) > maxTextWidth) {
                 displayName = displayName.substring(0, displayName.length() - 1);
             }
-            displayName += "...";
+            displayName += "…";
         }
         return displayName;
     }
 
     private static int pillWidth(Font font, String name, String distanceLine, LabelLook look) {
-        int nameWidth = font.width(fitPillName(font, name));
-        int metaWidth = font.width(distanceLine);
-        return Math.max(46, Math.max(nameWidth, metaWidth) + look.padX * 2);
+        int nameWidth = WaypointUiText.widthAtSize(font, fitPillName(font, name, look), look.fontSize);
+        int metaWidth = WaypointUiText.widthAtSize(font, distanceLine, Math.max(8, look.fontSize - 1));
+        return Math.max(52, Math.max(nameWidth, metaWidth) + look.padX * 2);
     }
 
     private static int applyOpacity(int argb, float opacity) {
@@ -1193,9 +1198,10 @@ public class WaypointsMod implements ClientModInitializer {
     private static void drawPill(GuiGraphicsExtractor g, Font font, String name, String distanceLine,
                                  int rgb, int cx, int cy, int width, LabelLook look, float opacity) {
         if (opacity <= 0.01f) return;
-        String displayName = fitPillName(font, name);
-        int nameWidth = font.width(displayName);
-        int metaWidth = font.width(distanceLine);
+        String displayName = fitPillName(font, name, look);
+        int nameWidth = WaypointUiText.widthAtSize(font, displayName, look.fontSize);
+        int metaSize = Math.max(8, look.fontSize - 1);
+        int metaWidth = WaypointUiText.widthAtSize(font, distanceLine, metaSize);
         int w = width;
         int h = look.height;
         int x = cx - w / 2;
@@ -1226,8 +1232,10 @@ public class WaypointsMod implements ClientModInitializer {
         float textOpacity = Math.min(1.0f, opacity + 0.20f);
         int nameX = x + (w - nameWidth) / 2;
         int metaX = x + (w - metaWidth) / 2;
-        g.text(font, displayName, nameX, y + look.nameY, applyOpacity(0xFFF3F4F6, textOpacity), false);
-        g.text(font, distanceLine, metaX, y + look.metaY, applyOpacity(0xFFAEB6C2, textOpacity), false);
+        WaypointUiText.drawAtSize(g, font, displayName, nameX, y + look.nameY,
+                applyOpacity(0xFFF3F4F6, textOpacity), look.fontSize);
+        WaypointUiText.drawAtSize(g, font, distanceLine, metaX, y + look.metaY,
+                applyOpacity(0xFFAEB6C2, textOpacity), metaSize);
     }
 
     private static long lastLabelFrameMs = 0L;

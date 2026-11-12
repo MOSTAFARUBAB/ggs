@@ -1,4 +1,4 @@
-# Waypoint Manager 1.5.5
+# Waypoint Manager 1.5.6
 
 A client-side Fabric waypoint manager for Minecraft 26.3. The in-game screens use the supplied Waypoint Manager reference: a compact graphite workspace with a slim sidebar, world breadcrumb, quiet lime accents, dense waypoint cards, a two-column create/edit form, and focused settings panels.
 
@@ -74,3 +74,11 @@ The installable mod JAR is produced in `build/libs/`.
 - Dimension filters render as separate outlined pills with bounded label widths.
 - Waypoint cards now show a visible colored pin beside the title, with the coordinate tiles and dimension footer laid out below it.
 - Sidebar storage status copy wraps across two complete title lines instead of truncating the sentence.
+
+## Version 1.5.6 visual fixes
+- Replaced stepped, pixel-row rounded rectangles with cached supersampled antialiased shapes for buttons, cards, fields, toggles, and indicators.
+- Replaced the hand-drawn sidebar mark with a high-resolution paper-plane brand asset matching the supplied logo reference.
+- Increased the text rasterizer's measurement safety margin and based texture bounds on the exact high-resolution font metrics to prevent clipped glyph endings.
+- Increased base UI text sizes slightly while preserving the compact graphite workspace layout.
+- Dimension/type indicators now use round, color-coded Overworld, Nether, and End markers in filters and the editor selector.
+- Small / Medium / Large label size now changes the actual live in-world label text scale, the label plate, and both editor/settings previews; the previous version changed mostly padding only.

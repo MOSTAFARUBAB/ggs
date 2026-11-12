@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * blitting individual character tiles (which caused visible tracking gaps).
  */
 final class WaypointUiText {
-    static final int LINE_HEIGHT = 9;
+    static final int LINE_HEIGHT = 12;
     // Rasterize at 4x, then high-quality downsample ONCE to the exact GUI-pixel
     // dimensions. The final texture is drawn 1:1, so the GPU never has to blur
     // an oversized glyph texture to fit the text line.
@@ -51,19 +51,19 @@ final class WaypointUiText {
     }
 
     static int width(Font font, String text) {
-        return textWidth(text, false, 8);
+        return textWidth(text, false, 9);
     }
 
     static int compactWidth(Font font, String text) {
-        return textWidth(text, false, 7);
+        return textWidth(text, false, 8);
     }
 
     static int headingWidth(Font font, String text) {
-        return textWidth(text, true, 12);
+        return textWidth(text, true, 14);
     }
 
     static void draw(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color, boolean shadow) {
-        drawText(g, text, x, y, color, shadow, false, 8);
+        drawText(g, text, x, y, color, shadow, false, 9);
     }
 
     static void draw(GuiGraphicsExtractor g, Font font, FormattedCharSequence text, int x, int y, int color, boolean shadow) {
@@ -72,23 +72,32 @@ final class WaypointUiText {
     }
 
     static void drawCompact(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
-        drawText(g, text, x, y, color, false, false, 7);
+        drawText(g, text, x, y, color, false, false, 8);
     }
 
     static void drawStrong(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
-        drawText(g, text, x, y, color, false, true, 8);
+        drawText(g, text, x, y, color, false, true, 9);
     }
 
     static void drawTitle(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
-        drawText(g, text, x, y, color, false, true, 9);
+        drawText(g, text, x, y, color, false, true, 11);
     }
 
     static void drawHeading(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
-        drawText(g, text, x, y, color, false, true, 12);
+        drawText(g, text, x, y, color, false, true, 14);
     }
 
     static void drawSubheading(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color) {
-        drawText(g, text, x, y, color, false, true, 9);
+        drawText(g, text, x, y, color, false, true, 11);
+    }
+
+    /** Draw text at an explicit logical pixel size (used by live waypoint labels). */
+    static void drawAtSize(GuiGraphicsExtractor g, Font font, String text, int x, int y, int color, int size) {
+        drawText(g, text, x, y, color, false, false, Math.max(7, Math.min(18, size)));
+    }
+
+    static int widthAtSize(Font font, String text, int size) {
+        return textWidth(text, false, Math.max(7, Math.min(18, size)));
     }
 
     /** The native EditBox owns keyboard input; its value is painted with the same smooth renderer. */
@@ -97,18 +106,18 @@ final class WaypointUiText {
         String value = box.getValue();
         int cursor = Math.max(0, Math.min(value.length(), box.getCursorPosition()));
         int start = 0;
-        while (start < cursor && textWidth(value.substring(start), false, 8) > maxWidth) start++;
+        while (start < cursor && textWidth(value.substring(start), false, 9) > maxWidth) start++;
         String shown = value.substring(start);
         int shownCursor = Math.max(0, cursor - start);
-        if (textWidth(shown, false, 8) > maxWidth) {
+        if (textWidth(shown, false, 9) > maxWidth) {
             int end = shown.length();
-            while (end > shownCursor && textWidth(shown.substring(0, end), false, 8) > maxWidth) end--;
+            while (end > shownCursor && textWidth(shown.substring(0, end), false, 9) > maxWidth) end--;
             shown = shown.substring(0, Math.max(shownCursor, end));
         }
-        drawText(g, shown, x, y, 0xFFF2F4F5, false, false, 8);
+        drawText(g, shown, x, y, 0xFFF2F4F5, false, false, 9);
         if (box.isFocused() && ((System.currentTimeMillis() / 500L) & 1L) == 0L) {
-            int caretX = x + Math.max(0, textWidth(shown.substring(0, Math.min(shownCursor, shown.length())), false, 8) - 7);
-            g.fill(caretX, y - 1, caretX + 1, y + 9, 0xFFF2F4F5);
+            int caretX = x + Math.max(0, textWidth(shown.substring(0, Math.min(shownCursor, shown.length())), false, 9) - 7);
+            g.fill(caretX, y - 1, caretX + 1, y + 11, 0xFFF2F4F5);
         }
     }
 
@@ -165,23 +174,22 @@ final class WaypointUiText {
         int guiScale = guiScale();
         int scale = OVERSAMPLE * guiScale;
         int style = bold ? java.awt.Font.BOLD : java.awt.Font.PLAIN;
-        java.awt.Font logicalFont = new java.awt.Font(java.awt.Font.SANS_SERIF, style, size);
         java.awt.Font highFont = new java.awt.Font(java.awt.Font.SANS_SERIF, style, size * scale);
 
-        // Measure in final GUI pixels so the texture's dimensions match its
-        // destination exactly. This prevents fractional GPU scaling at 4K and
-        // at non-integer Windows display scaling factors.
+        // Measure with the exact high-resolution font that will be rasterized.
+        // Measuring a separate 1x font can differ by several pixels after font
+        // hinting, which clipped the final letters in long labels.
         BufferedImage probe = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
         Graphics2D measure = probe.createGraphics();
-        measure.setFont(logicalFont);
-        FontMetrics logicalMetrics = measure.getFontMetrics();
-        int logicalWidth = Math.max(1, logicalMetrics.stringWidth(text) + 7);
-        int logicalHeight = Math.max(size + 4, logicalMetrics.getHeight() + 3);
+        measure.setFont(highFont);
+        measure.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        FontMetrics highMetricsForMeasure = measure.getFontMetrics();
+        int logicalWidth = Math.max(1, (int)Math.ceil(highMetricsForMeasure.stringWidth(text) / (double) scale) + 6);
+        int logicalHeight = Math.max(size + 4, (int)Math.ceil(highMetricsForMeasure.getHeight() / (double) scale) + 3);
         measure.dispose();
 
-        // Match the framebuffer pixel density used by Minecraft's GUI transform.
-        // Example: at GUI scale 3, a 12px logical label occupies 36 framebuffer
-        // pixels, so its texture must also be 36px wide to avoid resampling.
+        // Match framebuffer density exactly. One extra logical pixel around the
+        // glyphs prevents descenders and italic fallbacks from touching texture edges.
         int pixelWidth = logicalWidth * guiScale;
         int pixelHeight = logicalHeight * guiScale;
         int textureWidth = pixelWidth * OVERSAMPLE;

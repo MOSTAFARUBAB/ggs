@@ -272,6 +272,14 @@ public final class WaypointSettingsScreen extends Screen {
         WaypointUiChrome.toggle(g, x + w - 28, y + 5, enabled);
     }
 
+    private String nameForPreview(String raw, int maxWidth, int size) {
+        String value = raw == null || raw.isBlank() ? "Waypoint" : raw;
+        while (value.length() > 1 && WaypointUiText.widthAtSize(font, value, size) > maxWidth) {
+            value = value.substring(0, value.length() - 1);
+        }
+        return value.length() == (raw == null ? 0 : raw.length()) ? value : value + "…";
+    }
+
     private void drawPreview(GuiGraphicsExtractor g, int x, int y, int w, int h) {
         WaypointUiChrome.panel(g, x, y, w, h);
         g.enableScissor(x + 1, y + 1, x + w - 1, y + h - 1);
@@ -286,8 +294,10 @@ public final class WaypointSettingsScreen extends Screen {
         WaypointUiChrome.border(g, cx - 16, cy - 15, cx + 16, cy + 17, color | 0xFF000000);
         WaypointUiText.draw(g, font, "⌖", cx - 6, cy - 5, color | 0xFF000000, false);
         if (WaypointsMod.showWaypointLabels) {
-            String name = sample == null ? "No waypoints yet" : WaypointUiChrome.fit(font, sample.name(), w - 30);
-            WaypointUiText.draw(g, font, name, cx - WaypointUiText.width(font, name) / 2, cy + 30, color | 0xFF000000, false);
+            int labelFontSize = WaypointsMod.markerFontSize();
+            String name = sample == null ? "No waypoints yet" : nameForPreview(sample.name(), w - 30, labelFontSize);
+            int labelWidth = WaypointUiText.widthAtSize(font, name, labelFontSize);
+            WaypointUiText.drawAtSize(g, font, name, cx - labelWidth / 2, cy + 30, color | 0xFF000000, labelFontSize);
             if (WaypointsMod.showWaypointDistances && sample != null) {
                 Minecraft mc = Minecraft.getInstance();
                 long blocks = mc.player == null ? 0L : Math.round(Math.sqrt(
@@ -295,8 +305,9 @@ public final class WaypointSettingsScreen extends Screen {
                                 + Math.pow(mc.player.getY() - sample.y(), 2)
                                 + Math.pow(mc.player.getZ() - (sample.z() + 0.5), 2)));
                 String distance = blocks + "m";
-                WaypointUiText.drawCompact(g, font, distance,
-                        cx - WaypointUiText.compactWidth(font, distance) / 2, cy + 47, WaypointUiChrome.MUTED);
+                int distanceSize = Math.max(8, labelFontSize - 1);
+                WaypointUiText.drawAtSize(g, font, distance,
+                        cx - WaypointUiText.widthAtSize(font, distance, distanceSize) / 2, cy + 47, WaypointUiChrome.MUTED, distanceSize);
             }
         }
         g.disableScissor();

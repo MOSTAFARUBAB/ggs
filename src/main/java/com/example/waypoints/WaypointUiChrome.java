@@ -23,6 +23,8 @@ final class WaypointUiChrome {
             "simplewaypoints", "textures/gui/contour_wide.png");
     private static final Identifier CONTOUR_SETTINGS = Identifier.fromNamespaceAndPath(
             "simplewaypoints", "textures/gui/contour_settings.png");
+    private static final Identifier BRAND_MARK = Identifier.fromNamespaceAndPath(
+            "simplewaypoints", "textures/gui/brand_mark.png");
 
     private WaypointUiChrome() {}
 
@@ -68,15 +70,9 @@ final class WaypointUiChrome {
         g.fill(rail, 0, width, top, TOP);
         g.fill(rail, top - 1, width, top, EDGE);
 
-        // Wordmark tile and quiet brand lockup.
-        round(g, 20, 20, 48, 48, GREEN, 9);
-        // Crisp paper-plane mark, matching the small app tile in the reference.
-        int mark = 0xFF182017;
-        drawLine(g, 26, 29, 42, 25, mark);
-        drawLine(g, 42, 25, 35, 43, mark);
-        drawLine(g, 35, 43, 32, 35, mark);
-        drawLine(g, 32, 35, 26, 29, mark);
-        drawLine(g, 32, 35, 42, 25, mark);
+        // Brand symbol is a 4x antialiased asset matching the supplied reference:
+        // soft lime tile with a dark, folded paper-plane mark.
+        g.blit(BRAND_MARK, 20, 20, 48, 48, 0.0f, 1.0f, 0.0f, 1.0f);
         WaypointUiText.draw(g, font, "Waypoint", 56, 23, TEXT, false);
         WaypointUiText.drawCompact(g, font, "M A N A G E R", 56, 38, MUTED);
 
@@ -170,32 +166,21 @@ final class WaypointUiChrome {
     static void round(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2, int color, int radius) {
         int w = x2 - x1, h = y2 - y1;
         if (w <= 0 || h <= 0) return;
-        int r = Math.min(radius, Math.min(w / 2, h / 2));
-        g.fill(x1 + r, y1, x2 - r, y2, color);
-        g.fill(x1, y1 + r, x2, y2 - r, color);
-        for (int row = 0; row < r; row++) {
-            double dy = r - row - 0.5;
-            int inset = (int)Math.ceil(r - Math.sqrt(Math.max(0, r * r - dy * dy)));
-            g.fill(x1 + inset, y1 + row, x2 - inset, y1 + row + 1, color);
-            g.fill(x1 + inset, y2 - row - 1, x2 - inset, y2 - row, color);
-        }
+        WaypointUiShapes.draw(g, x1, y1, w, h, color, radius, 0x00000000, 0);
     }
 
     static void border(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2, int color) {
-        g.fill(x1, y1, x2, y1 + 1, color);
-        g.fill(x1, y2 - 1, x2, y2, color);
-        g.fill(x1, y1, x1 + 1, y2, color);
-        g.fill(x2 - 1, y1, x2, y2, color);
+        int w = x2 - x1, h = y2 - y1;
+        if (w <= 0 || h <= 0) return;
+        WaypointUiShapes.draw(g, x1, y1, w, h, 0x00000000, 7, color, 1);
     }
 
     static void panel(GuiGraphicsExtractor g, int x, int y, int w, int h) {
-        round(g, x, y, x + w, y + h, PANEL, 12);
-        border(g, x, y, x + w, y + h, EDGE);
+        WaypointUiShapes.draw(g, x, y, w, h, PANEL, 12, EDGE, 1);
     }
 
     static void field(GuiGraphicsExtractor g, int x, int y, int w, int h, boolean focused) {
-        round(g, x, y, x + w, y + h, FIELD, 7);
-        border(g, x, y, x + w, y + h, focused ? 0xFF58624E : EDGE);
+        WaypointUiShapes.draw(g, x, y, w, h, FIELD, 7, focused ? 0xFF58624E : EDGE, 1);
     }
 
     static void toggle(GuiGraphicsExtractor g, int x, int y, boolean on) {
@@ -208,8 +193,8 @@ final class WaypointUiChrome {
                        String label, boolean primary, boolean danger) {
         boolean hover = inside(mx, my, x, y, w, h);
         int fill = primary ? (hover ? 0xFFC6F88C : GREEN) : hover ? 0xFF1C2023 : 0xFF15181B;
-        round(g, x, y, x + w, y + h, fill, 7);
-        if (!primary) border(g, x, y, x + w, y + h, danger ? 0xFF67383D : EDGE);
+        int outline = primary ? 0x00000000 : danger ? 0xFF67383D : EDGE;
+        WaypointUiShapes.draw(g, x, y, w, h, fill, 7, outline, primary ? 0 : 1);
         int c = primary ? 0xFF18200F : danger ? RED : TEXT;
         WaypointUiText.draw(g, font, label,
                 x + (w - WaypointUiText.width(font, label)) / 2,

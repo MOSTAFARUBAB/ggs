@@ -264,7 +264,7 @@ public final class Beam3D {
      * World-space label, drawn like a vanilla name tag.
      *  - Clear view: everything is depth-tested, so mobs, items, players and blocks in front hide it.
      *  - Terrain in the way: it is drawn through the terrain, so it can always guide you back.
-     *  - Size: constant on screen, with a optional small/medium/large plate-padding presets.
+     *  - Size: small/medium/large presets scale the text and its plate together.
      *  - Outline: a border in the same color as the waypoint's beam (rainbow follows the beam).
      */
     private static void submitDepthTestedLabel(PoseStack poseStack,
@@ -281,8 +281,8 @@ public final class Beam3D {
                 ? formatDistance(label.playerDistance()) + " away" : "";
         String coordinateLine = WaypointsMod.showWaypointCoordinates
                 ? waypoint.x() + ", " + waypoint.y() + ", " + waypoint.z() : "";
-        // Size presets change the plate padding, not the billboard zoom.
-        int horizontalPadding = switch (WaypointsMod.markerSizeMode) { case 0 -> 3; case 2 -> 7; default -> 5; };
+        // The label-size preference scales the actual in-world type, not just its padding.
+        int horizontalPadding = switch (WaypointsMod.markerSizeMode) { case 0 -> 3; case 2 -> 8; default -> 5; };
         String nameLine = name;
         int nameWidth = font.width(nameLine);
         int distWidth = distanceLine.isEmpty() ? 0 : font.width(distanceLine);
@@ -323,10 +323,15 @@ public final class Beam3D {
         Minecraft mc = Minecraft.getInstance();
         double screenH = Math.max(1.0, mc.getWindow().getHeight());
         double tanHalfFov = Math.tan(Math.toRadians(mc.options.fov().get()) / 2.0);
-        // Keep labels nearly the same size, with only a gentle reduction at distance.
+        // Keep the user-selected size while applying only a gentle distance reduction.
         // Even at millions of blocks away the scale bottoms out at 90% of near size.
         double distanceScale = Math.max(0.90, 1.0 - 0.015 * Math.log10(1.0 + label.playerDistance()));
-        final double linePx = 13.0 * distanceScale;
+        final double baseLinePx = switch (WaypointsMod.markerSizeMode) {
+            case 0 -> 10.0;  // Small: compact label
+            case 2 -> 17.0;  // Large: clearly readable from a distance
+            default -> 13.0; // Medium: reference/default size
+        };
+        final double linePx = baseLinePx * distanceScale;
         float scale = (float) ((linePx / 9.0) * (2.0 * drawDistance * tanHalfFov) / screenH);
 
         Font.DisplayMode mode = label.blocked() ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.NORMAL;

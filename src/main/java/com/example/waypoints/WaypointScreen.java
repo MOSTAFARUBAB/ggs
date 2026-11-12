@@ -313,7 +313,7 @@ public final class WaypointScreen extends Screen {
         if (label.startsWith("●")) {
             int dot = label.contains("Overworld") ? WaypointUiChrome.GREEN
                     : label.contains("Nether") ? 0xFFFFB65C : 0xFFA98AFF;
-            g.fill(x + 10, y + 12, x + 15, y + 17, dot);
+            WaypointUiChrome.round(g, x + 10, y + 11, x + 16, y + 17, dot, 3);
             textX = x + 21;
             label = label.substring(1).trim();
         }
@@ -359,7 +359,7 @@ public final class WaypointScreen extends Screen {
                 drawCoordinate(g, x + 16 + tileW + gap, tileY, tileW, tileH, "Y", format(w.y()));
                 drawCoordinate(g, x + 16 + (tileW + gap) * 2, tileY, tileW, tileH, "Z", format(w.z()));
                 int bottom = y + cardH - 22;
-                g.fill(x + 18, bottom + 7, x + 22, bottom + 11, color);
+                WaypointUiChrome.round(g, x + 17, bottom + 6, x + 23, bottom + 12, color, 3);
                 WaypointUiText.drawCompact(g, font, dimension(w.dimension()), x + 29, bottom + 4, WaypointUiChrome.MUTED);
                 WaypointUiText.draw(g, font, "▢", x + cardW - 61, bottom + 3, WaypointUiChrome.MUTED, false);
                 WaypointUiText.draw(g, font, "↗", x + cardW - 31, bottom + 3, WaypointUiChrome.MUTED, false);

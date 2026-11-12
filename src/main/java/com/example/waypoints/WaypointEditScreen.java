@@ -747,7 +747,9 @@ public class WaypointEditScreen extends Screen {
         WaypointUiText.drawCompact(g, font, "ⓘ  Use your in-game coordinates. Press F3 to find them.", l, cardTop + formOffset(200, 220), WaypointUiChrome.QUIET);
         WaypointUiText.drawCompact(g, font, "Dimension", l, cardTop + formOffset(230, 251), WaypointUiChrome.TEXT);
         WaypointUiChrome.field(g, l, dimensionFieldY(), nameW, ui(36), dimensionMenuOpen);
-        WaypointUiText.draw(g, font, dimensionName(dimMode >= 0 ? DIM_IDS[dimMode] : keepDimension), l + ui(12), dimensionFieldY() + ui(12), WaypointUiChrome.TEXT, false);
+        WaypointUiChrome.round(g, l + ui(12), dimensionFieldY() + ui(14), l + ui(19), dimensionFieldY() + ui(21),
+                dimensionIndicatorColor(dimMode), ui(4));
+        WaypointUiText.draw(g, font, dimensionName(dimMode >= 0 ? DIM_IDS[dimMode] : keepDimension), l + ui(27), dimensionFieldY() + ui(12), WaypointUiChrome.TEXT, false);
         WaypointUiText.draw(g, font, "⌄", l + nameW - ui(22), dimensionFieldY() + ui(11), WaypointUiChrome.MUTED, false);
         WaypointUiText.drawCompact(g, font, "Only visible when you're in this dimension.", l, dimensionFieldY() + formOffset(40, 43), WaypointUiChrome.QUIET);
 
@@ -852,7 +854,9 @@ public class WaypointEditScreen extends Screen {
             for (int i = 0; i < 3; i++) {
                 if (inside(mouseX, mouseY, l, menuY + i * optH, optW, optH))
                     WaypointUiChrome.round(g, l + 2, menuY + i * optH + ui(1), l + optW - ui(2), menuY + (i + 1) * optH - ui(1), 0xFF202629, 5);
-                WaypointUiText.draw(g, font, DIM_LABELS[i], l + ui(12), menuY + i * optH + ui(8),
+                WaypointUiChrome.round(g, l + ui(12), menuY + i * optH + ui(10),
+                        l + ui(19), menuY + i * optH + ui(17), dimensionIndicatorColor(i), ui(4));
+                WaypointUiText.draw(g, font, DIM_LABELS[i], l + ui(27), menuY + i * optH + ui(8),
                         i == dimMode ? WaypointUiChrome.GREEN : WaypointUiChrome.TEXT, false);
                 if (i == dimMode) WaypointUiText.draw(g, font, "✓", l + optW - ui(24), menuY + i * optH + ui(7), WaypointUiChrome.GREEN, false);
             }
@@ -887,16 +891,21 @@ public class WaypointEditScreen extends Screen {
         if (showLabel) {
             int labelHalfW = Math.min(ui(61), Math.max(32, (w - ui(20)) / 2));
             WaypointUiChrome.round(g, cx - labelHalfW, markerY + ui(22), cx + labelHalfW, markerY + ui(57), 0xF0080A0B, ui(6));
-            String label = WaypointUiChrome.fit(font, nameBox.getValue(), labelHalfW * 2 - ui(12));
-            WaypointUiText.draw(g, font, label, cx - WaypointUiText.width(font, label) / 2, markerY + ui(29), color | 0xFF000000, false);
+            int labelSize = WaypointsMod.markerFontSize();
+            String label = fitPreviewLabel(nameBox.getValue(), labelHalfW * 2 - ui(12), labelSize);
+            int labelWidth = WaypointUiText.widthAtSize(font, label, labelSize);
+            int labelY = markerY + ui(28) + (labelSize >= 12 ? ui(1) : 0);
+            WaypointUiText.drawAtSize(g, font, label, cx - labelWidth / 2, labelY, color | 0xFF000000, labelSize);
             int px = parseCoordinate(xBox, 0), py = parseCoordinate(yBox, 0), pz = parseCoordinate(zBox, 0);
             Minecraft mc = Minecraft.getInstance();
             long blocks = mc.player == null ? 0L : Math.round(Math.sqrt(
                     Math.pow(mc.player.getX() - (px + 0.5), 2) + Math.pow(mc.player.getY() - py, 2)
                             + Math.pow(mc.player.getZ() - (pz + 0.5), 2)));
             String xyz = px + ", " + py + ", " + pz + " · " + blocks + "m";
-            String shown = WaypointUiChrome.fit(font, xyz, w - ui(24));
-            WaypointUiText.drawCompact(g, font, shown, cx - WaypointUiText.compactWidth(font, shown) / 2, markerY + ui(43), WaypointUiChrome.MUTED);
+            int metaSize = Math.max(8, labelSize - 1);
+            String shown = fitPreviewLabel(xyz, w - ui(24), metaSize);
+            WaypointUiText.drawAtSize(g, font, shown, cx - WaypointUiText.widthAtSize(font, shown, metaSize) / 2,
+                    markerY + ui(43), WaypointUiChrome.MUTED, metaSize);
         }
     }
 
@@ -907,6 +916,30 @@ public class WaypointEditScreen extends Screen {
         g.fill(x + 1, y + 4, x + 4, y + 7, color);
         g.fill(x, y + 7, x + 2, y + 9, color);
         g.fill(x - 1, y + 9, x + 1, y + 11, color);
+    }
+
+    private int dimensionIndicatorColor(int mode) {
+        if (mode < 0) {
+            String raw = WaypointsMod.normalizeDimension(keepDimension);
+            if (raw.endsWith(":overworld")) mode = 0;
+            else if (raw.endsWith(":the_nether")) mode = 1;
+            else if (raw.endsWith(":the_end")) mode = 2;
+        }
+        return switch (mode) {
+            case 0 -> 0xFFB7F36B; // Overworld
+            case 1 -> 0xFFFFB65C; // Nether
+            case 2 -> 0xFFA98AFF; // End
+            default -> WaypointUiChrome.MUTED;
+        };
+    }
+
+    private String fitPreviewLabel(String raw, int maxWidth, int size) {
+        String original = raw == null || raw.isBlank() ? "Waypoint" : raw.trim();
+        String value = original;
+        while (value.length() > 1 && WaypointUiText.widthAtSize(font, value, size) > maxWidth) {
+            value = value.substring(0, value.length() - 1);
+        }
+        return value.equals(original) ? value : value + "…";
     }
 
     private String dimensionName(String raw) {
